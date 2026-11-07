@@ -19,11 +19,20 @@ build/
 dist/
 node_modules/
 
-# Secrets
+# Secrets. The Claude API key and other server secrets live only in env files on the
+# server itself (TZ SEC-12), so every usual env/key file name is ignored.
 .env
+.env.*
+*.env
+.envrc
 docker/.env
 *.key
 *.pem
+*_key.txt
+*-key.txt
+secrets/
+# Templates without values are committed.
+!.env.example
 
 # Exceptions: deliberate test fixtures that belong in the repo.
 # demo_shop's .env holds FAKE secrets: the scanner must prove it never opens it.

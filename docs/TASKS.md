@@ -699,6 +699,9 @@ Vazifa: packages/core/.../writer/providers/claude.py (Django'siz).
   BudgetExceeded — byudjetdan oshsa (ProgressSink.event("cost", ...) orqali xabar).
 - Rate limit va 5xx uchun exponential backoff; SchemaError bo'lsa 2 martagacha qayta urinish.
 - Yuborishdan oldin: rasm maskalangan ekanini tekshirish (capture metadata), matnlarda pii.mask_text.
+- Kalit (TZ SEC-12): AsyncAnthropic(api_key=...) ga konstruktor orqali beriladi; provider Django
+  sozlamalarini o'qimaydi. Kalit provider'ning repr/str, log yozuvlari va xato matnlariga hech qachon
+  tushmaydi (test: soxta "sk-ant-test-..." kalit bilan xato chiqarib, matnda kalit yo'qligini tekshirish).
 - writer pipeline'ga final_review bosqichi (faqat provider "final_review" ni qo'llasa): Opus butun manual +
   har bo'limdan 1-2 rasm bilan izchillik va xatolarni tekshiradi, tuzatishlar ro'yxatini qaytaradi, ular qo'llaniladi.
 - Testlar: mock client bilan unit (so'rov tuzilishi, cache_control, budget); @llm haqiqiy API bilan
@@ -725,9 +728,19 @@ Vazifa: apps/server backend skeleti va docker/.
 - Storage: django-storages S3 (MinIO), Artifact yuklab olish — qisqa muddatli presigned URL'ga redirect.
 - docker/: Dockerfile.web (gunicorn), Dockerfile.worker (Playwright rasmiy Python image asosida,
   root'siz user), compose.yml — caddy, web, worker, beat, postgres, redis, minio, mailpit; profil "test" da
-  demo_shop; healthcheck'lar; .env.example.
+  demo_shop; healthcheck'lar. Env fayllar (ARCHITECTURE 8): docker/.env — hamma servislar uchun, Claude
+  kalitisiz; docker/worker.env — faqat ANTHROPIC_API_KEY, faqat worker servisiga env_file bilan.
+  Repoda qiymatsiz .env.example va worker.env.example. Kalit Dockerfile'ga (ARG/ENV) yozilmaydi.
+- Worker ishga tushganda (Celery worker_init signali) ANTHROPIC_API_KEY bo'sh bo'lsa, aniq xabar bilan
+  to'xtaydi (TZ SEC-12).
+- Xarajat limitlari (TZ FR-SV6): ish yaratishda (veb va API) foydalanuvchining shu kungi va shu oydagi
+  sarfi hamda serverning shu oydagi sarfi tekshiriladi (Job.cost_usd yig'indisi + yangi ishning
+  budget_usd). Limitdan oshsa ish yaratilmaydi va o'zbekcha sababi ko'rsatiladi. Limitlar env'dan
+  (YORIQNOMA_USER_DAILY_BUDGET_USD, YORIQNOMA_USER_MONTHLY_BUDGET_USD, YORIQNOMA_MONTHLY_BUDGET_USD).
 - Testlar (pytest-django, CELERY_TASK_ALWAYS_EAGER): API kalit autentifikatsiyasi, boshqa user ishini
-  ko'ra olmaslik (SEC-15), job yaratish -> hodisalar ketma-ketligi, bekor qilish; `server` marker — compose'da smoke.
+  ko'ra olmaslik (SEC-15), job yaratish -> hodisalar ketma-ketligi, bekor qilish; xarajat limitlari
+  (kunlik, oylik, server bo'yicha — oshganda ish yaratilmaydi); worker kalitsiz ishga tushmaydi;
+  compose konfiguratsiyasida ANTHROPIC_API_KEY faqat worker servisida; `server` marker — compose'da smoke.
 
 Commit: "feat(server): models, drf api, celery, storage, docker compose".
 ```
@@ -749,13 +762,15 @@ Vazifa: apps/server/security va domains integratsiyasi.
   host uchun url_guard; redirect'lar; httpx uchun maxsus transport. Worker konteyneri egress qoidalari
   (docker network + iptables yoki egress proxy — oddiyrog'ini tanla, docs/DEPLOY.md da tushuntir).
 - secrets: Fernet (YORIQNOMA_FERNET_KEY) — Job.accounts_enc, InputRequest.value_enc; ish tugagach
-  o'chirish; logging filter (parol, token, cookie, Authorization, Api-Key maskalanadi).
+  o'chirish; logging filter (parol, token, cookie, Authorization, Api-Key, x-api-key sarlavhasi va
+  "sk-ant-" bilan boshlanadigan har qanday qiymat maskalanadi; Django, Celery va anthropic loggerlariga ulanadi).
 - ratelimit: domen bo'yicha token bucket (Redis); robots.py (urllib.robotparser); User-Agent sozlamadan.
 - Django hardening (SEC-17): prod settings — SECURE_HSTS_*, SECURE_SSL_REDIRECT, SESSION/CSRF_COOKIE_SECURE,
   django-csp, login urinishlarini cheklash (django-axes); `manage.py check --deploy` toza.
 - Testlar (QM-5 qismi): 127.0.0.1, localhost, 169.254.169.254, [::1], 0x7f000001, ichki IP'ga redirect
   qiladigan tashqi URL (mock), DNS ikki xil javob (rebinding simulyatsiyasi) — hammasi bloklanadi;
-  tasdiqlanmagan domenda forma yuborilmaydi; loglarda parol va API kalit yo'q.
+  tasdiqlanmagan domenda forma yuborilmaydi; loglarda parol, API kalit va Claude kaliti yo'q (soxta
+  "sk-ant-test-..." kalit va x-api-key sarlavhasi log qilinganda maskalanadi).
 
 Commit: "feat(server): domain verification, ssrf protection, secrets, hardening".
 ```
@@ -875,6 +890,10 @@ lokal dasturdan yuborish zanjiri, vaqt o'lchovlari (NFR-4 bilan solishtirish), n
 xatolik stsenariylari (sayt o'chib qolsa, Claude xatosi, byudjet tugashi, bekor qilish).
 docs/DEPLOY.md: serverga o'rnatish (domen, Caddy TLS, MX yozuvi test pochta uchun, env'lar,
 superuser yaratish, zaxira nusxa — Postgres va MinIO, yangilash tartibi, monitoring).
+Claude kaliti bo'limi: kalitni docker/worker.env ga qo'yish (fayl huquqi 600, faqat server egasi o'qiydi);
+almashtirish tartibi — yangi kalitni yozib worker'ni qayta ishga tushirish, keyin eskisini Anthropic
+Console'da o'chirish; Console'da oylik sarf limitini qo'yish (FR-SV6 limitlariga qo'shimcha himoya);
+kalit chiqib ketsa nima qilish.
 Topilgan kamchiliklarni tuzat.
 Commit: "test(server): e2e for all modes; docs: deploy guide".
 ```

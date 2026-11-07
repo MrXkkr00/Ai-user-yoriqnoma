@@ -633,11 +633,16 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 - `YORIQNOMA_VAR_DIR`;
 - `YORIQNOMA_HUEY_WORKERS`.
 
-**Server dastur** (django-environ, `.env` faqat serverning o'zida):
+**Server dastur** (django-environ, env fayllar faqat serverning o'zida, git'da faqat `*.example` shablonlar):
+- Qiymatlar Docker compose `env_file` orqali beriladi. Django `.env` faylini o'zi o'qimaydi, shuning uchun `manage.py` buyruqlari konteyner ichida ishga tushiriladi: `docker compose exec web python manage.py ...`.
+- Ikki fayl bor:
+  - `docker/.env` — Claude kalitidan boshqa barcha qiymatlar, hamma servislar uchun;
+  - `docker/worker.env` — faqat `ANTHROPIC_API_KEY`, faqat `worker` servisiga beriladi (TZ SEC-12).
 - `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_SETTINGS_MODULE=yoriqnoma_server.settings.prod`
 - `DATABASE_URL`, `REDIS_URL`
 - `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
-- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_API_KEY` — faqat `docker/worker.env` da. Bo'sh bo'lsa worker ishga tushmaydi.
+- `YORIQNOMA_USER_DAILY_BUDGET_USD`, `YORIQNOMA_USER_MONTHLY_BUDGET_USD`, `YORIQNOMA_MONTHLY_BUDGET_USD` — umumiy xarajat limitlari (TZ FR-SV6)
 - `YORIQNOMA_FERNET_KEY`
 - `YORIQNOMA_MAIL_DOMAIN`, `YORIQNOMA_PUBLIC_URL`
 - `YORIQNOMA_MAX_CONCURRENT_JOBS`, `YORIQNOMA_RETENTION_DAYS`

@@ -261,6 +261,11 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
   - `claude-opus-5-5` — yakuniy tekshiruv.
   - Structured outputs (`messages.parse`) va prompt caching ishlatiladi.
   - Har bir ish uchun token va narx hisoblanadi, byudjet limiti bor.
+  - Umumiy xarajat ham cheklanadi, chunki ro'yxatdan o'tish hammaga ochiq va barcha ishlar bitta Claude kaliti hisobidan to'lanadi:
+    - har bir foydalanuvchi uchun kunlik va oylik limit;
+    - butun server uchun oylik limit.
+
+    Limitlar konfiguratsiyada belgilanadi. Limitga yetilganda yangi ish yaratilmaydi va foydalanuvchiga sababi ko'rsatiladi.
 - **FR-SV7. Saqlash muddati.** Natijalar konfiguratsiyadagi muddat (standart 30 kun) o'tgach o'chiriladi.
 - **FR-SV8. Django admin.** Server operatorlari uchun `/ops/` yo'lida joylashadi (`/admin/` emas) va faqat staff'ga ochiq.
 - **FR-SV9. Lokal dasturdan qabul qilish.** API kalit bilan `POST /api/jobs` orqali blueprint (A rejimi) yoki bundle (A' rejimi) qabul qilinadi. Javobda ish id'si va veb-havola qaytadi.
@@ -300,7 +305,12 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
   - Tekshiruv har bir redirect va Playwright so'rovida qayta bajariladi.
   - Worker konteyneri egress qoidalari bilan cheklanadi.
 - **SEC-11. Izolyatsiya.** Har bir ish alohida vaqtinchalik konteynerda: root'siz, CPU, RAM va vaqt limiti bilan.
-- **SEC-12. Sirlar.** Test akkaunt parollari Fernet bilan shifrlanadi, ish tugagach o'chiriladi, loglarda maskalanadi.
+- **SEC-12. Sirlar.**
+  - Test akkaunt parollari Fernet bilan shifrlanadi, ish tugagach o'chiriladi, loglarda maskalanadi.
+  - **Claude API kaliti** (`ANTHROPIC_API_KEY`) faqat serverning o'zidagi env faylda turadi va faqat Claude'ni chaqiradigan konteynerga (Celery worker) beriladi. Web, beat va boshqa servislarga berilmaydi.
+  - Kalit kodda, bazada, loglarda, xato xabarlarida va veb-interfeysda hech qachon ko'rinmaydi. Log filtri `x-api-key` sarlavhasini va `sk-ant-` bilan boshlanadigan qiymatlarni ham maskalaydi.
+  - Kalit bo'lmasa worker ishga tushmaydi va aniq xabar chiqaradi (birinchi ishgacha kutilmaydi).
+  - Env fayllar git'ga tushmaydi (`.env`, `.env.*`, `*.env`). Repoda faqat qiymatsiz shablonlar (`*.example`) turadi.
 - **SEC-13. Bundle yuklash.**
   - Hajm limiti (standart 500 MB).
   - Zip slip himoyasi.
