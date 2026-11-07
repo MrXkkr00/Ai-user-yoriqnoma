@@ -1,0 +1,15 @@
+# Hooks run the ruff version pinned in uv.lock, so pre-commit and CI always agree.
+# Install once: uv run pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]

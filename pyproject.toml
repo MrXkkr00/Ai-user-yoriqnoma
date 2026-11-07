@@ -1,0 +1,88 @@
+# uv workspace root. It is virtual (not a package itself): it only lists the members
+# and holds the shared tool configuration and dev dependencies.
+#
+# Members: three pure-Python libraries (no Django) and two Django applications.
+# The two Django projects cannot share one Python process (Django settings are global),
+# so each app keeps its own pytest and mypy configuration in its own pyproject.toml.
+
+[tool.uv.workspace]
+members = [
+    "packages/schemas",
+    "packages/scanner",
+    "packages/core",
+    "apps/local",
+    "apps/server",
+]
+
+[tool.uv.sources]
+yoriqnoma-schemas = { workspace = true }
+yoriqnoma-scanner = { workspace = true }
+yoriqnoma-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-django>=4.9",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "django-stubs[compatible-mypy]>=5.2,<5.3",
+    "djangorestframework-stubs[compatible-mypy]>=3.16",
+    "pre-commit>=4.0",
+]
+
+# --- ruff ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = [
+    "packages/schemas/src",
+    "packages/scanner/src",
+    "packages/core/src",
+    "apps/local",
+    "apps/server",
+]
+# Django generates migrations; they are not hand-written code.
+# docs/ holds spec pseudo-code written compactly on purpose (ruff also formats Markdown).
+extend-exclude = ["migrations", "docs"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
+    "DJ", # flake8-django
+]
+
+# --- mypy: libraries (strict) -------------------------------------------------------
+# Django apps are checked separately with the django-stubs plugin:
+#   uv run --directory apps/local mypy
+#   uv run --directory apps/server mypy
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+explicit_package_bases = true
+mypy_path = ["packages/schemas/src", "packages/scanner/src", "packages/core/src"]
+files = ["packages/schemas", "packages/scanner", "packages/core", "tests"]
+
+# --- pytest: libraries and workspace tests ------------------------------------------
+# Django apps: uv run pytest apps/local   |   uv run pytest apps/server
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["packages", "tests"]
+python_files = ["test_*.py"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "llm: needs a real LLM (Ollama or Claude)",
+    "slow: integration tests that start demo_shop or a browser",
+    "server: server end-to-end tests against docker compose",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

@@ -1,0 +1,37 @@
+# Runtime data of the apps (SQLite DBs, Huey queue, run folders, keys)
+var/
+*.sqlite3
+
+# Caches
+.cache/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments and builds
+.venv/
+*.egg-info/
+build/
+dist/
+node_modules/
+
+# Secrets
+.env
+docker/.env
+*.key
+*.pem
+
+# Exceptions: deliberate test fixtures that belong in the repo.
+# demo_shop's .env holds FAKE secrets: the scanner must prove it never opens it.
+!fixtures/demo_shop/.env
+# demo_shop's built React app is committed so Node is only needed to rebuild it.
+!fixtures/demo_shop/web/dist/
+
+# Editors and local tool settings
+.idea/
+.vscode/
+.claude/settings.local.json

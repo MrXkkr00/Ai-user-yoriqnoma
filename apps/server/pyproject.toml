@@ -1,0 +1,59 @@
+[project]
+name = "yoriqnoma-server"
+version = "0.1.0"
+description = "Server Django app: modes A, A' and B, writes the manual with the Claude API."
+requires-python = ">=3.12"
+# The server never reads source code, so it does not depend on yoriqnoma-scanner.
+dependencies = [
+    "yoriqnoma-schemas",
+    "yoriqnoma-core",
+    "django>=5.2,<5.3",
+    "djangorestframework>=3.16",
+    "celery[redis]>=5.4",
+    "django-environ>=0.12",
+    "psycopg[binary]>=3.2",
+    "django-storages>=1.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["yoriqnoma_server", "accounts", "domains", "jobs", "scout", "security", "api"]
+
+# Run from the repo root with: uv run pytest apps/server
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "yoriqnoma_server.settings.test"
+python_files = ["test_*.py"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "llm: needs a real LLM (Ollama or Claude)",
+    "slow: integration tests that start demo_shop or a browser",
+    "server: server end-to-end tests against docker compose",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+# Run from the repo root with: uv run --directory apps/server mypy
+[tool.mypy]
+python_version = "3.12"
+files = ["."]
+exclude = ["(^|/)migrations/"]
+explicit_package_bases = true
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*", "kombu", "kombu.*", "environ", "environ.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "yoriqnoma_server.settings.dev"

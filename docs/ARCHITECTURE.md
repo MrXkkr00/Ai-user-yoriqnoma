@@ -653,8 +653,9 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 | LLM | Haqiqiy Ollama yoki Claude | `llm` |
 | Server e2e | docker compose (`--profile test`) | `server` |
 
+- **Ishga tushirish:** Django sozlamalari global bo'lgani uchun har bir dastur alohida pytest jarayonida sinaladi: `uv run pytest` (paketlar va `tests/`), `uv run pytest apps/local`, `uv run pytest apps/server`. mypy ham shunday: `uv run mypy`, `uv run --directory apps/<dastur> mypy`.
 - **Django sozlamalari testlarda:**
-  - lokal uchun Huey `immediate=True`;
+  - lokal uchun Huey `immediate=True` (`yoriqnoma_local.settings_test`);
   - server uchun `CELERY_TASK_ALWAYS_EAGER=True`; unit testlar SQLite'da, `server` marker testlari compose'dagi PostgreSQL'da.
 - **Oltin to'plam** `tests/golden/`: 20–30 holat (rasm + elementlar) va kutilgan natija belgilari.
 - **`tests/test_no_db_drivers.py`:** `packages/scanner` va `packages/core` ning manba kodida (AST) va `pyproject` bog'liqliklarida `sqlite3`, `psycopg`, `pymysql`, `sqlalchemy`, `sqlmodel`, `asyncpg`, `aiosqlite`, `django` bo'lmasligi tekshiriladi.

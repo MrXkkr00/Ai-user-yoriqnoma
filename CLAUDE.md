@@ -30,11 +30,17 @@ uv run demo-shop                                   # poligon: http://127.0.0.1:8
 uv run yoriqnoma-local                             # lokal dastur: http://127.0.0.1:8765 (web + huey)
 uv run python apps/local/manage.py <buyruq>        # scan | explore | write | render | run | bundle | eval
 docker compose -f docker/compose.yml up            # server dastur
-uv run pytest -m "not llm and not slow and not server"
+uv run pytest -m "not llm and not slow and not server"              # paketlar va tests/
+uv run pytest apps/local -m "not llm and not slow and not server"   # lokal dastur
+uv run pytest apps/server -m "not llm and not slow and not server"  # server dastur
 uv run pytest -m llm                               # Ollama yoki Claude kerak
 uv run ruff check . && uv run ruff format --check .
-uv run mypy packages apps
+uv run mypy                                        # packages/ (strict) va tests/
+uv run --directory apps/local mypy                 # lokal dastur (django-stubs)
+uv run --directory apps/server mypy                # server dastur (django-stubs + DRF)
 ```
+
+Ikki Django loyihasini bitta Python jarayonida sinab bo'lmaydi, chunki Django sozlamalari global. Shuning uchun `pytest` va `mypy` har bir dastur uchun alohida ishga tushiriladi. Har dasturning sozlamasi o'zining `pyproject.toml` faylida.
 
 ## Buzilmaydigan qoidalar
 

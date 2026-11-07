@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MARKERS: not llm and not slow and not server
+
+jobs:
+  checks:
+    name: checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-packages --locked
+
+      - name: Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      # The two Django projects need separate mypy runs (one settings module each).
+      - name: Mypy (packages, strict)
+        run: uv run mypy
+      - name: Mypy (local app)
+        run: uv run --directory apps/local mypy
+      - name: Mypy (server app)
+        run: uv run --directory apps/server mypy
+
+      - name: Django checks
+        run: |
+          uv run python apps/local/manage.py check
+          uv run python apps/server/manage.py check
+          uv run python apps/local/manage.py makemigrations --check --dry-run
+          uv run python apps/server/manage.py makemigrations --check --dry-run
+
+      # Django settings are process-global, so each app gets its own pytest run.
+      - name: Tests (packages and workspace)
+        run: uv run pytest -m "${{ env.MARKERS }}"
+      - name: Tests (local app)
+        run: uv run pytest apps/local -m "${{ env.MARKERS }}"
+      - name: Tests (server app)
+        run: uv run pytest apps/server -m "${{ env.MARKERS }}"
