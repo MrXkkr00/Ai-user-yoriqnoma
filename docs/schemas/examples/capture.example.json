@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "run_id": "20261108-100000-ab12cd",
-  "blueprint_hash": "c44747f094828f9dc43b683c9bdf6a506aa68727b6b2a81f56f28a34751f97bc",
+  "blueprint_hash": "c8cefc3b1ca84c38408e7a3122d485b4f5e5ba69e47c80d0231841c1b5b5f23e",
   "role": "customer",
   "role_label": "Mijoz",
   "project": "demo_shop",

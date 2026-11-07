@@ -25,19 +25,22 @@
       "to'lash",
       "to'lov",
       "sotib olish",
-      "yuborish",
-      "tasdiqlash",
+      "chiqish",
       "удалить",
       "отменить",
       "оплатить",
       "купить",
+      "выйти",
       "delete",
       "remove",
       "cancel",
       "pay",
       "purchase",
       "buy",
-      "refund"
+      "refund",
+      "logout",
+      "log out",
+      "sign out"
     ],
     "default": "deny",
     "environment": "staging",
@@ -310,6 +313,8 @@
       "status": "unverified",
       "confidence": 1.0,
       "creates": null,
+      "sets_status": null,
+      "needs_status": [],
       "steps": [
         {
           "action": "goto",
@@ -435,6 +440,8 @@
       "status": "unverified",
       "confidence": 1.0,
       "creates": "order",
+      "sets_status": null,
+      "needs_status": [],
       "steps": [
         {
           "action": "goto",
@@ -526,6 +533,8 @@
       "status": "unverified",
       "confidence": 1.0,
       "creates": null,
+      "sets_status": null,
+      "needs_status": [],
       "steps": [
         {
           "action": "goto",
@@ -589,6 +598,8 @@
       "status": "unverified",
       "confidence": 1.0,
       "creates": null,
+      "sets_status": null,
+      "needs_status": [],
       "steps": [
         {
           "action": "goto",

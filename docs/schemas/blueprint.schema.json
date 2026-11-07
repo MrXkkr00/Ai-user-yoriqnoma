@@ -216,6 +216,25 @@
           "default": null,
           "title": "Creates"
         },
+        "sets_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sets Status"
+        },
+        "needs_status": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Needs Status",
+          "type": "array"
+        },
         "steps": {
           "items": {
             "$ref": "#/$defs/Step"

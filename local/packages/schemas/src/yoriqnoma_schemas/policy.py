@@ -19,20 +19,21 @@ DEFAULT_DENY_PATHS: list[str] = [
     "/administrator*",
 ]
 
-# Words of buttons and links that are never clicked unless the run context allows it
-# (own object on staging). Uzbek in both Latin alphabets is matched after normalize_uz.
+# Words of buttons and links the explorer never clicks on its own (state graph), unless
+# a flow step on an own object allows it. Logging out is denied too: it would end the
+# session. Uzbek in both Latin alphabets is matched after normalize_uz.
 DEFAULT_DENY_ACTION_WORDS: list[str] = [
     "o'chirish",
     "bekor qilish",
     "to'lash",
     "to'lov",
     "sotib olish",
-    "yuborish",
-    "tasdiqlash",
+    "chiqish",
     "удалить",
     "отменить",
     "оплатить",
     "купить",
+    "выйти",
     "delete",
     "remove",
     "cancel",
@@ -40,6 +41,9 @@ DEFAULT_DENY_ACTION_WORDS: list[str] = [
     "purchase",
     "buy",
     "refund",
+    "logout",
+    "log out",
+    "sign out",
 ]
 
 

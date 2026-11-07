@@ -132,6 +132,8 @@ class Flow(StrictModel):
     status: Literal["unverified", "verified", "failed", "skipped"] = "unverified"
     confidence: float = 1.0
     creates: str | None = None  # entity whose new id this flow records as an own object
+    sets_status: str | None = None  # status the entity object has after this flow
+    needs_status: list[str] = Field(default_factory=list)  # object must be in one of these
     steps: list[Step]
 
 

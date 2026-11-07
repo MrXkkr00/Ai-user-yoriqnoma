@@ -17,7 +17,7 @@ STAFF_ACCOUNTS = {
 }
 
 # Real-looking customers: the tool must never show them as they are.
-OTHER_CUSTOMER = ("Dilnoza Karimova", "dilnoza.karimova@mail.uz", "+998901234567")
+OTHER_CUSTOMER = ("Dilnoza Karimova", "dilnoza.karimova@mail.uz", "+998977654321")
 REVIEWERS = [
     ("Jasur Toshmatov", "jasur.toshmatov@mail.uz", "+998935551122"),
     ("Malika Yusupova", "malika.yusupova@mail.uz", "+998977003344"),
@@ -131,6 +131,6 @@ def seed(db: Session) -> None:
         db.commit()
         db.add(OrderEvent(order_id=order.id, status=OrderStatus.new))
         db.add(OrderEvent(order_id=order.id, status=status))
-        if i == 0:
-            order.attachment = _slip_image(order.id, other.full_name, "+998 90 123 45 67")
+        if status == OrderStatus.shipped:  # the newest one: both manager and courier see it
+            order.attachment = _slip_image(order.id, other.full_name, "+998 97 765 43 21")
         db.commit()

@@ -580,6 +580,8 @@ class FlowBuilder:
 
         for fid, flow in list(self.flows.items()):
             reqs: list[str] = list(flow.requires)
+            needs: list[str] = []
+            sets: str | None = None
             if flow.role != "guest" and flow.action not in {"register", "login"}:
                 login = f"{flow.role}.login"
                 if login in self.flows:
@@ -588,8 +590,11 @@ class FlowBuilder:
             if flow.entity and (uses_own or flow.action not in {"create", "list"}):
                 fcand = self.route_of_flow.get(fid)
                 pre = fcand.status_requires if fcand else []
-                if not pre and flow.action == "view":
+                ent = self.ctx.entities.entities.get(flow.entity)
+                creator = ent is not None and flow.role in ent.created_by
+                if not pre and flow.action == "view" and not creator:
                     pre = self._role_preconditions(flow.role, flow.entity)
+                needs = list(dict.fromkeys(pre))
                 if pre:
                     for value in pre:
                         reqs += [x for x in sets_status.get(value, []) if x != fid]
@@ -601,7 +606,17 @@ class FlowBuilder:
             if flow.action == "list" and flow.entity in creators:
                 own_creator = [c for c in creators[flow.entity] if self.flows[c].role == flow.role]
                 reqs += own_creator
-            self.flows[fid] = flow.model_copy(update={"requires": list(dict.fromkeys(reqs))})
+            route = self.route_of_flow.get(fid)
+            if route is not None and flow.entity:
+                status_field = self.ctx.entities.candidates[flow.entity].status_field
+                sets = next((v for f, v in route.status_sets if f == status_field), None)
+            self.flows[fid] = flow.model_copy(
+                update={
+                    "requires": list(dict.fromkeys(reqs)),
+                    "needs_status": needs,
+                    "sets_status": sets,
+                }
+            )
 
         for fid, flow in list(self.flows.items()):
             if flow.action in {"delete_account", "logout"}:

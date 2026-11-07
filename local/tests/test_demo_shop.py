@@ -91,9 +91,9 @@ def test_manager_sees_other_customer_with_attachment(client: TestClient) -> None
     login(client, "manager")
     orders = client.get("/api/staff/orders").json()
     assert {o["customer_name"] for o in orders} == {OTHER_CUSTOMER[0]}
-    first = client.get("/api/staff/orders/1").json()
-    assert first["attachment_url"]
-    image = client.get(first["attachment_url"])
+    with_slip = [o for o in orders if o["attachment_url"]]
+    assert len(with_slip) == 1 and with_slip[0]["status"] == "shipped"
+    image = client.get(with_slip[0]["attachment_url"])
     assert image.headers["content-type"] == "image/png"
 
 

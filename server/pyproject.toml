@@ -67,6 +67,10 @@ select = [
     "DJ", # flake8-django
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# JavaScript run in the browser lives in Python strings.
+"packages/core/src/yoriqnoma_core/explorer/js.py" = ["E501"]
+
 # --- mypy: strict everywhere, Django via django-stubs and DRF stubs -----------------
 
 [tool.mypy]
@@ -81,6 +85,10 @@ plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 [[tool.mypy.overrides]]
 module = ["celery", "celery.*", "kombu", "kombu.*", "environ", "environ.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["rapidocr_onnxruntime", "rapidocr_onnxruntime.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]
