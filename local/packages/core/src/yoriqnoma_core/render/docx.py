@@ -51,7 +51,7 @@ def build_docx(manual: Manual, ctx: dict[str, Any], out: Path) -> Path:
     style.font.name = "Calibri"
     style.font.size = Pt(11)
     document.add_heading(f"{manual.project}: foydalanuvchi yo'riqnomasi", level=0)
-    document.add_paragraph(f"Rol: «{manual.role_label}». Bu rolni {manual.role_granted_by} beradi.")
+    document.add_paragraph(f"Rol: «{manual.role_label}». {manual.role_granted_by}")
     document.add_paragraph(
         f"Qamrov: {manual.coverage.percent.get('total', 0)}%. Model: {', '.join(manual.models)}."
     )

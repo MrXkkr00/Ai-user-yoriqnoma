@@ -777,3 +777,26 @@ Seed'da `manager` va `courier` test akkauntlari bor: ular sayt egasi beradigan a
 - parol ≥ 8 belgi;
 - telefon `+998XXXXXXXXX` formatida;
 - buyurtma miqdori 1–99.
+
+## 11. Amalga oshirish holati va farqlar (2026-11-08)
+
+Lokal dastur (F0–F4, T00–T20) qurildi va demo_shop'da tekshirildi. Server dastur hali skelet holatida (T21–T28 bajarilmagan). Quyidagilar yuqoridagi tavsifdan farq qiladi yoki uni to'ldiradi:
+
+**Sxemalar** (`schema_version` "1.0" qoldi: hali hech qanday iste'molchi yo'q, yangi maydonlarning hammasi ixtiyoriy):
+- `Entity`: `status_field` (API javobidagi status maydoni), `created_by` (yaratadigan rollar).
+- `Flow`: `creates` (yangi id own_objects'ga yoziladi), `sets_status`, `needs_status` (obyekt qaysi holatda bo'lishi kerak: tadqiqotchi kerak bo'lsa yordamchi rol bilan yangi obyekt tayyorlaydi).
+- `State`: `hidden: list[HiddenArea]` (BBox + `reason`), `privacy` ("zona:qaror" → soni), `parent_id`, `trigger`, `viewport`.
+- `FlowResult`: `role`, `helper`, `stopped_at_confirm`. `CaptureRun`: `role_label`, `project`, `privilege_ok`, `notes`.
+- `Manual`: `role_granted_by` (to'liq gap), `Section.empty_reason`, `StepText.state_id`, `StatusRow.image`.
+- `Step.data` qo'shimcha qiymatlari: `fake:option` (ro'yxatning birinchi varianti), `fake:address`, `fake:date`, `peer:email` (ikkinchi akkaunt emaili). `expect_url` yo'li `re:` bilan boshlansa — regex.
+- `DEFAULT_DENY_ACTION_WORDS` ga chiqish so'zlari qo'shildi (`chiqish`, `logout`, `выйти`): holatlar grafi sessiyani yopmasligi uchun.
+
+**Skaner:** Python kodi stdlib `ast` bilan (`pyindex.py` — modullar va importlarni hal qilish), JS/TS `tree-sitter` + `tree-sitter-javascript`/`tree-sitter-typescript` bilan o'qiladi (language-pack o'rniga). E2E parserlari bitta `parsers/e2e.py` faylida. `zod_yup.py` hali yo'q (demo_shop'da kerak bo'lmadi). Flow'lar rol bo'yicha nomlanadi: `customer.order.pay`, `manager.order.ship`.
+
+**Tadqiqotchi:** holatlar grafi va yamalgan statuslar `explorer/runner.py` ichida (`_state_graph`, `_patched_statuses`); JS kodlari `explorer/js.py` da; `ExploreOptions` va protokollar `explorer/options.py` da. Chiqish va hisobni o'chirish flow'lari eng oxirida, yamalgan statuslar va holatlar grafidan keyin bajariladi. Ro'yxat sahifasidan bitta-ikkita boshqa foydalanuvchi yozuvi ochiladi (ma'lumotlari almashtirilgan holda). `datagen` Faker'siz: o'zbekcha ism va manzillar ro'yxati bilan. OCR matnidagi yo'qolgan bo'shliqlar hisobga olinadi («Qabulqiluvchi:...»).
+
+**Yozuvchi:** javob sxemalari `writer/answers.py` da. Ollama'da `think=False`; model takrorlanib qolsa (`repeat limit`), bir marta `temperature=0.4` bilan qayta so'raladi. Prompt versiyasi `tasks.PROMPT_VERSION`.
+
+**Renderer:** rasmlar 1x (2x retina hali yo'q), PNG + WebP. Qidiruv indeksi `search_index.json` va `file://` da ishlashi uchun `search_index.js`.
+
+**Lokal dastur:** boshqaruv buyruqlari `runs/management/commands/` da (qo'shimcha `account` buyrug'i — test akkaunt qo'shish) va `evaluation/management/commands/eval.py`. Statik fayllar waitress orqali Django'ning o'zidan beriladi (`var/static`, faqat 127.0.0.1). Pipeline Huey thread'ida `asyncio.run` bilan, ORM chaqiruvlari alohida DB thread'ida. Oltin to'plam: `local/tests/golden/` — 24 holat.

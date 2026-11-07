@@ -1,4 +1,6 @@
-from django.urls import path
+from django.conf import settings
+from django.urls import path, re_path
+from django.views.static import serve
 
 from evaluation import views as eval_views
 from projects import views as project_views
@@ -7,6 +9,9 @@ from settings_app import views as settings_views
 from yoriqnoma_local import views
 
 urlpatterns = [
+    # waitress serves Django only; the local app (127.0.0.1) serves its own static files
+    # from var/static (collectstatic runs at start-up), so no CDN and no extra server.
+    re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATIC_ROOT}),
     path("", views.home, name="home"),
     path("system-status/", views.system_status, name="system-status"),
     path("projects/new/", project_views.project_new, name="project-new"),

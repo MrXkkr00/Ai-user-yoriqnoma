@@ -338,7 +338,9 @@ class ManualBuilder:
             role=self.role,
             role_label=self.role_label,
             role_granted_by=(
-                "o'zingiz (ro'yxatdan o'tganingizda)" if self.self_signup else "sayt administratori"
+                "Bu rolni saytda ro'yxatdan o'tib o'zingiz olasiz."
+                if self.self_signup
+                else "Bu rolni sayt administratori beradi."
             ),
             generated_at=datetime.now(UTC),
             source_mode=self.source_mode,  # type: ignore[arg-type]

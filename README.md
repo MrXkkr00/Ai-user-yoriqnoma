@@ -58,6 +58,31 @@ uv run python manage.py <buyruq>           # scan | explore | write | render | r
 uv run demo-shop                           # poligon: http://127.0.0.1:8800
 ```
 
+### Birinchi yo'riqnoma (demo_shop misolida)
+
+1. Ollama ishlayotganini va modelni tekshiring: `ollama pull gemma4:26b` (vision bor model).
+2. Poligonni ishga tushiring: `uv run demo-shop` (alohida terminalda).
+3. `uv run yoriqnoma-local` → brauzerda «Yangi loyiha»:
+   - kod papkasi: `local\fixtures\demo_shop`, sayt manzili: `http://127.0.0.1:8800`;
+   - pochta: «Papka», manzil: `local\fixtures\demo_shop\var\mail`.
+4. «Skanerlash» → «Ko'rib chiqish» (rollar, sahifalar, flow'lar; keraksizini chiqarish mumkin).
+5. «Ishga tushirish» → rol kartasini tanlang (Mijoz akkauntsiz ishlaydi; Menejer va Kuryer uchun
+   loyiha sahifasida test akkaunt qo'shing: `manager@demo.local` / `Manager12345`,
+   `courier@demo.local` / `Courier12345`) → «To'liq yo'riqnoma» → «Boshlash».
+6. Ish sahifasida jarayon jonli ko'rinadi; tugagach HTML, PDF, DOCX va qamrov hisoboti yuklab olinadi.
+
+Xuddi shuni terminalda ham qilish mumkin:
+
+```bash
+uv run python manage.py scan --path fixtures/demo_shop --base-url http://127.0.0.1:8800 --name demo_shop --mailbox fixtures/demo_shop/var/mail
+uv run python manage.py run --project demo_shop --list-roles
+uv run python manage.py run --project demo_shop --output full --role customer
+```
+
+Dastur ma'lumotlari `local/var/` da turadi (baza, Huey navbati, `secret.key`, `pseudonym.key`,
+`runs/`); bu papka git'ga tushmaydi. LLM javoblari keshlanadi (`var/cache/llm`), shuning uchun
+qayta yozish tez bo'ladi.
+
 ## Server dastur
 
 ```bash
