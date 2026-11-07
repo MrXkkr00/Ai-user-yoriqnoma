@@ -1,0 +1,706 @@
+# Arxitektura: AI_user_yoriqnoma
+
+Talablar: `docs/TZ.md`. Bu hujjatda kod darajasidagi tuzilma, sxemalar va interfeyslar berilgan. Tizim ikki Django dasturi (Lokal va Server) va uchta umumiy Python paketidan iborat.
+
+## 1. Repo tuzilmasi (uv workspace)
+
+Tizim **ikki dastur** va **uchta kutubxona paketidan** iborat:
+- **Dasturlar** Django'da yozilgan: `apps/local` va `apps/server`.
+- **Paketlar** toza Python, Django'ga bog'liq emas: `packages/*`.
+
+```
+ai-user-yoriqnoma/
+├── CLAUDE.md
+├── pyproject.toml                 # workspace root: ruff, mypy, pytest sozlamalari
+├── docs/                          # TZ.md, ARCHITECTURE.md, TASKS.md, schemas/*.json
+├── packages/
+│   ├── schemas/src/yoriqnoma_schemas/
+│   │   ├── common.py              # Target, BBox, Role, Stage, Confidence...
+│   │   ├── policy.py              # Policy
+│   │   ├── blueprint.py           # Blueprint, Page, Entity, Flow, Step
+│   │   ├── capture.py             # CaptureRun, State, Element, FlowResult
+│   │   ├── manual.py              # Manual, Section, Article, Coverage
+│   │   └── export.py              # JSON Schema → docs/schemas/
+│   ├── scanner/src/yoriqnoma_scanner/
+│   │   ├── api.py                 # scan(project_dir, base_url, stack="auto") -> ScanResult
+│   │   ├── __main__.py            # debug: python -m yoriqnoma_scanner PATH --base-url URL
+│   │   ├── fs_guard.py  detect.py  ast_utils.py
+│   │   ├── parsers/               # base.py, fastapi_routes.py, react_router.py,
+│   │   │                          # jsx_forms.py, pydantic_forms.py, zod_yup.py,
+│   │   │                          # sqlalchemy_models.py, i18n.py,
+│   │   │                          # e2e_playwright_py.py, e2e_playwright_ts.py
+│   │   └── classify.py  entities.py  flows.py  build.py  report.py  overrides.py
+│   └── core/src/yoriqnoma_core/
+│       ├── safety/                # url_guard.py, pii.py, policy_engine.py
+│       ├── explorer/              # session, accounts, firewall, datagen, mailbox,
+│       │                          # steps, runner, capture, som, state_graph,
+│       │                          # patching, bundle, privilege
+│       ├── writer/                # providers/{base,fake,ollama,claude}.py,
+│       │                          # templates_uz.py, prompts/*.j2, tasks.py,
+│       │                          # assemble.py, validate.py, coverage.py, cache.py
+│       ├── render/                # images.py, html.py, pdf.py, docx.py,
+│       │                          # search_index.py, templates/
+│       └── pipeline.py            # run_explore(), run_write(), run_render() — dasturlar chaqiradi
+├── apps/
+│   ├── local/                     # LOKAL DASTUR (Django) — §6
+│   │   ├── manage.py
+│   │   ├── yoriqnoma_local/       # settings.py, urls.py, huey.py, launcher.py (yoriqnoma-local)
+│   │   ├── projects/              # Project, ProjectAccount; scan + blueprint ko'rib chiqish
+│   │   ├── runs/                  # Run, RunEvent, InputRequest; services.py; tasks.py (huey)
+│   │   ├── settings_app/          # AppSettings (Ollama, server URL, API kalit)
+│   │   ├── uploader/              # serverga yuborish (httpx)
+│   │   ├── evaluation/            # model solishtirish
+│   │   ├── templates/  static/    # HTMX
+│   │   └── */management/commands/ # scan, explore, write, render, run, bundle, eval
+│   └── server/                    # SERVER DASTUR (Django) — §7
+│       ├── manage.py
+│       ├── yoriqnoma_server/      # settings/{base,dev,prod}.py, urls.py, celery.py, asgi/wsgi
+│       ├── accounts/              # Django auth, ApiKey
+│       ├── domains/               # Domain, domen tasdiqlash
+│       ├── jobs/                  # Job, JobEvent, Artifact, InputRequest; services; tasks (celery)
+│       ├── scout/                 # B rejimi: preflight, crawler, js_routes, network_infer,
+│       │                          # auth_flow, agent, validation_probe, blueprint_builder, merge
+│       ├── security/              # ssrf integratsiyasi, secrets (Fernet), ratelimit, robots
+│       ├── api/                   # DRF: serializers, views, permissions, urls
+│       ├── storage.py             # django-storages S3 (MinIO)
+│       └── templates/  static/    # HTMX
+├── fixtures/demo_shop/            # poligon (§10)
+├── tests/                         # workspace testlari: test_no_db_drivers.py, e2e/
+└── docker/                        # Dockerfile.web, Dockerfile.worker, compose.yml (faqat server)
+```
+
+**Bog'liqliklar:**
+
+| Qism | Nimaga bog'liq |
+|---|---|
+| `schemas` | Hech narsaga |
+| `scanner` | Faqat `schemas` |
+| `core` | Faqat `schemas` |
+| `apps/local` | `schemas`, `scanner`, `core` + Django, Huey, waitress |
+| `apps/server` | `schemas`, `core` + Django, DRF, Celery, psycopg, django-storages |
+
+**Muhim:** `apps/server` `scanner` ga bog'liq emas. Server kod o'qimaydi, u blueprint'ni lokal dasturdan oladi yoki saytning o'zidan tuzadi.
+
+## 2. Ma'lumot oqimi
+
+```
+ ┌──────────────────────────── LOKAL DASTUR (Django, 127.0.0.1) ────────────────────────────┐
+ │  kod ─► scanner.scan() ─► blueprint ─► [ko'rib chiqish, overrides] ─┬─► "Blueprint" natija  │──┐
+ │                                                                     │                       │  │ fayl yoki
+ │                     core.explorer (Playwright) ◄────────────────────┘                       │  │ "Serverga
+ │                            │                                                                 │  │ yuborish"
+ │                 capture/ ──┼─► bundle.zip ─────────────────────────────► "Bundle" natija     │──┤ (API kalit)
+ │                            ▼                                                                 │  │
+ │   core.writer (OllamaProvider) ─► manual.json ─► core.render ─► HTML/PDF/DOCX "To'liq"       │  │
+ └──────────────────────────────────────────────────────────────────────────────────────────┘  │
+                                                                                                ▼
+ ┌──────────────────────────── SERVER DASTUR (Django, Docker) ───────────────────────────────────┐
+ │  A:  blueprint ───────────────► core.explorer ─┐                                               │
+ │  A': bundle ──────────────────────────────────►├─► core.writer (ClaudeProvider) ─► core.render │
+ │  B:  URL ─► scout ─► blueprint ► core.explorer ┘                                               │
+ └───────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## 3. Sxemalar (`yoriqnoma_schemas`, pydantic v2)
+
+Barcha modellarda `model_config = ConfigDict(extra="forbid")`. Har bir faylning ildizida `schema_version: Literal["1.0"]` maydoni bor.
+
+### 3.1. Umumiy tiplar
+
+```python
+Role = Literal["guest", "user"]
+RouteRole = Literal["guest", "user", "excluded", "unknown"]
+Stage = Literal["start", "core", "manage", "social", "payment", "settings", "exit"]
+Environment = Literal["staging", "production"]
+Source = Literal["code", "discovered", "merged"]
+
+class Target(BaseModel):            # kamida bittasi to'ldiriladi; ustuvorlik shu tartibda
+    role: str | None = None         # "button", "textbox", "link", ...
+    name: str | None = None         # accessible name
+    label: str | None = None
+    testid: str | None = None
+    css: str | None = None          # oxirgi chora
+
+class BBox(BaseModel): x: float; y: float; w: float; h: float
+```
+
+### 3.2. Policy
+
+```python
+class Policy(BaseModel):
+    roles: list[Role] = ["guest", "user"]
+    deny_paths: list[str]           # glob: "/admin*", "/api/admin*", ...
+    deny_action_words: list[str]    # "o'chirish", "удалить", "delete", "to'lash", "оплатить", "pay", ...
+    default: Literal["deny"] = "deny"
+    environment: Environment = "staging"
+    destructive: Literal["own_objects_only", "never"] = "own_objects_only"
+    payments: Literal["sandbox_only", "never"] = "sandbox_only"
+    test_accounts: int = 2
+    max_states: int = 400
+    max_depth: int = 3
+    requests_per_second: float = 2.0
+```
+
+### 3.3. Blueprint
+
+```python
+class RouteInfo(BaseModel):
+    path: str; kind: Literal["page", "api"]; methods: list[str]
+    role: RouteRole; reason: str; source: str          # "app/api/orders.py:42"
+
+class FormField(BaseModel):
+    name: str; label: str | None; type: str            # text|email|password|tel|number|select|file|...
+    required: bool = False; rules: str | None = None   # "min:8|max:64|regex:..."
+    options: list[str] | None = None
+
+class Form(BaseModel):
+    id: str; page_path: str; fields: list[FormField]
+    submit: Target; api: str | None                    # "POST /api/orders"
+
+class EntityStatus(BaseModel):
+    value: str; label: str | None; reachable_by_user: bool; set_by: list[str]  # route manbalari
+
+class Entity(BaseModel):
+    name: str; source: str; owner_field: str | None
+    actions: list[str]                                 # create, view, list, update, delete, cancel, pay, ...
+    statuses: list[EntityStatus] = []
+    confidence: float = 1.0
+
+StepAction = Literal["goto", "click", "fill", "select", "check", "upload",
+                     "expect_url", "expect_text", "expect_visible",
+                     "verify_email", "wait_for", "human_input"]
+
+class Step(BaseModel):
+    action: StepAction
+    target: Target | None = None
+    path: str | None = None            # goto/expect_url uchun; "{own:order_id}" bo'lishi mumkin
+    data: str | None = None            # "fake:full_name" | "fake:email" | "fake:phone_uz" |
+                                       # "fake:password" | "fake:text" | "literal:..." | "own:<entity>_id"
+    text: str | None = None
+    rules: str | None = None
+    confirm: bool = False              # tasdiqlash tugmasi (production'da shu yerda to'xtaydi)
+    destructive: bool = False
+    payment: bool = False
+
+class Flow(BaseModel):
+    id: str; title: str; stage: Stage; role: Role
+    entity: str | None = None; action: str | None = None
+    requires: list[str] = []; account: Literal["A", "B"] = "A"
+    source: str; status: Literal["unverified", "verified", "failed", "skipped"] = "unverified"
+    confidence: float = 1.0; steps: list[Step]
+
+class Blueprint(BaseModel):
+    schema_version: Literal["1.0"]; project: str; base_url: HttpUrl
+    source: Source; generated_at: datetime; generator: str
+    language: str = "uz"; policy: Policy
+    pages: list[RouteInfo]; forms: list[Form]; entities: list[Entity]; flows: list[Flow]
+    nav: list[dict[str, str]] = []      # menyu: {label, path}
+    i18n: dict[str, str] = {}           # kalit → o'zbekcha matn
+    excluded: list[RouteInfo] = []      # hisobot uchun
+```
+
+**Validatorlar:**
+- `requires` dagi id'lar mavjud bo'lishi kerak;
+- graf sikl'siz bo'lishi kerak;
+- `excluded` ichida `role != "excluded"` bo'lmasligi kerak;
+- `pages` ichida `excluded` bo'lmasligi kerak.
+
+### 3.4. Capture
+
+```python
+class Element(BaseModel):
+    marker: int; role: str; name: str; bbox: BBox
+    selector: Target; kind: Literal["button", "link", "input", "select", "tab", "menu", "other"]
+    enabled: bool = True
+
+class NetCall(BaseModel): method: str; path_template: str; status: int
+
+class State(BaseModel):
+    id: str; hash: str; url: str; title: str
+    flow_id: str | None; step_index: int | None; account: Literal["A", "B", "guest"]
+    images: dict[Literal["clean", "som"], str]          # capture/images/ ga nisbiy yo'l
+    elements: list[Element]; aria: str
+    entity: str | None = None; entity_status: str | None = None
+    patched: bool = False; network: list[NetCall] = []
+
+class FlowResult(BaseModel):
+    flow_id: str; status: Literal["verified", "failed", "skipped"]
+    reason: str | None; state_ids: list[str]; duration_s: float
+
+class BlockedRequest(BaseModel): method: str; url: str; rule: str; at: datetime
+
+class CaptureRun(BaseModel):
+    schema_version: Literal["1.0"]; run_id: str; blueprint_hash: str
+    base_url: HttpUrl; environment: Environment; started_at: datetime; finished_at: datetime | None
+    flows: list[FlowResult]; states: list[State]
+    firewall_log: list[BlockedRequest]; own_objects: dict[str, list[str]]   # entity → id'lar
+```
+
+### 3.5. Manual
+
+```python
+class StepText(BaseModel): n: int; text: str; image: str | None; markers: list[int] = []
+class StatusRow(BaseModel): status: str; meaning: str; what_you_can_do: str; patched_image: bool = False
+
+class Article(BaseModel):
+    flow_id: str; title: str; purpose: str
+    steps: list[StepText]; notes: list[str] = []
+    statuses: list[StatusRow] = []; needs_review: bool = False
+
+class Section(BaseModel):
+    id: str; stage: Stage | Literal["reference", "faq", "unverified"]
+    title: str; intro: str; articles: list[Article]
+
+class RefEntry(BaseModel): page_title: str; path: str; purpose: str; elements: list[str]
+class QA(BaseModel): q: str; a: str
+
+class CoverageItem(BaseModel): kind: str; key: str; covered: bool; reason: str | None
+class Coverage(BaseModel): percent: dict[str, float]; items: list[CoverageItem]
+
+class Manual(BaseModel):
+    schema_version: Literal["1.0"]; project: str; language: str
+    generated_at: datetime; source_mode: Literal["A", "A'", "B", "A+B", "local"]
+    models: list[str]; sections: list[Section]
+    reference: list[RefEntry]; faq: list[QA]; coverage: Coverage
+```
+
+## 4. Asosiy interfeyslar
+
+### 4.1. LLM provider (`core.writer.providers.base`)
+
+```python
+T = TypeVar("T", bound=BaseModel)
+
+@dataclass(frozen=True)
+class LLMRequest:
+    task: str                      # "describe_page", "describe_statuses", "notes", "faq", "intro", "agent_step"
+    system: str
+    prompt: str
+    images: list[Path] = field(default_factory=list)
+    max_tokens: int = 2048
+    temperature: float = 0.0
+    cacheable_prefix: str | None = None   # Claude prompt caching uchun
+
+@dataclass
+class LLMResult(Generic[T]):
+    data: T; model: str; input_tokens: int; output_tokens: int
+    cost_usd: float | None; latency_s: float; cached: bool
+
+class LLMProvider(Protocol):
+    name: str
+    def capabilities(self) -> set[str]: ...            # {"vision", "json_schema"}
+    async def generate(self, req: LLMRequest, schema: type[T]) -> LLMResult[T]: ...
+```
+
+**Implementatsiyalar:**
+
+- **`FakeProvider`** — deterministik. Javoblarni `tests/fixtures/llm/<task>/<hash>.json` dan oladi yoki sxemadan namuna yasaydi.
+- **`OllamaProvider`** — `ollama.AsyncClient(host)` bilan ishlaydi:
+  - chaqiruv: `chat(model, messages=[{role, content, images}], format=schema.model_json_schema(), options={temperature, num_ctx}, keep_alive)`;
+  - javob `schema.model_validate_json()` bilan tekshiriladi;
+  - `show(model)` orqali `vision` imkoniyati tekshiriladi.
+- **`ClaudeProvider`** — `anthropic.AsyncAnthropic` bilan ishlaydi:
+  - chaqiruv: `messages.parse(model, max_tokens, system=[{type: text, text, cache_control: {type: ephemeral}}], messages=[...base64 image blocks..., text], output_format=schema)`;
+  - natija `response.parsed_output` dan olinadi;
+  - `response.usage` bo'yicha narx hisoblanadi;
+  - model tanlash konfiguratsiyadan: `task → model`.
+
+**Kesh** (`writer.cache`): kalit `sha256(task + prompt_version + model + prompt + images_hash)`, qiymat `.cache/llm/<kalit>.json` fayli. DB ishlatilmaydi.
+
+### 4.2. Skaner parseri (`scanner.parsers.base`)
+
+```python
+class Parser(Protocol):
+    name: str
+    def applies(self, project: ProjectInfo) -> bool: ...
+    def parse(self, project: ProjectInfo, fs: SafeFS) -> ParseResult: ...
+
+@dataclass
+class ParseResult:
+    routes: list[RouteCandidate]       # path, kind, methods, guards: list[GuardInfo], source
+    forms: list[Form]; entities: list[EntityCandidate]
+    flows: list[Flow]; nav: list[NavItem]; i18n: dict[str, str]; notes: list[str]
+
+@dataclass
+class GuardInfo:
+    kind: Literal["role", "ownership", "auth", "unknown"]; expr: str; source: str
+```
+
+**`SafeFS`:**
+- `read_text(path) -> str | None`. Taqiqlangan, binar yoki 2 MB dan katta fayl uchun `None` qaytaradi va sababini `skipped` ro'yxatiga yozadi.
+- `iter_files(globs)` — taqiqlangan papkalarga kirmaydi.
+- **Boshqa hech qanday fayl o'qish usuli ishlatilmaydi.** Testda `builtins.open` kuzatilib, `.env` ochilmagani tekshiriladi.
+
+### 4.3. Tadqiqotchi
+
+```python
+class Mailbox(Protocol):                       # MailpitMailbox(api_url) | DirMailbox(path)
+    async def wait_for(self, to: str, timeout_s: int = 60) -> MailMessage: ...
+
+class HumanInput(Protocol):                    # lokal: DbHumanInput / terminal; server: JobHumanInput
+    async def ask(self, kind: Literal["sms_code", "captcha", "confirm"], message: str) -> str: ...
+
+class PolicyEngine:
+    def allows_path(self, path: str) -> bool
+    def allows_request(self, method: str, url: str, resource_type: str, ctx: RunContext) -> tuple[bool, str]
+    def allows_click(self, el: Element, ctx: RunContext) -> tuple[bool, str]
+
+class StepExecutor:
+    async def execute(self, step: Step, ctx: RunContext) -> StepOutcome
+```
+
+**Runner tartibi:**
+1. `accounts.ensure(A, B)` — akkauntlarni tayyorlaydi.
+2. `privilege_check` — admin huquqi yo'qligini tekshiradi.
+3. `topo_sort(flows)` — flow'larni bog'liqlik bo'yicha tartiblaydi.
+4. Har bir flow bajariladi: qadamlar, har qadamdan keyin `capture.snapshot()`.
+5. `state_graph.explore(page)` — holatlar grafi.
+6. `patching.render_unreachable_statuses()` — yetib bo'lmaydigan statuslar.
+7. `capture.write()` — natijani yozadi.
+
+Resume uchun holat `capture/progress.json` faylida saqlanadi.
+
+**Lokator strategiyasi** (birinchi topilgani ishlatiladi):
+1. `get_by_role(role, name=name, exact=True)`
+2. `get_by_label`
+3. `get_by_test_id`
+4. `locator(css)`
+
+Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
+
+**Elementlarni yig'ish:**
+- JS orqali ko'rinadigan interaktiv elementlar olinadi: `a`, `button`, `input`, `select`, `textarea`, `[role=button|tab|menuitem|link]`, `[onclick]`.
+- Har biri uchun: accessible name va bbox.
+- Markerlar o'qish tartibida beriladi: avval y, keyin x bo'yicha.
+- Matn uchun `page.locator("body").aria_snapshot()`.
+
+### 4.4. Renderer
+
+`render.build(manual, capture_dir, out_dir, formats={"html", "pdf", "docx"}) -> RenderResult`
+
+- **HTML** Jinja2 orqali yaratiladi.
+- **PDF** shu HTML'dan olinadi: `page.pdf(format="A4", display_header_footer=True)`.
+- **DOCX** python-docx bilan alohida quriladi.
+
+## 5. Ishlash papkasi
+
+**Lokal dasturda** papka `var/runs/<project_slug>/<run_id>/` da yaratiladi. **Serverda** xuddi shu tuzilma MinIO'da `jobs/<job_id>/` prefiksi ostida saqlanadi.
+
+```
+<run_dir>/
+  blueprint.json  scan_report.md  overrides.json
+  capture/capture.json  capture/images/<state_id>_{clean,som}.png  capture/progress.json
+  bundle.zip                                   # faqat "Bundle" natijasida
+  manual.json
+  dist/html/index.html  dist/html/assets/  dist/html/images/
+  dist/manual.pdf  dist/manual.docx  dist/coverage_report.html
+  logs/run.jsonl
+```
+
+`run_id` formati: `YYYYMMDD-HHMMSS-<6 belgi>`.
+
+`core.pipeline` funksiyalari faqat papka va obyektlar bilan ishlaydi. Django haqida hech narsa bilmaydi:
+
+```python
+async def run_explore(blueprint: Blueprint, run_dir: Path, opts: ExploreOptions,
+                      human: HumanInput, progress: ProgressSink, cancel: CancelToken) -> CaptureRun
+async def run_write(run_dir: Path, provider: LLMProvider, progress: ProgressSink, cancel: CancelToken) -> Manual
+def run_render(run_dir: Path, formats: set[str]) -> RenderResult
+```
+
+`ProgressSink` va `CancelToken` protokollari dasturlarda implementatsiya qilinadi: lokalda Run/RunEvent orqali, serverda Job/JobEvent orqali.
+
+## 6. Lokal dastur (`apps/local`, Django)
+
+### 6.1. Ishga tushirish
+
+`uv run yoriqnoma-local` (`yoriqnoma_local.launcher:main`) quyidagilarni bajaradi:
+1. `migrate` va tizim tekshiruvlari (FR-L11).
+2. Veb-server: **waitress**, `127.0.0.1:8765`.
+3. Huey worker: `manage.py run_huey -w 2 -k thread` — alohida jarayonda.
+4. Brauzerni ochadi.
+5. `Ctrl+C` ikkalasini to'xtatadi.
+
+**Asosiy sozlamalar:**
+- `ALLOWED_HOSTS = ["127.0.0.1", "localhost"]`, `DEBUG=False` (`--dev` bayrog'i bilan `True`).
+- Baza: `var/local.sqlite3`.
+- Huey: `SqliteHuey("yoriqnoma", filename="var/huey.sqlite3")`.
+- `MEDIA_ROOT = var/runs`.
+- `LANGUAGE_CODE="uz"`, `TIME_ZONE="Asia/Tashkent"`.
+- Fernet kaliti `var/secret.key` faylida, birinchi ishga tushishda yaratiladi.
+
+### 6.2. Modellar
+
+```python
+class AppSettings(models.Model):          # yagona yozuv (singleton)
+    ollama_host = URLField(default="http://127.0.0.1:11434"); ollama_model = CharField(default="gemma4:26b")
+    num_ctx = IntegerField(default=24576); language = CharField(default="uz")
+    server_url = URLField(blank=True); server_api_key_enc = BinaryField(null=True)
+
+class Project(models.Model):
+    name; slug; source_dir = CharField(blank=True)          # bo'sh bo'lsa: blueprint qo'lda yuklanadi
+    base_url = URLField(); environment = CharField(choices=staging|production)
+    mailbox_kind = CharField(choices=mailpit|dir); mailbox_target = CharField()
+    language = CharField(default="uz"); created_at
+
+class ProjectAccount(models.Model):
+    project = FK(Project); alias = CharField(choices=A|B); login; password_enc = BinaryField()
+
+class BlueprintVersion(models.Model):
+    project = FK; created_at; scanner_version; source = CharField(choices=scan|upload)
+    path = CharField()                    # var/runs/.../blueprint.json
+    report_path = CharField(blank=True); overrides = JSONField(default=dict)   # {"exclude_pages": [...], "exclude_flows": [...], "rename_flows": {...}}
+    stats = JSONField(default=dict); is_current = BooleanField()
+
+class Run(models.Model):
+    project = FK; blueprint = FK(BlueprintVersion)
+    output = CharField(choices=full|blueprint|bundle)
+    status = CharField(choices=queued|running|waiting_input|done|failed|cancelled)
+    stage = CharField(choices=explore|write|render|package|upload, blank=True)
+    progress_done = IntegerField(default=0); progress_total = IntegerField(default=0)
+    model = CharField(blank=True); formats = JSONField(default=list)
+    run_dir = CharField(); stats = JSONField(default=dict); error = TextField(blank=True)
+    cancel_requested = BooleanField(default=False)
+    server_job_id = CharField(blank=True); server_job_url = URLField(blank=True)
+    created_at; started_at; finished_at
+
+class RunEvent(models.Model): run = FK; at; level; stage; message
+class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryField(null=True); created_at; answered_at
+```
+
+### 6.3. Ish oqimi
+
+1. **Loyiha yaratish.**
+2. **"Skanerlash".** Huey vazifasi `scan_project` → `scanner.scan()` → yangi `BlueprintVersion`.
+3. **"Blueprint'ni ko'rib chiqish".** Overrides HTMX orqali saqlanadi. `scanner.overrides.apply(blueprint, overrides)` faqat **kamaytiradi**: sahifa yoki flow'ni chiqaradi, nomini o'zgartiradi. `excluded` dagi narsani qaytara olmaydi.
+4. **"Ishga tushirish"** — natija turi tanlanadi:
+   - **`blueprint`** — darhol: overrides qo'llangan `blueprint.json` yoziladi, `Run.status=done`.
+   - **`bundle`** — Huey `execute_run` → `core.pipeline.run_explore` → `explorer.bundle` → `bundle.zip`.
+   - **`full`** — `run_explore` → `run_write(OllamaProvider)` → `run_render`.
+5. **(ixtiyoriy) "Serverga yuborish"** — `uploader.client.submit(run)` → `POST {server}/api/jobs/` (Api-Key bilan) → `server_job_url`. Holat har 10 soniyada `GET /api/jobs/{id}/` orqali yangilanadi.
+
+**Implementatsiyalar:**
+- `DbProgressSink` — `RunEvent` yozadi va `Run.progress_*` ni yangilaydi.
+- `DbCancelToken` — `Run.cancel_requested` ni o'qiydi.
+- `DbHumanInput` — `InputRequest` yaratadi, javobni har 2 soniyada tekshiradi, timeout 10 daqiqa.
+
+### 6.4. Sahifalar (URL)
+
+| URL | Sahifa |
+|---|---|
+| `/` | Loyihalar ro'yxati, tizim holati (Ollama, Playwright) |
+| `/projects/new/`, `/projects/<id>/edit/` | Loyiha formasi (kod papkasi, base URL, muhit, akkauntlar, pochta) |
+| `/projects/<id>/` | Loyiha: oxirgi blueprint, ishlar tarixi, tugmalar |
+| `POST /projects/<id>/scan/` | Skanerlashni boshlash |
+| `/projects/<id>/blueprint/` | Ko'rib chiqish: Sahifalar · Obyektlar · Flow'lar · Chiqarib tashlanganlar · Hisobot (tablar, HTMX tugmalar) |
+| `POST /projects/<id>/blueprint/upload/` | Kodsiz loyiha uchun tayyor blueprint yuklash |
+| `/projects/<id>/runs/new/` | Natija turi (3 ta radio karta), model, formatlar |
+| `/runs/<id>/` | Progress (`/runs/<id>/status/` partial, har 2 s), log, input formasi, bekor qilish, natijalar, "Serverga yuborish" |
+| `/runs/<id>/files/<name>` | Yuklab olish (faqat `run_dir` ichidagi fayllar, path traversal himoyasi) |
+| `POST /runs/<id>/open-folder/` | Papkani ochish: Windows'da `os.startfile`, Linux'da `xdg-open` |
+| `/settings/` | Ollama (host, model ro'yxati, ulanish testi), server (URL, API kalit, ulanish testi) |
+| `/eval/` | Modellarni solishtirish natijalari |
+
+### 6.5. Boshqaruv buyruqlari
+
+```
+manage.py scan    --project <slug> | --path DIR --base-url URL  [--out FILE]
+manage.py explore --project <slug> [--blueprint FILE]
+manage.py write   --run <id> [--model gemma4:26b]
+manage.py render  --run <id> [--formats html,pdf,docx]
+manage.py run     --project <slug> --output full|blueprint|bundle [--model ...]
+manage.py bundle  --run <id> --out bundle.zip
+manage.py eval    --golden tests/golden/ --models gemma4:26b,qwen3.6:27b
+```
+
+Buyruqlar UI bilan bir xil `services.py` funksiyalarini chaqiradi. Terminalda `HumanInput` — `input()` orqali.
+
+## 7. Server dastur (`apps/server`, Django)
+
+### 7.1. Komponentlar (docker compose)
+
+| Servis | Vazifasi |
+|---|---|
+| `caddy` | TLS (Let's Encrypt), reverse proxy, statik fayllar |
+| `web` | Django (gunicorn): HTMX sahifalar, DRF API, `/ops/` admin |
+| `worker` | Celery worker: Playwright + core + scout. Root'siz, `mem_limit`, `cpus`, egress firewall, `concurrency = MAX_CONCURRENT_JOBS`, `prefetch=1`, `acks_late` |
+| `beat` | Celery beat: muddati o'tganlarni tozalash, osilib qolgan ishlarni tekshirish |
+| `postgres` | **Faqat** server ma'lumotlari: users, keys, domains, jobs, events, artifacts |
+| `redis` | Celery broker |
+| `minio` | Rasmlar, bundle'lar, natijalar (django-storages S3) |
+| `mailpit` | Catch-all test pochta: `*@inbox.<server-domeni>`, MX yozuvi serverga yo'naltiriladi |
+| `demo_shop` | Faqat `test` profilida: poligon nishon sifatida |
+
+### 7.2. Modellar
+
+```python
+# accounts
+class ApiKey(models.Model):
+    user = FK(User); name; prefix = CharField(8); key_hash = CharField()   # sha256(secret)
+    created_at; last_used_at = DateTimeField(null=True); revoked = BooleanField(default=False)
+
+# domains
+class Domain(models.Model):
+    owner = FK(User); host; token; verified_at = DateTimeField(null=True)
+    method = CharField(choices=wellknown|meta|dns, blank=True)
+
+# jobs
+class Job(models.Model):
+    owner = FK(User); domain = FK(Domain)
+    mode = CharField(choices=A|A_PRIME|B|A_PLUS_B); url; environment; language; formats = JSONField()
+    status = CharField(choices=queued|preflight|scouting|exploring|writing|rendering|waiting_input|done|failed|cancelled)
+    progress_done; progress_total
+    budget_usd = DecimalField(); cost_usd = DecimalField(default=0); tokens_in; tokens_out
+    accounts_enc = BinaryField(null=True)
+    blueprint = FileField(null=True); bundle = FileField(null=True)
+    passive = BooleanField()                                 # domen tasdiqlanmagan bo'lsa True
+    source = CharField(choices=web|api); error = TextField(blank=True); cancel_requested = BooleanField(default=False)
+    created_at; started_at; finished_at; expires_at
+
+class JobEvent(models.Model): job = FK; at; kind = CharField(status|progress|log|need_input|artifact|cost); payload = JSONField()
+class InputRequest(models.Model): job = FK; kind; message; value_enc; created_at; answered_at
+class Artifact(models.Model): job = FK; name; file = FileField(); size; sha256
+```
+
+### 7.3. Ish holatlari
+
+```
+queued → preflight → (scouting) → exploring → writing → rendering → done
+              ↘ waiting_input (SMS, captcha) ↗           ↘ failed | cancelled
+```
+
+- `scouting` faqat B va A+B rejimlarida bo'ladi.
+- A' rejimida `exploring` o'tkazib yuboriladi.
+
+Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id>` orqali har 2 soniyada HTMX polling bilan oladi. SSE ishlatilmaydi, chunki gunicorn bilan oddiyroq va barqarorroq.
+
+**Celery vazifalari:**
+- `jobs.tasks.run_job(job_id)` — rejimga qarab: `scout` → `core.pipeline.run_explore` → `run_write(ClaudeProvider)` → `run_render` → Artifact'lar MinIO'ga.
+- `cleanup_expired()` — har kuni.
+- `reap_stuck_jobs()` — har 10 daqiqada.
+
+**Implementatsiyalar:** `JobProgressSink`, `JobCancelToken`, `JobHumanInput` (lokaldagi bilan bir xil g'oya).
+
+### 7.4. REST API (DRF, `/api/`)
+
+**Autentifikatsiya:**
+- veb uchun — sessiya + CSRF;
+- lokal dastur uchun — `Authorization: Api-Key <prefix>.<secret>` (maxsus DRF `ApiKeyAuthentication`).
+
+| Metod | Yo'l | Tavsif |
+|---|---|---|
+| GET | `/api/me/` | API kalitni tekshirish (lokal "ulanish testi") |
+| GET, POST | `/api/domains/` | O'z domenlari; POST `{host}` → `{id, token, methods}` |
+| POST | `/api/domains/{id}/verify/` | well-known, meta yoki DNS TXT orqali tekshiradi |
+| GET, POST | `/api/jobs/` | POST multipart: `mode`, `url`, `environment`, `language`, `formats`, `accounts?`, `blueprint?`, `bundle?`, `budget_usd?` → `{id, web_url, status}` |
+| GET | `/api/jobs/{id}/` | Holat, progress, narx, artifact ro'yxati |
+| GET | `/api/jobs/{id}/events/?after=` | Hodisalar |
+| POST | `/api/jobs/{id}/input/` `{request_id, value}` | SMS kodi va hokazo |
+| POST | `/api/jobs/{id}/cancel/` | Bekor qilish |
+| GET | `/api/jobs/{id}/artifacts/{name}/` | Qisqa muddatli imzolangan havolaga redirect |
+
+**Ruxsatlar:** har bir obyekt faqat egasiga ko'rinadi (`owner == request.user`). API kalit faqat veb-interfeysda yaratiladi.
+
+### 7.5. Veb sahifalar
+
+- **Hisob:** `/accounts/login/`, `/accounts/register/`, `/accounts/logout/`.
+- **API kalitlar:** `/keys/` — yaratish (kalit faqat bir marta ko'rsatiladi) va o'chirish.
+- **Domenlar:** `/domains/` — qo'shish, token va 3 xil joylash yo'riqnomasi, "Tekshirish" tugmasi.
+- **Ishlar:**
+  - `/jobs/` — ro'yxat;
+  - `/jobs/new/` — rejim kartalari, URL, muhit, akkauntlar, fayl, byudjet;
+  - `/jobs/<id>/` — bosqichlar, log, narx, input formasi, natijalar.
+- **Admin:** `/ops/` — Django admin, faqat staff.
+
+### 7.6. Razvedkachi (B rejimi) — `apps/server/scout`
+
+- **`preflight`** — url_guard; domen tasdiqlanganmi; `robots.txt`; `sitemap.xml`; til; texnologiya belgilari.
+- **`crawler`** — faqat shu domen ichida BFS. URL shablonlanadi (`/x/123` → `/x/:id`), har shablondan ≤ 2 namuna olinadi; `deny_paths`; limitlar.
+- **`js_routes`** — yuklangan JS bundle'lar va ochiq source map'lardan route satrlari olinadi.
+- **`network_infer`** — XHR/fetch so'rovlaridan REST shablonlari va CRUD amallari xaritasi tuziladi.
+- **`auth_flow`** — ro'yxatdan o'tish va kirish formalari topiladi (Haiku tasnifi). Test pochta `job-<id>@inbox.<domen>`.
+- **`agent`** — Claude Sonnet, tool use. Tool'lar: `goto(path)`, `click(marker)`, `fill(marker, value_kind)`, `select(marker, option)`, `back()`, `finish_flow(title, stage, entity, action)`, `give_up(reason)`.
+  - Har bir tool chaqiruvi `PolicyEngine` dan o'tadi.
+  - Byudjet limiti: sahifa, qadam va dollar.
+- **`validation_probe`** — o'z ma'lumotida bo'sh yoki noto'g'ri qiymat yuboriladi, xato xabarlari yig'iladi.
+- **`blueprint_builder`** — `source="discovered"`, `confidence` bilan.
+- **`merge`** — A+B: kod ma'lumoti ustun, discovered faqat yangi narsalarni qo'shadi.
+
+## 8. Konfiguratsiya
+
+**Lokal dastur.** Sozlamalar `AppSettings` (baza) va `var/` papkasida. Env orqali qayta yozish mumkin:
+- `YORIQNOMA_LOCAL_PORT` (standart 8765);
+- `YORIQNOMA_VAR_DIR`;
+- `YORIQNOMA_HUEY_WORKERS`.
+
+**Server dastur** (django-environ, `.env` faqat serverning o'zida):
+- `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_SETTINGS_MODULE=yoriqnoma_server.settings.prod`
+- `DATABASE_URL`, `REDIS_URL`
+- `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
+- `ANTHROPIC_API_KEY`
+- `YORIQNOMA_FERNET_KEY`
+- `YORIQNOMA_MAIL_DOMAIN`, `YORIQNOMA_PUBLIC_URL`
+- `YORIQNOMA_MAX_CONCURRENT_JOBS`, `YORIQNOMA_RETENTION_DAYS`
+- `YORIQNOMA_MODEL_HAIKU=claude-haiku-5-5`, `YORIQNOMA_MODEL_SONNET=claude-sonnet-5-5`, `YORIQNOMA_MODEL_OPUS=claude-opus-5-5`
+- `YORIQNOMA_PRICES` (JSON: model → $/MTok input, output, cache read, cache write)
+
+## 9. Testlash strategiyasi
+
+| Daraja | Qayerda | Marker |
+|---|---|---|
+| Unit | `packages/*/tests`, `apps/*/<app>/tests` (pytest-django) | — |
+| Integratsion | demo_shop ishga tushiriladi (pytest fixture, port 8800) | `slow` |
+| LLM | Haqiqiy Ollama yoki Claude | `llm` |
+| Server e2e | docker compose (`--profile test`) | `server` |
+
+- **Django sozlamalari testlarda:**
+  - lokal uchun Huey `immediate=True`;
+  - server uchun `CELERY_TASK_ALWAYS_EAGER=True`; unit testlar SQLite'da, `server` marker testlari compose'dagi PostgreSQL'da.
+- **Oltin to'plam** `tests/golden/`: 20–30 holat (rasm + elementlar) va kutilgan natija belgilari.
+- **`tests/test_no_db_drivers.py`:** `packages/scanner` va `packages/core` ning manba kodida (AST) va `pyproject` bog'liqliklarida `sqlite3`, `psycopg`, `pymysql`, `sqlalchemy`, `sqlmodel`, `asyncpg`, `aiosqlite`, `django` bo'lmasligi tekshiriladi.
+
+## 10. Poligon: `fixtures/demo_shop`
+
+**Maqsadi:** barcha komponentlarni boshqariladigan, ichida ataylab admin qismi ham bor sayt ustida sinash.
+
+**Stek:**
+- backend: FastAPI + SQLite (poligonning **o'z** bazasi);
+- frontend: React (Vite, React Router v6), build qilingan `dist/` repoga commit qilinadi, shuning uchun Node faqat qayta build uchun kerak;
+- ishga tushirish: `uv run demo-shop` (port 8800).
+
+**Foydalanuvchi qismi:**
+- **Ochiq sahifalar:** `/`, `/catalog`, `/catalog/:id`
+- **Hisob:** `/register`, `/login`, `/verify-email`, `/forgot-password`
+- **Shaxsiy kabinet:**
+  - `/app/dashboard`
+  - `/app/orders`, `/app/orders/new`
+  - `/app/orders/:id` — tablar: "Tafsilotlar" va "Tarix"; tugmalar: bekor qilish (tasdiqlash modali bilan), to'lash (sandbox), chekni yuklab olish
+  - `/app/messages` — A va B o'rtasida yozishmalar
+  - `/app/profile`
+  - `/app/settings` — parol, bildirishnomalar, til
+  - `/app/account/delete`
+
+**Buyurtma statuslari:**
+- `new` → `paid` (user bajaradi);
+- `paid` → `shipped` → `delivered` (faqat admin);
+- `new` → `cancelled` (user bajaradi).
+
+**Admin qismi (topilmasligi kerak):**
+- `/admin`, `/admin/users`, `/admin/orders/:id/ship`;
+- `/api/admin/*` — `Depends(require_admin)` bilan himoyalangan;
+- React'da `<RequireAdmin>` komponenti.
+
+**Pochta:** SMTP orqali Mailpit'ga yuboriladi. Mailpit bo'lmasa, `./var/mail/*.eml` papkasiga yoziladi (`DirMailbox`).
+
+**Skaner uchun tuzoqlar:**
+- `.env` (soxta sirlar bilan, Skaner ochmasligi kerak);
+- `var/demo.db`.
+
+**Qo'shimcha manbalar:**
+- E2E testlar: `e2e/test_register.py` (Playwright Python) va `e2e/order.spec.ts` (Playwright TS);
+- i18n: `web/src/locales/uz.json`, `web/src/locales/ru.json`.
+
+**Validatsiya qoidalari:**
+- parol ≥ 8 belgi;
+- telefon `+998XXXXXXXXX` formatida;
+- buyurtma miqdori 1–99.
