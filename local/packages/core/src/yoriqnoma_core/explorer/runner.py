@@ -452,6 +452,11 @@ class Runner:
         async def snap(index: int) -> None:
             if not capture:
                 return
+            status = self.object_status.get(flow.entity or "", {}).get(
+                objects.get(flow.entity or "", ""), None
+            )
+            if index == len(flow.steps) and flow.sets_status:
+                status = flow.sets_status  # the final state shows the new status
             state = await self.capturer.snapshot(
                 page,
                 account=key,
@@ -459,9 +464,7 @@ class Runner:
                 flow_id=flow.id,
                 step_index=index,
                 entity=flow.entity,
-                entity_status=self.object_status.get(flow.entity or "", {}).get(
-                    objects.get(flow.entity or "", ""), None
-                ),
+                entity_status=status,
             )
             acc.network.clear()
             states.append(state.id)

@@ -1,0 +1,4 @@
+Saytdagi sahifalar («{{ role_label }}» roli ko'radigan):
+{% for p in pages %}- {{ p.path }} — sarlavha «{{ p.title }}»; elementlar: {{ p.elements | join(", ") }}
+{% endfor %}
+Har bir sahifa uchun pages ro'yxatiga yozing: path (aynan yuqoridagidek) va purpose (sahifa nima uchun, 1 gap).

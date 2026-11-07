@@ -1,0 +1,16 @@
+Vazifa: «{{ title }}».
+Sayt: {{ project }}. Sahifa: {{ url }}.
+Rasmda shu vazifa bajariladigan sahifa ko'rsatilgan; elementlar raqamlangan.
+
+Vazifa qadamlari (vosita bajardi va tekshirdi):
+{% for s in steps %}{{ loop.index }}. {{ s }}
+{% endfor %}
+Sahifadagi elementlar (raqam: nomi):
+{% for e in elements %}{{ e.marker }}: {{ e.role }} «{{ e.name }}»
+{% endfor %}
+{% if rules %}Maydonlar qoidalari:
+{% for r in rules %}- {{ r }}
+{% endfor %}{% endif %}
+Yozing:
+- purpose: bu vazifa nima uchun kerakligini 1-2 gapda tushuntiring.
+- notes: foydali 0-3 ta qisqa eslatma (masalan, maydon qoidalari, natija qayerda ko'rinadi). Qadamlarni takrorlamang.

@@ -1,0 +1,9 @@
+Saytdagi formalar va ularning tekshiruv qoidalari:
+{% for f in forms %}- «{{ f.title }}»: {% for r in f.rules %}{{ r }}{% if not loop.last %}; {% endif %}{% endfor %}
+{% endfor %}
+{% if problems %}Vosita uchratgan muammolar:
+{% for p in problems %}- {{ p }}
+{% endfor %}{% endif %}
+«{{ role_label }}» roli uchun 4-6 ta tez-tez beriladigan savol va javob yozing (items).
+Savollar xatolar va qoidalar haqida bo'lsin (masalan, parol qanday bo'lishi kerak, telefon qaysi ko'rinishda).
+Javoblar qisqa, 1-2 gap.

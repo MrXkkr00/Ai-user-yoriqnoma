@@ -17,6 +17,7 @@ dependencies = [
     "django>=5.2,<5.3",
     "huey>=2.5",
     "waitress>=3.0",
+    "cryptography>=43",
 ]
 
 [project.scripts]
@@ -92,8 +93,12 @@ module = ["rapidocr_onnxruntime", "rapidocr_onnxruntime.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["huey", "huey.*"]
+module = ["huey", "huey.*", "waitress", "waitress.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["runs.tasks", "evaluation.tasks"]
+disallow_untyped_decorators = false
 
 [tool.django-stubs]
 django_settings_module = "yoriqnoma_local.settings"

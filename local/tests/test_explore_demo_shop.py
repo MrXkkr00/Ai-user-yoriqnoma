@@ -194,3 +194,20 @@ def test_admin_account_stops_the_run(
 
     with pytest.raises((RunAborted, PrivilegedAccountError), match="Imtiyoz|admin|rolida"):
         explore(blueprint, tmp_path, opts)
+
+
+def test_full_pipeline_with_fake_provider(runs: dict[str, tuple[Path, CaptureRun]]) -> None:
+    """T17: explore -> write (FakeProvider) -> render for a real demo_shop capture."""
+    from yoriqnoma_core.pipeline import run_render, run_write
+    from yoriqnoma_core.writer.providers import FakeProvider
+
+    run_dir, _ = runs["customer"]
+    manual = asyncio.run(run_write(run_dir, FakeProvider(), NullProgress(), NeverCancel()))
+    result = run_render(run_dir, {"html", "pdf", "docx"})
+
+    assert len([s for s in manual.sections if s.stage != "unverified"]) == 9
+    assert manual.coverage.percent["total"] >= 90
+    assert {"html", "pdf", "docx", "coverage"} <= set(result.files)
+    html = result.files["html"].read_text(encoding="utf-8")
+    for value in SEED_VALUES:
+        assert value not in html

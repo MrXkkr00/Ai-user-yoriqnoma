@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="{{ manual.language }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ manual.project }} — {{ manual.role_label }} uchun yo'riqnoma</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<aside class="toc" id="toc">
+  <div class="brand">{{ manual.project }}</div>
+  <div class="role">«{{ manual.role_label }}» uchun yo'riqnoma</div>
+  <input type="search" id="q" placeholder="Qidirish..." aria-label="Qidirish" autocomplete="off">
+  <ol id="results" class="results" hidden></ol>
+  <nav aria-label="Mundarija">
+    <ol>
+    {% for s in sections %}
+      <li><a href="#{{ s.id }}">{{ s.title }}</a>
+        {% if s.articles %}<ol>{% for a in s.articles %}<li><a href="#{{ a.anchor }}">{{ a.title }}</a></li>{% endfor %}</ol>{% endif %}
+      </li>
+    {% endfor %}
+      <li><a href="coverage_report.html">Qamrov hisoboti</a></li>
+    </ol>
+  </nav>
+</aside>
+<main>
+  <header class="cover">
+    <h1>{{ manual.project }}: foydalanuvchi yo'riqnomasi</h1>
+    <p class="lead">Rol: <strong>{{ manual.role_label }}</strong>. Bu rolni {{ manual.role_granted_by }} beradi.</p>
+    <p class="meta">Yaratilgan: {{ generated }} · Model: {{ manual.models | join(", ") }} · Qamrov: {{ coverage_total }}%</p>
+  </header>
+  {% for s in sections %}
+  <section id="{{ s.id }}" class="section">
+    <h2>{{ s.title }}</h2>
+    <p class="intro">{{ s.intro }}</p>
+    {% if s.stage == "reference" %}
+      <table class="ref">
+        <thead><tr><th>Sahifa</th><th>Manzil</th><th>Nima uchun</th><th>Asosiy elementlar</th></tr></thead>
+        <tbody>
+        {% for r in reference %}<tr><td>{{ r.page_title }}</td><td><code>{{ r.path }}</code></td><td>{{ r.purpose }}</td><td>{{ r.elements[:8] | join(", ") }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    {% elif s.stage == "faq" %}
+      {% for item in faq %}<details class="qa"><summary>{{ item.q }}</summary><p>{{ item.a }}</p></details>{% endfor %}
+      {% if not faq %}<p class="muted">Savollar yo'q.</p>{% endif %}
+    {% endif %}
+    {% for a in s.articles %}
+    <article id="{{ a.anchor }}" class="article">
+      <h3>{{ a.title }}{% if a.needs_review %} <span class="review" title="Matnni odam tekshirishi kerak">tekshirilsin</span>{% endif %}</h3>
+      <p class="purpose">{{ a.purpose }}</p>
+      {% if a.steps %}
+      <ol class="steps">
+        {% for st in a.steps %}
+        <li><p>{{ st.text }}</p>
+          {% if st.img %}<figure><picture><source srcset="{{ st.img.webp }}" type="image/webp"><img src="{{ st.img.png }}" loading="lazy" alt="{{ a.title }}: {{ st.n }}-qadam" width="{{ st.img.width }}"></picture></figure>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% endif %}
+      {% if a.statuses %}
+      <table class="statuses">
+        <thead><tr><th>Status</th><th>Ma'nosi</th><th>Nima qilasiz</th><th>Ko'rinishi</th></tr></thead>
+        <tbody>
+        {% for row in a.statuses %}<tr><td><strong>{{ row.status }}</strong></td><td>{{ row.meaning }}</td><td>{{ row.what_you_can_do }}</td>
+          <td>{% if row.img %}<a href="{{ row.img.png }}"><img class="thumb" src="{{ row.img.png }}" loading="lazy" alt="{{ row.status }}"></a>{% if row.patched_image %}<div class="muted">namuna ko'rinish</div>{% endif %}{% else %}—{% endif %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      {% if a.notes %}<div class="notes"><strong>Eslatma:</strong><ul>{% for n in a.notes %}<li>{{ n }}</li>{% endfor %}</ul></div>{% endif %}
+    </article>
+    {% endfor %}
+    {% if s.empty_reason %}<p class="muted">({{ s.empty_reason }})</p>{% endif %}
+  </section>
+  {% endfor %}
+</main>
+<script src="assets/search_index.js"></script>
+<script src="assets/search.js"></script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+"""Writer (FakeProvider) and renderer on a small synthetic run folder."""
+
+from __future__ import annotations
+
+import asyncio
+import zipfile
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+from markupsafe import escape
+from PIL import Image, ImageDraw
+from pydantic import HttpUrl
+
+from yoriqnoma_core.render import build
+from yoriqnoma_core.text_uz import normalize_uz
+from yoriqnoma_core.writer import write_manual
+from yoriqnoma_core.writer.assemble import element_marker
+from yoriqnoma_core.writer.cache import LLMCache, cached_generate
+from yoriqnoma_core.writer.providers import FakeProvider, LLMRequest
+from yoriqnoma_core.writer.templates_uz import step_sentence
+from yoriqnoma_core.writer.validate import check_text, known_set, name_matches
+from yoriqnoma_schemas import (
+    BBox,
+    Blueprint,
+    CaptureRun,
+    Element,
+    Flow,
+    FlowResult,
+    Policy,
+    RoleInfo,
+    State,
+    Step,
+    Target,
+    save_json,
+)
+from yoriqnoma_schemas.manual import Manual
+
+NOW = datetime(2026, 11, 8, tzinfo=UTC)
+
+
+def _image(path: Path, text: str) -> None:
+    img = Image.new("RGB", (1280, 800), "white")
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((400, 300, 700, 340), outline="black")
+    draw.text((410, 310), text, fill="black")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path)
+
+
+def make_run(tmp: Path, guest_only: bool = False) -> Path:
+    roles = [
+        RoleInfo(id="guest", label="Mehmon", kind="guest", reason="r", source="s"),
+        RoleInfo(
+            id="customer", label="Mijoz", kind="role", reason="r", source="s", self_signup=True
+        ),
+    ]
+    steps = [
+        Step(action="goto", path="/register"),
+        Step(action="fill", target=Target(label="Email"), data="fake:email"),
+        Step(action="click", target=Target(role="button", name="Yuboriş")),
+    ]
+    flows = [
+        Flow(
+            id="guest.page.home",
+            title="Bosh sahifa",
+            stage="core",
+            role="guest",
+            source="s",
+            steps=[Step(action="goto", path="/")],
+        )
+    ]
+    if not guest_only:
+        flows.append(
+            Flow(
+                id="customer.register",
+                title="Ro'yxatdan o'tish",
+                stage="start",
+                role="customer",
+                action="register",
+                source="s",
+                steps=steps,
+            )
+        )
+    bp = Blueprint(
+        project="t",
+        base_url=HttpUrl("http://127.0.0.1:8800/"),
+        source="code",
+        generated_at=NOW,
+        generator="test",
+        policy=Policy(target_role="customer"),
+        roles=roles,
+        flows=flows,
+        nav=[{"label": "Ro'yxat", "path": "/register"}],
+    )
+    run = tmp / "run"
+    save_json(run / "blueprint.json", bp)
+    els = [
+        Element(
+            marker=1,
+            role="textbox",
+            name="Email",
+            bbox=BBox(x=400, y=300, w=300, h=40),
+            selector=Target(label="Email"),
+            kind="input",
+        ),
+        Element(
+            marker=2,
+            role="button",
+            name="Yuboriş",
+            bbox=BBox(x=400, y=400, w=120, h=40),
+            selector=Target(role="button", name="Yuboriş"),
+            kind="button",
+        ),
+    ]
+    states = []
+    for sid, idx in (("s001", 1), ("s002", 2), ("s003", 3), ("s004", 1)):
+        _image(run / "capture" / "images" / f"{sid}_clean.png", sid)
+        _image(run / "capture" / "images" / f"{sid}_som.png", sid)
+        states.append(
+            State(
+                id=sid,
+                hash=sid,
+                url="http://127.0.0.1:8800/register",
+                title="t",
+                flow_id="guest.page.home" if sid == "s004" else "customer.register",
+                step_index=idx,
+                account="A",
+                images={"clean": f"images/{sid}_clean.png", "som": f"images/{sid}_som.png"},
+                elements=els,
+            )
+        )
+    results = [FlowResult(flow_id="guest.page.home", status="verified", state_ids=["s004"])]
+    if not guest_only:
+        results.append(
+            FlowResult(
+                flow_id="customer.register", status="verified", state_ids=["s001", "s002", "s003"]
+            )
+        )
+    else:
+        states = [s for s in states if s.id == "s004"]
+    cap = CaptureRun(
+        run_id="r",
+        blueprint_hash="h",
+        role="customer",
+        role_label="Mijoz",
+        base_url=HttpUrl("http://127.0.0.1:8800/"),
+        environment="staging",
+        started_at=NOW,
+        flows=results,
+        states=states,
+    )
+    save_json(run / "capture" / "capture.json", cap)
+    return run
+
+
+def test_manual_has_nine_sections_and_renders(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    manual, stats = asyncio.run(write_manual(run, FakeProvider()))
+
+    assert [s.stage for s in manual.sections][:9] == [
+        "start",
+        "core",
+        "manage",
+        "social",
+        "payment",
+        "settings",
+        "exit",
+        "reference",
+        "faq",
+    ]
+    start = manual.sections[0]
+    assert "«Mijoz» roli uchun" in start.intro and "ro'yxatdan" in start.intro
+    article = start.articles[0]
+    assert article.steps[1].text == "«Email» maydoniga email manzilingizni kiriting ①."
+    assert article.steps[2].markers == [2] and "«Yuboriş»" in article.steps[2].text
+    assert stats.calls > 0 and manual.coverage.percent
+
+    result = build(run, {"html", "docx"})
+    html = result.files["html"].read_text(encoding="utf-8")
+    assert all(str(escape(s.title)) in html for s in manual.sections)
+    assert (result.out_dir / "html" / "assets" / "search_index.json").is_file()
+    with zipfile.ZipFile(result.files["docx"]) as zf:
+        document = zf.read("word/document.xml").decode("utf-8")
+    assert document.count('w:val="Heading1"') == len(manual.sections) + 1  # + Mundarija
+
+
+def test_guest_only_site_still_has_nine_sections(tmp_path: Path) -> None:
+    run = make_run(tmp_path, guest_only=True)
+    manual, _ = asyncio.run(write_manual(run, FakeProvider()))
+    empty = [s for s in manual.sections if s.empty_reason]
+
+    assert len([s for s in manual.sections if s.stage != "unverified"]) == 9
+    assert {s.stage for s in empty} >= {"start", "manage", "social", "payment", "exit"}
+    assert all("topilmadi" in s.intro for s in empty)
+    reasons = [i.reason for i in manual.coverage.items if i.kind == "section" and not i.covered]
+    assert reasons and all(reasons)
+
+
+def test_validate_names_in_both_alphabets() -> None:
+    known = known_set(["Yuboriş", "Özbekça", "Ro'yxatdan o'tish"])
+
+    assert name_matches("Yuborish", known)
+    assert name_matches("O'zbekcha", known)
+    soft, hard = check_text("«Yuborish» tugmasini bosing, keyin «Mavjud emas».", known, [])
+    assert soft == ["«Mavjud emas» nomi sahifada topilmadi"] and hard == []
+    _, hard = check_text("Admin panelga kiring: ali@mail.uz", known, [])
+    assert len(hard) == 2
+
+
+def test_step_templates() -> None:
+    fill = Step(
+        action="fill", target=Target(label="Parol"), data="fake:password", rules="min:8|max:64"
+    )
+    phone = Step(action="fill", target=Target(label="Telefon raqami"), data="fake:phone_uz")
+    confirm = Step(action="click", target=Target(role="button", name="Ha"), confirm=True)
+
+    assert (
+        step_sentence(fill, 3, None)
+        == "«Parol» maydoniga parolingizni (kamida 8 ta belgi) kiriting ③."
+    )
+    assert "+998901234567" in (step_sentence(phone, None, None) or "")
+    assert step_sentence(confirm, 1, None) == "Tasdiqlash oynasida «Ha» tugmasini bosing ①."
+    assert step_sentence(Step(action="expect_url", path="/x"), None, None) is None
+
+
+def test_marker_lookup_tolerates_alphabets() -> None:
+    state = State(
+        id="s",
+        hash="h",
+        url="u",
+        title="t",
+        account="A",
+        images={"clean": "a", "som": "b"},
+        elements=[
+            Element(
+                marker=4,
+                role="button",
+                name="Yuboriş",
+                bbox=BBox(x=0, y=0, w=1, h=1),
+                selector=Target(css="b"),
+                kind="button",
+            )
+        ],
+    )
+    step = Step(action="click", target=Target(role="button", name="Yuboriş"))
+
+    assert element_marker(state, step) == 4
+    assert normalize_uz("Yuboriş") == "yuborish"
+
+
+def test_cache_hit_skips_the_provider(tmp_path: Path) -> None:
+    provider = FakeProvider()
+    cache = LLMCache(tmp_path)
+    req = LLMRequest(task="faq", system="s", prompt="p")
+    from yoriqnoma_core.writer.answers import FAQAnswer
+
+    first = asyncio.run(cached_generate(provider, cache, req, FAQAnswer, "1"))
+    second = asyncio.run(cached_generate(provider, cache, req, FAQAnswer, "1"))
+
+    assert not first.cached and second.cached
+    assert len(provider.calls) == 1
+    asyncio.run(cached_generate(provider, cache, req, FAQAnswer, "2"))
+    assert len(provider.calls) == 2  # new prompt version -> new call
+
+
+@pytest.mark.slow
+def test_pdf_and_js_search_normalization(tmp_path: Path) -> None:
+    from playwright.sync_api import sync_playwright
+
+    run = make_run(tmp_path)
+    asyncio.run(write_manual(run, FakeProvider()))
+    result = build(run, {"html", "pdf"})
+    assert result.files["pdf"].stat().st_size > 1000
+    samples = ["Öçiriş", "O‘CHIRISH", "oʻchirish", "Yuboriş", "Tölaş", "  Ğalaba  ", "Şahar"]
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page()
+        page.goto(result.files["html"].resolve().as_uri())
+        got = [page.evaluate("s => window.normalizeUz(s)", s) for s in samples]
+        browser.close()
+    assert got == [normalize_uz(s) for s in samples]
+
+
+@pytest.mark.llm
+def test_ollama_answers_in_schema() -> None:
+    from yoriqnoma_core.writer.answers import FlowDescription
+    from yoriqnoma_core.writer.providers import OllamaProvider
+
+    provider = OllamaProvider()
+    provider.check()
+    req = LLMRequest(
+        task="describe_flow",
+        system="O'zbek tilida yozing.",
+        prompt="Vazifa: «Ro'yxatdan o'tish». purpose va notes yozing.",
+    )
+    result = asyncio.run(provider.generate(req, FlowDescription))
+
+    assert result.data.purpose
+
+
+def test_manual_example_still_valid() -> None:
+    path = (
+        Path(__file__).resolve().parents[4]
+        / "docs"
+        / "schemas"
+        / "examples"
+        / "manual.example.json"
+    )
+    if path.exists():
+        Manual.model_validate_json(path.read_text(encoding="utf-8"))

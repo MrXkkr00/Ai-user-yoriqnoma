@@ -1,0 +1,7 @@
+Obyekt: «{{ entity_label }}». Uning statuslari (saytdagi nomi bilan):
+{% for s in statuses %}- {{ s.value }}: «{{ s.label }}»{% if s.own %} — buni siz o'zingiz qilasiz{% else %} — buni boshqa xodim yoki sayt qiladi{% endif %}
+{% endfor %}
+rows ro'yxatida aynan {{ statuses | length }} ta qator bo'lsin, yuqoridagi tartibda. Har biri uchun yozing:
+- status: saytdagi nomi aynan («...» belgilarisiz);
+- meaning: bu status nimani bildiradi (1 gap);
+- what_you_can_do: «{{ role_label }}» bu holatda nima qila oladi yoki nimani kutadi (1 gap).
