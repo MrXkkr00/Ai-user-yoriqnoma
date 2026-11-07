@@ -1,0 +1,87 @@
+{
+  "title": "Xabarlar ro'yxatini ko'rish",
+  "role": "customer",
+  "url": "/app/messages",
+  "steps": [
+    "Saytda /app/messages sahifasini oching."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kabinet"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Buyurtmalarim"
+    },
+    {
+      "marker": 5,
+      "role": "link",
+      "name": "Xabarlar"
+    },
+    {
+      "marker": 6,
+      "role": "link",
+      "name": "Profil"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "Sozlamalar"
+    },
+    {
+      "marker": 8,
+      "role": "button",
+      "name": "Chiqish"
+    },
+    {
+      "marker": 9,
+      "role": "textbox",
+      "name": "Qabul qiluvchi emaili"
+    },
+    {
+      "marker": 10,
+      "role": "textbox",
+      "name": "Xabar matni"
+    },
+    {
+      "marker": 11,
+      "role": "button",
+      "name": "Xabar yuborish"
+    },
+    {
+      "marker": 12,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 13,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "xabarlar"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

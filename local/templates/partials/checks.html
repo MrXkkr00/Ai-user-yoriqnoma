@@ -1,0 +1,8 @@
+<ul class="checks">
+  {% for c in checks %}
+  <li class="{% if c.ok %}ok{% else %}bad{% endif %}">
+    <strong>{{ c.name }}:</strong> {{ c.message }}
+    {% if c.fix %}<div class="fix">{{ c.fix }}</div>{% endif %}
+  </li>
+  {% endfor %}
+</ul>

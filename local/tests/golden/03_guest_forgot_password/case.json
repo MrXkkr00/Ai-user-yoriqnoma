@@ -1,0 +1,65 @@
+{
+  "title": "Parolni tiklash",
+  "role": "customer",
+  "url": "/forgot-password",
+  "steps": [
+    "Saytda /forgot-password sahifasini oching.",
+    "«Email» maydoniga email manzilingizni kiriting.",
+    "«Kod yuborish» tugmasini bosing."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kirish"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 5,
+      "role": "textbox",
+      "name": "Email"
+    },
+    {
+      "marker": 6,
+      "role": "button",
+      "name": "Kod yuborish"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 8,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "parolni",
+      "tiklash"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

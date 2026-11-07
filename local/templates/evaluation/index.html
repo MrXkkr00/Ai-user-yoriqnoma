@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Modellarni solishtirish{% endblock %}
+{% block content %}
+<h1>Modellarni solishtirish</h1>
+<p>Oltin to'plam: {{ cases }} ta holat. Har model uchun sxema xatolari, nom xatolari, kalit so'zlar qamrovi, taqiqlangan so'zlar va o'rtacha vaqt o'lchanadi.</p>
+<form method="post" class="card">
+  {% csrf_token %}
+  {% for m in models %}<label class="inline"><input type="checkbox" name="models" value="{{ m }}" {% if m == current %}checked{% endif %}> {{ m }}</label>{% empty %}<p class="warn">Ollama modellari topilmadi.</p>{% endfor %}
+  <button type="submit">Solishtirishni boshlash</button>
+</form>
+<h2>Oldingi natijalar</h2>
+<table><tr><th>№</th><th>Modellar</th><th>Holat</th><th>Sana</th></tr>
+  {% for r in runs %}<tr><td><a href="{% url 'eval-detail' r.pk %}">{{ r.pk }}</a></td><td>{{ r.model_names|join:", " }}</td><td>{{ r.get_status_display }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td></tr>{% empty %}<tr><td colspan="4" class="muted">Hali yo'q.</td></tr>{% endfor %}
+</table>
+{% endblock %}

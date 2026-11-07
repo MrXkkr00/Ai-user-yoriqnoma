@@ -1,0 +1,103 @@
+{
+  "title": "Buyurtma berish",
+  "role": "customer",
+  "url": "/app/orders/new",
+  "steps": [
+    "Saytda /app/orders/new sahifasini oching.",
+    "«Mahsulot» ro'yxatidan kerakli variantni tanlang.",
+    "«Miqdor» maydoniga sonni kiriting.",
+    "«Yetkazish manzili» maydoniga manzilni kiriting.",
+    "«Telefon raqami» maydoniga telefon raqamingizni +998901234567 ko'rinishida kiriting.",
+    "«Buyurtma berish» tugmasini bosing."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kabinet"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Buyurtmalarim"
+    },
+    {
+      "marker": 5,
+      "role": "link",
+      "name": "Xabarlar"
+    },
+    {
+      "marker": 6,
+      "role": "link",
+      "name": "Profil"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "Sozlamalar"
+    },
+    {
+      "marker": 8,
+      "role": "button",
+      "name": "Chiqish"
+    },
+    {
+      "marker": 9,
+      "role": "combobox",
+      "name": "Mahsulot"
+    },
+    {
+      "marker": 10,
+      "role": "spinbutton",
+      "name": "Miqdor"
+    },
+    {
+      "marker": 11,
+      "role": "textbox",
+      "name": "Yetkazish manzili"
+    },
+    {
+      "marker": 12,
+      "role": "textbox",
+      "name": "Telefon raqami"
+    },
+    {
+      "marker": 13,
+      "role": "button",
+      "name": "Buyurtma berish"
+    },
+    {
+      "marker": 14,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 15,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "buyurtma",
+      "berish"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

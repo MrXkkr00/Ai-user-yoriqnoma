@@ -1,0 +1,101 @@
+{
+  "title": "Buyurtmani bekor qilish",
+  "role": "customer",
+  "url": "/app/orders/7",
+  "steps": [
+    "Kerakli yozuvni ro'yxatdan tanlab, uning sahifasini oching.",
+    "«Bekor qilish» tugmasini bosing.",
+    "Tasdiqlash oynasida «Ha, bekor qilish» tugmasini bosing."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kabinet"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Buyurtmalarim"
+    },
+    {
+      "marker": 5,
+      "role": "link",
+      "name": "Xabarlar"
+    },
+    {
+      "marker": 6,
+      "role": "link",
+      "name": "Profil"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "Sozlamalar"
+    },
+    {
+      "marker": 8,
+      "role": "button",
+      "name": "Chiqish"
+    },
+    {
+      "marker": 9,
+      "role": "tab",
+      "name": "Tafsilotlar"
+    },
+    {
+      "marker": 10,
+      "role": "tab",
+      "name": "Tarix"
+    },
+    {
+      "marker": 11,
+      "role": "button",
+      "name": "To'lash"
+    },
+    {
+      "marker": 12,
+      "role": "button",
+      "name": "Bekor qilish"
+    },
+    {
+      "marker": 13,
+      "role": "link",
+      "name": "Chekni yuklab olish"
+    },
+    {
+      "marker": 14,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 15,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "buyurtmani",
+      "bekor",
+      "qilish"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

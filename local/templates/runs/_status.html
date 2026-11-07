@@ -1,0 +1,49 @@
+<div id="status" {% if not run.finished %}hx-get="{% url 'run-status' run.pk %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <div class="card">
+    <p><span class="badge s-{{ run.status }}">{{ run.get_status_display }}</span>
+      {% if run.stage %} · bosqich: <strong>{{ run.get_stage_display }}</strong>{% endif %}
+      {% if run.model and run.output == "full" %} · model: {{ run.model }}{% endif %}</p>
+    <ol class="stages">
+      {% for key, label in stages %}<li class="{% if run.stage == key %}current{% endif %}">{{ label }}</li>{% endfor %}
+    </ol>
+    {% if not run.finished %}
+      <div class="progress"><div style="width: {{ run.percent }}%"></div></div>
+      <p class="small muted">{{ run.progress_done }} / {{ run.progress_total }}</p>
+      <form method="post" action="{% url 'run-cancel' run.pk %}">{% csrf_token %}<button class="danger" type="submit">Bekor qilish</button></form>
+    {% endif %}
+    {% if run.error %}<div class="error">{{ run.error }}</div>{% endif %}
+    {% if run.status == "failed" or run.status == "cancelled" %}
+      <form method="post" action="{% url 'run-resume' run.pk %}">{% csrf_token %}<button type="submit">Davom ettirish</button></form>
+    {% endif %}
+  </div>
+
+  {% if pending %}
+  <div class="card warnbox">
+    <strong>Ma'lumot kerak:</strong> {{ pending.message }}
+    <form method="post" action="{% url 'run-input' run.pk pending.pk %}">{% csrf_token %}
+      <input name="value" autocomplete="off" required aria-label="Javob"> <button type="submit">Yuborish</button></form>
+  </div>
+  {% endif %}
+
+  {% if run.status == "done" %}
+  <div class="card">
+    <h2>Natijalar</h2>
+    {% if run.stats %}<p class="small">{% for k, v in run.stats.items %}{{ k }}: <b>{{ v }}</b>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    <ul class="files">
+      {% for f in files %}
+      <li><a href="{% url 'run-file' run.pk f.rel %}" {% if f.rel == "dist/html/index.html" %}target="_blank"{% endif %}>{{ f.label }}</a>
+        <span class="muted small">{{ f.size|filesizeformat }}{% if f.sha256 %} · sha256: <code>{{ f.sha256|slice:":16" }}…</code>{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% if run.output != "full" %}
+      <p class="note">Bu faylni server sahifasidagi «Yangi ish» formasida yuklang. Lokal dastur serverga o'zi ulanmaydi.</p>
+    {% endif %}
+    <form method="post" action="{% url 'run-open-folder' run.pk %}">{% csrf_token %}<button class="secondary" type="submit">Papkani ochish</button></form>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Jurnal</h2>
+    <ol class="log">{% for e in events %}<li class="lvl-{{ e.level }}"><span class="muted small">{{ e.at|date:"H:i:s" }}</span> {{ e.message }}</li>{% empty %}<li class="muted">Hali yozuv yo'q.</li>{% endfor %}</ol>
+  </div>
+</div>

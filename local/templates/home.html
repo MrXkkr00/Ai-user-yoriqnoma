@@ -4,10 +4,26 @@
 {% block content %}
 <section class="hero">
   <h1>{% translate "Salom!" %}</h1>
-  <p>{% translate "Bu dastur saytni o'rganadi va oddiy foydalanuvchi uchun rasmli yo'riqnoma tayyorlaydi." %}</p>
+  <p>{% translate "Bu dastur saytni o'rganadi va administratordan boshqa har bir rol uchun rasmli yo'riqnoma tayyorlaydi." %}</p>
+  <a class="button" href="{% url 'project-new' %}">+ {% translate "Yangi loyiha" %}</a>
 </section>
 
 <section class="card" hx-get="{% url 'system-status' %}" hx-trigger="load" hx-swap="innerHTML">
   <p class="muted">{% translate "Tizim holati yuklanmoqda..." %}</p>
 </section>
+
+<h2>{% translate "Loyihalar" %}</h2>
+{% if projects %}
+<div class="grid">
+  {% for p in projects %}
+  <a class="card project-card" href="{% url 'project-detail' p.pk %}">
+    <h3>{{ p.name }}</h3>
+    <p class="muted">{{ p.base_url }}</p>
+    <p class="muted">{% if p.source_dir %}{% translate "Kod papkasi bor" %}{% else %}{% translate "Kodsiz loyiha" %}{% endif %} · {{ p.get_environment_display }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">{% translate "Hali loyiha yo'q." %}</p>
+{% endif %}
 {% endblock %}

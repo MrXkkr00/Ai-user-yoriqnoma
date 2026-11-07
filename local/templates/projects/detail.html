@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<div class="row">
+  <div>
+    <h1>{{ project.name }}</h1>
+    <p class="muted">{{ project.base_url }} · {{ project.get_environment_display }}{% if project.source_dir %} · <code>{{ project.source_dir }}</code>{% endif %}</p>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'project-edit' project.pk %}">Tahrirlash</a>
+    {% if project.source_dir %}
+    <form method="post" action="{% url 'project-scan' project.pk %}">{% csrf_token %}<button type="submit">Skanerlash</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<section class="card">
+  <h2>Blueprint</h2>
+  {% if version %}
+    <p>{{ version.get_source_display }} · {{ version.created_at|date:"Y-m-d H:i" }}
+      {% if version.stats %}· flow'lar: {{ version.stats.flows }} · sahifalar: {{ version.stats.pages }}{% endif %}</p>
+    <div class="actions">
+      <a class="button secondary" href="{% url 'blueprint' project.pk %}">Ko'rib chiqish</a>
+      <a class="button" href="{% url 'run-new' project.pk %}">Ishga tushirish</a>
+    </div>
+  {% else %}
+    <p class="muted">Hali blueprint yo'q. {% if project.source_dir %}«Skanerlash» tugmasini bosing{% else %}blueprint.json yuklang{% endif %}.</p>
+  {% endif %}
+  <details class="small"><summary>Tayyor blueprint.json yuklash</summary>
+    <form method="post" enctype="multipart/form-data" action="{% url 'blueprint-upload' project.pk %}">
+      {% csrf_token %}{{ upload_form.file }} <button type="submit">Yuklash</button>
+    </form>
+  </details>
+</section>
+
+{% if roles %}
+<section class="card">
+  <h2>Rollar</h2>
+  <ul class="roles">
+    {% for r in roles %}
+    <li class="{% if r.selectable %}ok{% else %}excluded{% endif %}"><strong>{{ r.label }}</strong> <code>{{ r.id }}</code> —
+      {% if r.selectable %}{{ r.account_note }}{% else %}chiqarib tashlangan: {{ r.reason }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Test akkauntlar</h2>
+  <div class="warn small">Test akkauntning o'z ma'lumotlari yo'riqnomada o'zgarmasdan ko'rinadi — unga haqiqiy odamning ma'lumotlarini yozmang.</div>
+  {% if accounts %}
+  <table><tr><th>Rol</th><th>Akkaunt</th><th>Login</th><th></th></tr>
+    {% for a in accounts %}<tr><td>{{ a.role }}</td><td>{{ a.alias }}</td><td>{{ a.login }}</td>
+      <td><form method="post" action="{% url 'account-delete' project.pk a.pk %}">{% csrf_token %}<button class="link" type="submit">o'chirish</button></form></td></tr>{% endfor %}
+  </table>
+  {% endif %}
+  <form method="post" action="{% url 'account-add' project.pk %}" class="inline-form">
+    {% csrf_token %}
+    {% for field in account_form %}<label>{{ field.label }} {{ field }}</label>{% endfor %}
+    <button type="submit">Qo'shish</button>
+  </form>
+  <p class="muted small">O'zi ro'yxatdan o'ta oladigan rol (masalan, mijoz) uchun akkaunt shart emas.</p>
+</section>
+
+<section class="card">
+  <h2>Ishlar tarixi</h2>
+  {% if runs %}
+  <table><tr><th>№</th><th>Natija turi</th><th>Rol</th><th>Holat</th><th>Sana</th></tr>
+    {% for r in runs %}<tr><td><a href="{% url 'run-detail' r.pk %}">{{ r.pk }}</a></td><td>{{ r.get_output_display }}</td><td>{{ r.role|default:"—" }}</td>
+      <td><span class="badge s-{{ r.status }}">{{ r.get_status_display }}</span></td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="muted">Hali ish yo'q.</p>{% endif %}
+</section>
+{% endblock %}

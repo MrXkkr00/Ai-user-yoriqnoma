@@ -1,0 +1,115 @@
+{
+  "title": "Bildirishnomalarni saqlash",
+  "role": "customer",
+  "url": "/app/settings",
+  "steps": [
+    "Saytda /app/settings sahifasini oching.",
+    "«Email orqali xabar olish» belgisini qo'ying.",
+    "«Bildirishnomalarni saqlash» tugmasini bosing."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kabinet"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Buyurtmalarim"
+    },
+    {
+      "marker": 5,
+      "role": "link",
+      "name": "Xabarlar"
+    },
+    {
+      "marker": 6,
+      "role": "link",
+      "name": "Profil"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "Sozlamalar"
+    },
+    {
+      "marker": 8,
+      "role": "button",
+      "name": "Chiqish"
+    },
+    {
+      "marker": 9,
+      "role": "textbox",
+      "name": "Joriy parol"
+    },
+    {
+      "marker": 10,
+      "role": "textbox",
+      "name": "Yangi parol"
+    },
+    {
+      "marker": 11,
+      "role": "button",
+      "name": "Parolni yangilash"
+    },
+    {
+      "marker": 12,
+      "role": "checkbox",
+      "name": "Email orqali xabar olish"
+    },
+    {
+      "marker": 13,
+      "role": "button",
+      "name": "Bildirishnomalarni saqlash"
+    },
+    {
+      "marker": 14,
+      "role": "combobox",
+      "name": "Interfeys tili"
+    },
+    {
+      "marker": 15,
+      "role": "button",
+      "name": "Tilni saqlash"
+    },
+    {
+      "marker": 16,
+      "role": "link",
+      "name": "Hisobni o'chirish"
+    },
+    {
+      "marker": 17,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 18,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "bildirishnomalarni",
+      "saqlash"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

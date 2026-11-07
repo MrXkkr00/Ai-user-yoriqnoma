@@ -1,5 +1,11 @@
+import pytest
 from django.contrib.staticfiles import finders
 from django.test import Client
+
+from yoriqnoma_local import views
+from yoriqnoma_local.health import Check
+
+pytestmark = pytest.mark.django_db
 
 
 def test_home_page_greets_in_uzbek_and_loads_htmx(client: Client) -> None:
@@ -22,11 +28,20 @@ def test_htmx_is_served_locally_without_cdn() -> None:
         assert fh.read(64).startswith("var htmx=")
 
 
-def test_system_status_partial(client: Client) -> None:
+def test_system_status_partial(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        views,
+        "all_checks",
+        lambda host, model: [
+            Check("Ollama", True, "ishlayapti"),
+            Check("Model", False, "«x» o'rnatilmagan", "Terminalda: ollama pull x"),
+        ],
+    )
     response = client.get("/system-status/")
 
+    body = response.content.decode()
     assert response.status_code == 200
-    assert "Tizim holati" in response.content.decode()
+    assert "Tizim holati" in body and "ollama pull x" in body
 
 
 def test_pages_reject_post(client: Client) -> None:
@@ -37,3 +52,17 @@ def test_unknown_host_is_rejected(client: Client) -> None:
     response = client.get("/", HTTP_HOST="evil.example.com")
 
     assert response.status_code == 400
+
+
+def test_settings_page(client: Client) -> None:
+    assert client.get("/settings/").status_code == 200
+    bad = client.post(
+        "/settings/",
+        {
+            "ollama_host": "http://127.0.0.1:11434",
+            "ollama_model": "gemma4:26b",
+            "num_ctx": "100",
+            "language": "uz",
+        },
+    )
+    assert "4096" in bad.content.decode()

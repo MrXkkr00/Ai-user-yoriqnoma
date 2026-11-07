@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Yangi ish — {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Yangi ish: {{ project.name }}</h1>
+<form method="post">
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<div class="error">{{ e }}</div>{% endfor %}
+  <h2>Saytda administratordan boshqa {{ usable_count }} ta rol topildi. Qaysi rol uchun yo'riqnoma yozay?</h2>
+  <div class="grid">
+    {% for o in options %}
+    <label class="card option {% if not o.selectable %}disabled{% endif %}">
+      {% if o.selectable %}<input type="checkbox" name="roles" value="{{ o.id }}" {% if o.self_signup %}checked{% endif %}>{% endif %}
+      <strong>{{ o.label }}</strong> <code>{{ o.id }}</code>
+      {% if o.selectable %}
+        <p class="small">{{ o.description }}</p>
+        <p class="small">Sahifalar: {{ o.pages }} · vazifalar: {{ o.flows }}</p>
+        <p class="small {% if not o.self_signup and not o.has_account %}warn{% endif %}">{{ o.account_note }}</p>
+      {% else %}
+        <p class="small muted">Tanlab bo'lmaydi: {{ o.reason }}</p>
+      {% endif %}
+    </label>
+    {% endfor %}
+  </div>
+  <p class="muted small">Har bir tanlangan rol uchun alohida yo'riqnoma yoziladi.</p>
+
+  <h2>Natija turi</h2>
+  <div class="grid three">
+    <label class="card option"><input type="radio" name="output" value="full" checked>
+      <strong>To'liq yo'riqnoma</strong><p class="small">Lokal, Ollama bilan. HTML, PDF, DOCX. Taxminan 5–30 daqiqa.</p></label>
+    <label class="card option"><input type="radio" name="output" value="blueprint">
+      <strong>Blueprint (server A uchun)</strong><p class="small">Faqat blueprint.json — darhol. Serverga o'zingiz yuklaysiz.</p></label>
+    <label class="card option"><input type="radio" name="output" value="bundle">
+      <strong>Bundle (server A' uchun)</strong><p class="small">Sayt o'rganiladi, bundle.zip tayyorlanadi (ichki tarmoqdagi sayt uchun).</p></label>
+  </div>
+
+  <div class="card full-only">
+    <label>Model {{ form.model }}</label>
+    <div>Formatlar: {% for c in form.formats %}<label class="inline">{{ c.tag }} {{ c.choice_label }}</label>{% endfor %}</div>
+  </div>
+  <button type="submit">Boshlash</button>
+</form>
+{% endblock %}

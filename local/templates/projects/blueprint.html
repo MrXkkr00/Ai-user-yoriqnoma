@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Blueprint — {{ project.name }}{% endblock %}
+{% block content %}
+<div class="row">
+  <h1>Blueprint: {{ project.name }}</h1>
+  <a class="button" href="{% url 'run-new' project.pk %}">Ishga tushirish</a>
+</div>
+<p class="muted">Rollar: {{ bp.roles|length }} · sahifa va API: {{ bp.pages|length }} · chiqarib tashlangan: {{ bp.excluded|length }} · formalar: {{ bp.forms|length }} · flow'lar: {{ bp.flows|length }} (asl: {{ raw.flows|length }})</p>
+<nav class="tabs">
+  {% for key, label in tabs %}<a href="?tab={{ key }}" class="{% if tab == key %}active{% endif %}">{{ label }}</a>{% endfor %}
+</nav>
+{% if notes %}<details class="small"><summary>O'zgartirishlar ({{ notes|length }})</summary><ul>{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul></details>{% endif %}
+
+{% if tab == "roles" %}
+<table>
+  <tr><th>Rol</th><th>Nomi</th><th>Tasnif</th><th>O'zi ro'yxatdan o'tadimi</th><th>Sabab</th><th>Manba</th></tr>
+  {% for r in raw.roles %}<tr class="{% if r.kind == 'excluded' %}excluded{% endif %}"><td><code>{{ r.id }}</code></td><td>{{ r.label }}</td><td>{{ r.kind }}</td><td>{{ r.self_signup|yesno:"ha,yo'q" }}</td><td>{{ r.reason }}</td><td class="small"><code>{{ r.source }}</code></td></tr>{% endfor %}
+</table>
+<p class="muted small">Chiqarib tashlangan rollar uchun yo'riqnoma yozilmaydi va ularni qaytarib bo'lmaydi (default-deny).</p>
+
+{% elif tab == "pages" %}
+<table>
+  <tr><th>Yo'l</th><th>Turi</th><th>Kim kiradi</th><th>Sabab</th><th>Chiqarish</th></tr>
+  {% for p in raw.pages %}{% if p.kind == "page" %}
+  <tr class="{% if p.path in excluded_pages %}excluded{% endif %}"><td><code>{{ p.path }}</code></td><td>{{ p.kind }}</td>
+    <td>{% if p.access == "guest" %}mehmon{% else %}{{ p.roles|join:", " }}{% endif %}</td><td class="small">{{ p.reason }}</td>
+    <td><form hx-post="{% url 'blueprint-override' project.pk %}" hx-swap="none">
+      <input type="hidden" name="kind" value="exclude_pages"><input type="hidden" name="key" value="{{ p.path }}">
+      <input type="hidden" name="value" value="{% if p.path in excluded_pages %}0{% else %}1{% endif %}">
+      <button class="link" type="submit">{% if p.path in excluded_pages %}qaytarish{% else %}chiqarish{% endif %}</button></form></td></tr>
+  {% endif %}{% endfor %}
+</table>
+
+{% elif tab == "entities" %}
+{% for e in bp.entities %}
+<div class="card"><h3>{{ e.name }}</h3>
+  <p class="small">Egasi: <code>{{ e.owner_field|default:"—" }}</code> · amallar: {{ e.actions|join:", " }}{% if e.pii_fields %} · almashtiriladigan maydonlar: {{ e.pii_fields|join:", " }}{% endif %}</p>
+  {% if e.statuses %}<table><tr><th>Status</th><th>Nomi</th><th>Kim o'rnata oladi</th></tr>
+    {% for s in e.statuses %}<tr><td><code>{{ s.value }}</code></td><td>{{ s.label|default:"—" }}</td><td>{{ s.reachable_by|join:", "|default:"hech kim (faqat admin)" }}</td></tr>{% endfor %}</table>{% endif %}
+</div>
+{% empty %}<p class="muted">Obyekt topilmadi.</p>{% endfor %}
+
+{% elif tab == "flows" %}
+<table>
+  <tr><th>Flow</th><th>Nomi</th><th>Rol</th><th>Bosqich</th><th>Qadamlar</th><th>Chiqarish</th></tr>
+  {% for f in raw.flows %}
+  <tr class="{% if f.id not in kept_flows %}excluded{% endif %}"><td class="small"><code>{{ f.id }}</code></td>
+    <td><form hx-post="{% url 'blueprint-override' project.pk %}" hx-swap="none" class="rename">
+      <input type="hidden" name="kind" value="rename_flows"><input type="hidden" name="key" value="{{ f.id }}">
+      <input name="value" value="{% for k, v in renames.items %}{% if k == f.id %}{{ v }}{% endif %}{% endfor %}" placeholder="{{ f.title }}" aria-label="Flow nomi">
+      <button class="link" type="submit">saqlash</button></form></td>
+    <td>{{ f.role }}</td><td>{{ f.stage }}</td><td>{{ f.steps|length }}</td>
+    <td><form hx-post="{% url 'blueprint-override' project.pk %}" hx-swap="none">
+      <input type="hidden" name="kind" value="exclude_flows"><input type="hidden" name="key" value="{{ f.id }}">
+      <input type="hidden" name="value" value="{% if f.id in excluded_flows %}0{% else %}1{% endif %}">
+      <button class="link" type="submit">{% if f.id in excluded_flows %}qaytarish{% elif f.id in kept_flows %}chiqarish{% else %}(bog'liq){% endif %}</button></form></td></tr>
+  {% endfor %}
+</table>
+
+{% elif tab == "excluded" %}
+<table>
+  <tr><th>Yo'l</th><th>Turi</th><th>Metod</th><th>Sabab</th></tr>
+  {% for p in raw.excluded %}<tr><td><code>{{ p.path }}</code></td><td>{{ p.kind }}</td><td>{{ p.methods|join:", " }}</td><td class="small">{{ p.reason }}</td></tr>{% endfor %}
+</table>
+
+{% elif tab == "report" %}
+<pre class="report">{{ report|default:"Hisobot yo'q (blueprint qo'lda yuklangan)." }}</pre>
+{% endif %}
+{% endblock %}

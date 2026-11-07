@@ -1,0 +1,81 @@
+{
+  "title": "Tizimga kirish",
+  "role": "customer",
+  "url": "/login",
+  "steps": [
+    "Saytda /login sahifasini oching.",
+    "«Email» maydoniga email manzilingizni kiriting.",
+    "«Parol» maydoniga parolingizni kiriting.",
+    "«Kirish» tugmasini bosing."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kirish"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 5,
+      "role": "textbox",
+      "name": "Email"
+    },
+    {
+      "marker": 6,
+      "role": "textbox",
+      "name": "Parol"
+    },
+    {
+      "marker": 7,
+      "role": "button",
+      "name": "Kirish"
+    },
+    {
+      "marker": 8,
+      "role": "link",
+      "name": "Parolni unutdingizmi?"
+    },
+    {
+      "marker": 9,
+      "role": "link",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 10,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 11,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "tizimga",
+      "kirish"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

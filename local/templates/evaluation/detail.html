@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Solishtirish {{ run.pk }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'eval' %}">← Modellarni solishtirish</a></p>
+<h1>Solishtirish {{ run.pk }} <span class="badge s-{{ run.status }}">{{ run.get_status_display }}</span></h1>
+{% if run.status == "queued" or run.status == "running" %}<p class="muted" hx-get="" hx-trigger="every 3s" hx-select="main" hx-target="main">Bajarilmoqda...</p>{% endif %}
+{% if run.error %}<div class="error">{{ run.error }}</div>{% endif %}
+<table>
+  <tr><th>Model</th><th>Holatlar</th><th>Sxema xatosi</th><th>Nom xatosi</th><th>Kalit so'zlar</th><th>Taqiqlangan</th><th>O'rtacha vaqt, s</th><th>Baho (odam)</th><th></th></tr>
+  {% for model, m in run.summary.items %}
+  <tr><td><code>{{ model }}</code></td>
+    {% if m.error %}<td colspan="6" class="error">{{ m.error }}</td>{% else %}
+    <td>{{ m.cases }}</td><td>{{ m.schema_errors }}</td><td>{{ m.marker_errors }}</td><td>{{ m.keyword_coverage }}</td><td>{{ m.forbidden }}</td><td>{{ m.avg_seconds }}</td>{% endif %}
+    <td>{% for k, v in avg.items %}{% if k == model %}{{ v }}{% endif %}{% endfor %}</td>
+    <td>{% if model == current %}<span class="badge s-done">asosiy</span>{% else %}
+      <form method="post" action="{% url 'eval-primary' run.pk %}">{% csrf_token %}<input type="hidden" name="model" value="{{ model }}"><button class="link" type="submit">Asosiy model qilib belgilash</button></form>{% endif %}</td></tr>
+  {% endfor %}
+</table>
+<h2>Yonma-yon matnlar</h2>
+{% for case, samples in by_case.items %}
+<div class="card"><h3>{{ case }}</h3>
+  <div class="grid">{% for s in samples %}<div><p class="small"><code>{{ s.model }}</code> · {{ s.metrics.seconds }} s</p><p>{{ s.text|default:"—" }}</p>
+    <form method="post" action="{% url 'eval-score' run.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="sample" value="{{ s.pk }}">
+      {% for n in "12345" %}<label class="inline"><input type="radio" name="score" value="{{ n }}" {% if s.score|stringformat:"s" == n %}checked{% endif %}>{{ n }}</label>{% endfor %}
+      <button class="link" type="submit">baholash</button></form></div>{% endfor %}</div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,58 @@
+{
+  "title": "«Demo Shop» sahifasi",
+  "role": "customer",
+  "url": "/",
+  "steps": [
+    "Saytning bosh sahifasini oching."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kirish"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 5,
+      "role": "link",
+      "name": "Katalogni ko'rish"
+    },
+    {
+      "marker": 6,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "demo",
+      "shop"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

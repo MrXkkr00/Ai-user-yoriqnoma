@@ -1,0 +1,102 @@
+{
+  "title": "Mahsulotlar ro'yxatini ko'rish",
+  "role": "customer",
+  "url": "/catalog",
+  "steps": [
+    "Saytda /catalog sahifasini oching."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kirish"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 5,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 6,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 7,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 8,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 9,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 10,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 11,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 12,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 13,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 14,
+      "role": "link",
+      "name": "Batafsil"
+    },
+    {
+      "marker": 15,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 16,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "mahsulotlar"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

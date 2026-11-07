@@ -1,0 +1,90 @@
+{
+  "title": "Ro'yxatdan o'tish",
+  "role": "customer",
+  "url": "/register",
+  "steps": [
+    "Saytda /register sahifasini oching.",
+    "«To'liq ism» maydoniga to'liq ismingizni kiriting.",
+    "«Email» maydoniga email manzilingizni kiriting.",
+    "«Telefon raqami» maydoniga telefon raqamingizni +998901234567 ko'rinishida kiriting.",
+    "«Parol» maydoniga parolingizni kiriting.",
+    "Formani yuboring.",
+    "Emailingizga kelgan 6 xonali kodni «Tasdiqlash kodi» maydoniga kiriting.",
+    "«Tasdiqlash» tugmasini bosing."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Demo Shop"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Katalog"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Kirish"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 5,
+      "role": "textbox",
+      "name": "To'liq ism"
+    },
+    {
+      "marker": 6,
+      "role": "textbox",
+      "name": "Email"
+    },
+    {
+      "marker": 7,
+      "role": "textbox",
+      "name": "Telefon raqami"
+    },
+    {
+      "marker": 8,
+      "role": "textbox",
+      "name": "Parol"
+    },
+    {
+      "marker": 9,
+      "role": "button",
+      "name": "Ro'yxatdan o'tish"
+    },
+    {
+      "marker": 10,
+      "role": "link",
+      "name": "Kirish"
+    },
+    {
+      "marker": 11,
+      "role": "link",
+      "name": "info@demo-shop.uz"
+    },
+    {
+      "marker": 12,
+      "role": "link",
+      "name": "+998 71 200-00-00"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "ro'yxatdan",
+      "o'tish"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "parol: "
+    ]
+  }
+}

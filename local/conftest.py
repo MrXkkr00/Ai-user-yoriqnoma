@@ -1,4 +1,4 @@
-"""Shared fixtures: a running demo_shop (subprocess, port 8800 by default)."""
+"""Shared fixtures: an isolated var/ folder per test and a running demo_shop."""
 
 from __future__ import annotations
 
@@ -10,10 +10,23 @@ import time
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-DEMO_SHOP_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "demo_shop"
+
+@pytest.fixture(autouse=True)
+def _isolated_var(request: pytest.FixtureRequest, tmp_path: Path) -> None:
+    if "settings" not in request.fixturenames and not request.node.get_closest_marker("django_db"):
+        return
+    settings: Any = request.getfixturevalue("settings")
+    var = tmp_path / "var"
+    (var / "runs").mkdir(parents=True)
+    settings.VAR_DIR = var
+    settings.MEDIA_ROOT = var / "runs"
+
+
+DEMO_SHOP_DIR = Path(__file__).resolve().parent / "fixtures" / "demo_shop"
 
 
 def _free_port() -> int:

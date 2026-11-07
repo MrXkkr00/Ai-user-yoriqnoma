@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Ish {{ run.pk }} — {{ run.project.name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'project-detail' run.project.pk %}">← {{ run.project.name }}</a></p>
+<h1>Ish {{ run.pk }}: {{ run.get_output_display }}{% if run.role %} — «{{ run.role }}»{% endif %}</h1>
+{% include "runs/_status.html" %}
+{% endblock %}

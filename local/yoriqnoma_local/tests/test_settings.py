@@ -21,7 +21,10 @@ def test_language_and_timezone() -> None:
 
 
 def test_own_database_is_sqlite_in_var() -> None:
-    db = settings.DATABASES["default"]
+    # pytest-django swaps the live DB settings for a test database; read the file itself
+    import runpy
+
+    db = runpy.run_path(local_settings.__file__)["DATABASES"]["default"]
     assert db["ENGINE"] == "django.db.backends.sqlite3"
     assert Path(str(db["NAME"])) == local_settings.VAR_DIR / "local.sqlite3"
 

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{% if project %}{{ project.name }}{% else %}Yangi loyiha{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if project %}Loyihani tahrirlash{% else %}Yangi loyiha{% endif %}</h1>
+<form method="post" class="card form">
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<div class="muted small">{{ field.help_text }}</div>{% endif %}
+      {% for e in field.errors %}<div class="error">{{ e }}</div>{% endfor %}
+    </div>
+  {% endfor %}
+  <div class="warn small">Production tanlansa, vosita o'chirish, bekor qilish va to'lov kabi amallarni faqat tasdiqlash oynasigacha bajaradi.</div>
+  <button type="submit">Saqlash</button>
+</form>
+{% endblock %}
