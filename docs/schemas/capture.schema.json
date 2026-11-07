@@ -1,0 +1,640 @@
+{
+  "$defs": {
+    "BBox": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "BBox",
+      "type": "object"
+    },
+    "BlockedRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        },
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "url",
+        "rule",
+        "at"
+      ],
+      "title": "BlockedRequest",
+      "type": "object"
+    },
+    "Element": {
+      "additionalProperties": false,
+      "properties": {
+        "marker": {
+          "title": "Marker",
+          "type": "integer"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "bbox": {
+          "$ref": "#/$defs/BBox"
+        },
+        "selector": {
+          "$ref": "#/$defs/Target"
+        },
+        "kind": {
+          "enum": [
+            "button",
+            "link",
+            "input",
+            "select",
+            "tab",
+            "menu",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "marker",
+        "role",
+        "name",
+        "bbox",
+        "selector",
+        "kind"
+      ],
+      "title": "Element",
+      "type": "object"
+    },
+    "FlowResult": {
+      "additionalProperties": false,
+      "properties": {
+        "flow_id": {
+          "title": "Flow Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "state_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "State Ids",
+          "type": "array"
+        },
+        "duration_s": {
+          "default": 0.0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "helper": {
+          "default": false,
+          "title": "Helper",
+          "type": "boolean"
+        },
+        "stopped_at_confirm": {
+          "default": false,
+          "title": "Stopped At Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "flow_id",
+        "status"
+      ],
+      "title": "FlowResult",
+      "type": "object"
+    },
+    "HiddenArea": {
+      "additionalProperties": false,
+      "description": "A blurred area (TZ FR-E10): not the role's, or a value that could not be replaced.",
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "HiddenArea",
+      "type": "object"
+    },
+    "NetCall": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "path_template": {
+          "title": "Path Template",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "method",
+        "path_template",
+        "status"
+      ],
+      "title": "NetCall",
+      "type": "object"
+    },
+    "State": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "hash": {
+          "title": "Hash",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "flow_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flow Id"
+        },
+        "step_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Index"
+        },
+        "account": {
+          "enum": [
+            "A",
+            "B",
+            "guest"
+          ],
+          "title": "Account",
+          "type": "string"
+        },
+        "images": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "clean",
+              "som"
+            ]
+          },
+          "title": "Images",
+          "type": "object"
+        },
+        "elements": {
+          "items": {
+            "$ref": "#/$defs/Element"
+          },
+          "title": "Elements",
+          "type": "array"
+        },
+        "aria": {
+          "default": "",
+          "title": "Aria",
+          "type": "string"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity"
+        },
+        "entity_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Status"
+        },
+        "patched": {
+          "default": false,
+          "title": "Patched",
+          "type": "boolean"
+        },
+        "network": {
+          "items": {
+            "$ref": "#/$defs/NetCall"
+          },
+          "title": "Network",
+          "type": "array"
+        },
+        "hidden": {
+          "items": {
+            "$ref": "#/$defs/HiddenArea"
+          },
+          "title": "Hidden",
+          "type": "array"
+        },
+        "substituted": {
+          "default": 0,
+          "title": "Substituted",
+          "type": "integer"
+        },
+        "kept_public": {
+          "default": 0,
+          "title": "Kept Public",
+          "type": "integer"
+        },
+        "privacy": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Privacy",
+          "type": "object"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger"
+        },
+        "viewport": {
+          "default": [
+            1280,
+            800
+          ],
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Viewport",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "hash",
+        "url",
+        "title",
+        "account",
+        "images"
+      ],
+      "title": "State",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "description": "How to find an element. At least one field is set; priority follows field order.",
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "testid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testid"
+        },
+        "css": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Css"
+        }
+      },
+      "title": "Target",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "blueprint_hash": {
+      "title": "Blueprint Hash",
+      "type": "string"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "role_label": {
+      "default": "",
+      "title": "Role Label",
+      "type": "string"
+    },
+    "project": {
+      "default": "",
+      "title": "Project",
+      "type": "string"
+    },
+    "base_url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Base Url",
+      "type": "string"
+    },
+    "environment": {
+      "enum": [
+        "staging",
+        "production"
+      ],
+      "title": "Environment",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "flows": {
+      "items": {
+        "$ref": "#/$defs/FlowResult"
+      },
+      "title": "Flows",
+      "type": "array"
+    },
+    "states": {
+      "items": {
+        "$ref": "#/$defs/State"
+      },
+      "title": "States",
+      "type": "array"
+    },
+    "firewall_log": {
+      "items": {
+        "$ref": "#/$defs/BlockedRequest"
+      },
+      "title": "Firewall Log",
+      "type": "array"
+    },
+    "own_objects": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Own Objects",
+      "type": "object"
+    },
+    "test_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Test Values",
+      "type": "array"
+    },
+    "public_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Public Values",
+      "type": "array"
+    },
+    "privilege_ok": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Privilege Ok"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "blueprint_hash",
+    "role",
+    "base_url",
+    "environment",
+    "started_at"
+  ],
+  "title": "CaptureRun",
+  "type": "object"
+}

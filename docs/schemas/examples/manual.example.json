@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0",
+  "project": "demo_shop",
+  "language": "uz",
+  "role": "customer",
+  "role_label": "Mijoz",
+  "role_granted_by": "o'zingiz (ro'yxatdan o'tganingizda)",
+  "generated_at": "2026-11-08T10:00:00Z",
+  "source_mode": "local",
+  "models": [
+    "gemma4:26b"
+  ],
+  "sections": [
+    {
+      "id": "start",
+      "stage": "start",
+      "title": "1. Boshlash",
+      "intro": "Bu yo'riqnoma «Mijoz» roli uchun yozilgan.",
+      "articles": [
+        {
+          "flow_id": "register",
+          "title": "Ro'yxatdan o'tish",
+          "purpose": "Saytda hisob ochish.",
+          "steps": [
+            {
+              "n": 1,
+              "text": "«To'liq ism» maydoniga ismingizni yozing ①.",
+              "image": "images/s001_clean.png",
+              "markers": [
+                1
+              ],
+              "state_id": "s001"
+            },
+            {
+              "n": 2,
+              "text": "«Ro'yxatdan o'tish» tugmasini bosing ②.",
+              "image": "images/s001_clean.png",
+              "markers": [
+                2
+              ],
+              "state_id": "s001"
+            }
+          ],
+          "notes": [
+            "Parol kamida 8 belgidan iborat bo'lsin."
+          ],
+          "statuses": [],
+          "needs_review": false
+        }
+      ],
+      "empty_reason": null
+    },
+    {
+      "id": "manage",
+      "stage": "manage",
+      "title": "3. O'z ma'lumotlarini boshqarish",
+      "intro": "Buyurtmalaringiz holati.",
+      "articles": [
+        {
+          "flow_id": "order.view",
+          "title": "Buyurtma statuslari",
+          "purpose": "Buyurtma qaysi bosqichda ekanini bilish.",
+          "steps": [],
+          "notes": [],
+          "statuses": [
+            {
+              "status": "Jo'natilgan",
+              "meaning": "Buyurtma kuryerga berildi.",
+              "what_you_can_do": "Kuting, kuryer yetkazadi.",
+              "patched_image": true,
+              "image": null
+            }
+          ],
+          "needs_review": false
+        }
+      ],
+      "empty_reason": null
+    }
+  ],
+  "reference": [
+    {
+      "page_title": "Buyurtmalarim",
+      "path": "/app/orders",
+      "purpose": "Barcha buyurtmalaringiz ro'yxati.",
+      "elements": [
+        "Yangi buyurtma"
+      ]
+    }
+  ],
+  "faq": [
+    {
+      "q": "Parolni unutsam nima qilaman?",
+      "a": "«Parolni unutdingizmi?» havolasini bosing."
+    }
+  ],
+  "coverage": {
+    "percent": {
+      "routes": 100.0
+    },
+    "items": [
+      {
+        "kind": "route",
+        "key": "/app/orders",
+        "covered": true,
+        "reason": null
+      }
+    ]
+  }
+}

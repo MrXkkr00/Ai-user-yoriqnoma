@@ -1,0 +1,833 @@
+{
+  "$defs": {
+    "Entity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "owner_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Field"
+        },
+        "pii_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pii Fields",
+          "type": "array"
+        },
+        "actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "statuses": {
+          "items": {
+            "$ref": "#/$defs/EntityStatus"
+          },
+          "title": "Statuses",
+          "type": "array"
+        },
+        "status_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status Field"
+        },
+        "created_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created By",
+          "type": "array"
+        },
+        "confidence": {
+          "default": 1.0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "EntityStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "reachable_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reachable By",
+          "type": "array"
+        },
+        "set_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Set By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "EntityStatus",
+      "type": "object"
+    },
+    "Flow": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "stage": {
+          "enum": [
+            "start",
+            "core",
+            "manage",
+            "social",
+            "payment",
+            "settings",
+            "exit"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "requires": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requires",
+          "type": "array"
+        },
+        "account": {
+          "default": "A",
+          "enum": [
+            "A",
+            "B"
+          ],
+          "title": "Account",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "status": {
+          "default": "unverified",
+          "enum": [
+            "unverified",
+            "verified",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 1.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "creates": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Creates"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "stage",
+        "role",
+        "source",
+        "steps"
+      ],
+      "title": "Flow",
+      "type": "object"
+    },
+    "Form": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "page_path": {
+          "title": "Page Path",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FormField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "submit": {
+          "$ref": "#/$defs/Target"
+        },
+        "api": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api"
+        }
+      },
+      "required": [
+        "id",
+        "page_path",
+        "fields",
+        "submit"
+      ],
+      "title": "Form",
+      "type": "object"
+    },
+    "FormField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "type": {
+          "default": "text",
+          "title": "Type",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "rules": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rules"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Options"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "FormField",
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "target_role": {
+          "title": "Target Role",
+          "type": "string"
+        },
+        "helper_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Helper Roles",
+          "type": "array"
+        },
+        "deny_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deny Paths",
+          "type": "array"
+        },
+        "deny_action_words": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deny Action Words",
+          "type": "array"
+        },
+        "default": {
+          "const": "deny",
+          "type": "string",
+          "default": "deny",
+          "title": "Default"
+        },
+        "environment": {
+          "default": "staging",
+          "enum": [
+            "staging",
+            "production"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "destructive": {
+          "default": "own_objects_only",
+          "enum": [
+            "own_objects_only",
+            "never"
+          ],
+          "title": "Destructive",
+          "type": "string"
+        },
+        "payments": {
+          "default": "sandbox_only",
+          "enum": [
+            "sandbox_only",
+            "never"
+          ],
+          "title": "Payments",
+          "type": "string"
+        },
+        "test_accounts": {
+          "default": 2,
+          "title": "Test Accounts",
+          "type": "integer"
+        },
+        "max_states": {
+          "default": 400,
+          "title": "Max States",
+          "type": "integer"
+        },
+        "max_depth": {
+          "default": 3,
+          "title": "Max Depth",
+          "type": "integer"
+        },
+        "requests_per_second": {
+          "default": 2.0,
+          "title": "Requests Per Second",
+          "type": "number"
+        }
+      },
+      "required": [
+        "target_role"
+      ],
+      "title": "Policy",
+      "type": "object"
+    },
+    "RoleInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "guest",
+            "role",
+            "excluded"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "self_signup": {
+          "default": false,
+          "title": "Self Signup",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind",
+        "reason",
+        "source"
+      ],
+      "title": "RoleInfo",
+      "type": "object"
+    },
+    "RouteInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "page",
+            "api"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "methods": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "access": {
+          "enum": [
+            "guest",
+            "roles",
+            "excluded",
+            "unknown"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "kind",
+        "access",
+        "reason",
+        "source"
+      ],
+      "title": "RouteInfo",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "goto",
+            "click",
+            "fill",
+            "select",
+            "check",
+            "upload",
+            "expect_url",
+            "expect_text",
+            "expect_visible",
+            "verify_email",
+            "wait_for",
+            "human_input"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Target"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "rules": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rules"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        },
+        "destructive": {
+          "default": false,
+          "title": "Destructive",
+          "type": "boolean"
+        },
+        "payment": {
+          "default": false,
+          "title": "Payment",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "description": "How to find an element. At least one field is set; priority follows field order.",
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "testid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testid"
+        },
+        "css": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Css"
+        }
+      },
+      "title": "Target",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "project": {
+      "title": "Project",
+      "type": "string"
+    },
+    "base_url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Base Url",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "code",
+        "discovered",
+        "merged"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "generator": {
+      "title": "Generator",
+      "type": "string"
+    },
+    "language": {
+      "default": "uz",
+      "title": "Language",
+      "type": "string"
+    },
+    "policy": {
+      "$ref": "#/$defs/Policy"
+    },
+    "roles": {
+      "items": {
+        "$ref": "#/$defs/RoleInfo"
+      },
+      "title": "Roles",
+      "type": "array"
+    },
+    "pages": {
+      "items": {
+        "$ref": "#/$defs/RouteInfo"
+      },
+      "title": "Pages",
+      "type": "array"
+    },
+    "forms": {
+      "items": {
+        "$ref": "#/$defs/Form"
+      },
+      "title": "Forms",
+      "type": "array"
+    },
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "flows": {
+      "items": {
+        "$ref": "#/$defs/Flow"
+      },
+      "title": "Flows",
+      "type": "array"
+    },
+    "nav": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Nav",
+      "type": "array"
+    },
+    "i18n": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "I18N",
+      "type": "object"
+    },
+    "excluded": {
+      "items": {
+        "$ref": "#/$defs/RouteInfo"
+      },
+      "title": "Excluded",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project",
+    "base_url",
+    "source",
+    "generated_at",
+    "generator",
+    "policy",
+    "roles"
+  ],
+  "title": "Blueprint",
+  "type": "object"
+}

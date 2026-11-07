@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0",
+  "run_id": "20261108-100000-ab12cd",
+  "blueprint_hash": "c44747f094828f9dc43b683c9bdf6a506aa68727b6b2a81f56f28a34751f97bc",
+  "role": "customer",
+  "role_label": "Mijoz",
+  "project": "demo_shop",
+  "base_url": "http://127.0.0.1:8800/",
+  "environment": "staging",
+  "started_at": "2026-11-08T10:00:00Z",
+  "finished_at": "2026-11-08T10:00:00Z",
+  "flows": [
+    {
+      "flow_id": "register",
+      "status": "verified",
+      "reason": null,
+      "state_ids": [
+        "s001"
+      ],
+      "duration_s": 4.2,
+      "role": "customer",
+      "helper": false,
+      "stopped_at_confirm": false
+    }
+  ],
+  "states": [
+    {
+      "id": "s001",
+      "hash": "3f1a9c",
+      "url": "http://127.0.0.1:8800/register",
+      "title": "Ro'yxatdan o'tish — Demo Shop",
+      "flow_id": "register",
+      "step_index": 0,
+      "account": "A",
+      "images": {
+        "clean": "images/s001_clean.png",
+        "som": "images/s001_som.png"
+      },
+      "elements": [
+        {
+          "marker": 1,
+          "role": "textbox",
+          "name": "To'liq ism",
+          "bbox": {
+            "x": 420.0,
+            "y": 180.0,
+            "w": 440.0,
+            "h": 40.0
+          },
+          "selector": {
+            "role": null,
+            "name": null,
+            "label": "To'liq ism",
+            "testid": null,
+            "css": null
+          },
+          "kind": "input",
+          "enabled": true
+        },
+        {
+          "marker": 2,
+          "role": "button",
+          "name": "Ro'yxatdan o'tish",
+          "bbox": {
+            "x": 420.0,
+            "y": 420.0,
+            "w": 200.0,
+            "h": 44.0
+          },
+          "selector": {
+            "role": "button",
+            "name": "Ro'yxatdan o'tish",
+            "label": null,
+            "testid": null,
+            "css": null
+          },
+          "kind": "button",
+          "enabled": true
+        }
+      ],
+      "aria": "- heading \"Ro'yxatdan o'tish\" [level=1]",
+      "entity": null,
+      "entity_status": null,
+      "patched": false,
+      "network": [
+        {
+          "method": "GET",
+          "path_template": "/api/auth/me",
+          "status": 401
+        }
+      ],
+      "hidden": [],
+      "substituted": 0,
+      "kept_public": 2,
+      "privacy": {
+        "org:kept": 2
+      },
+      "parent_id": null,
+      "trigger": null,
+      "viewport": [
+        1280,
+        800
+      ]
+    }
+  ],
+  "firewall_log": [],
+  "own_objects": {
+    "order": [
+      "17"
+    ]
+  },
+  "test_values": [
+    "Aziza Rahimova",
+    "a+20261108-100000-ab12cd@example.test"
+  ],
+  "public_values": [
+    "info@demo-shop.uz",
+    "+998 71 200-00-00"
+  ],
+  "privilege_ok": true,
+  "notes": []
+}

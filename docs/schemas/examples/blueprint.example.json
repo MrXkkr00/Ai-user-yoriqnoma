@@ -1,0 +1,648 @@
+{
+  "schema_version": "1.0",
+  "project": "demo_shop",
+  "base_url": "http://127.0.0.1:8800/",
+  "source": "code",
+  "generated_at": "2026-11-08T10:00:00Z",
+  "generator": "yoriqnoma_scanner 0.1.0",
+  "language": "uz",
+  "policy": {
+    "target_role": "customer",
+    "helper_roles": [],
+    "deny_paths": [
+      "/admin",
+      "/admin/*",
+      "/api/admin",
+      "/api/admin/*",
+      "/ops/*",
+      "/superadmin*",
+      "/wp-admin*",
+      "/administrator*"
+    ],
+    "deny_action_words": [
+      "o'chirish",
+      "bekor qilish",
+      "to'lash",
+      "to'lov",
+      "sotib olish",
+      "yuborish",
+      "tasdiqlash",
+      "удалить",
+      "отменить",
+      "оплатить",
+      "купить",
+      "delete",
+      "remove",
+      "cancel",
+      "pay",
+      "purchase",
+      "buy",
+      "refund"
+    ],
+    "default": "deny",
+    "environment": "staging",
+    "destructive": "own_objects_only",
+    "payments": "sandbox_only",
+    "test_accounts": 2,
+    "max_states": 400,
+    "max_depth": 3,
+    "requests_per_second": 2.0
+  },
+  "roles": [
+    {
+      "id": "guest",
+      "label": "Mehmon",
+      "kind": "guest",
+      "reason": "kirmagan foydalanuvchi",
+      "source": "builtin",
+      "self_signup": false,
+      "description": null
+    },
+    {
+      "id": "customer",
+      "label": "Mijoz",
+      "kind": "role",
+      "reason": "faqat kirish va egalik tekshiruvi",
+      "source": "app/models.py:20",
+      "self_signup": true,
+      "description": "Buyurtma beradi, to'laydi va kuzatadi"
+    },
+    {
+      "id": "manager",
+      "label": "Menejer",
+      "kind": "role",
+      "reason": "require_role('manager') guard'i; boshqaruv huquqlari yo'q",
+      "source": "app/api/staff.py:12",
+      "self_signup": false,
+      "description": "Buyurtmalarni ko'radi va jo'natadi"
+    },
+    {
+      "id": "courier",
+      "label": "Kuryer",
+      "kind": "role",
+      "reason": "require_role('courier') guard'i",
+      "source": "app/api/courier.py:10",
+      "self_signup": false,
+      "description": "Biriktirilgan buyurtmalarni yetkazadi"
+    },
+    {
+      "id": "admin",
+      "label": "Administrator",
+      "kind": "excluded",
+      "reason": "require_admin: foydalanuvchilar, rollar va sozlamalarni boshqaradi",
+      "source": "app/api/admin.py:9",
+      "self_signup": false,
+      "description": null
+    }
+  ],
+  "pages": [
+    {
+      "path": "/",
+      "kind": "page",
+      "methods": [],
+      "access": "guest",
+      "roles": [],
+      "reason": "ochiq sahifa",
+      "source": "web/src/App.jsx:30"
+    },
+    {
+      "path": "/register",
+      "kind": "page",
+      "methods": [],
+      "access": "guest",
+      "roles": [],
+      "reason": "ochiq sahifa",
+      "source": "web/src/App.jsx:33"
+    },
+    {
+      "path": "/app/orders",
+      "kind": "page",
+      "methods": [],
+      "access": "roles",
+      "roles": [
+        "customer"
+      ],
+      "reason": "RequireAuth + egalik",
+      "source": "web/src/App.jsx:40"
+    },
+    {
+      "path": "/app/orders/:id",
+      "kind": "page",
+      "methods": [],
+      "access": "roles",
+      "roles": [
+        "customer"
+      ],
+      "reason": "RequireAuth + egalik",
+      "source": "web/src/App.jsx:42"
+    },
+    {
+      "path": "/staff/orders/:id",
+      "kind": "page",
+      "methods": [],
+      "access": "roles",
+      "roles": [
+        "manager"
+      ],
+      "reason": "RequireRole role=manager",
+      "source": "web/src/App.jsx:50"
+    },
+    {
+      "path": "/api/orders",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access": "roles",
+      "roles": [
+        "customer"
+      ],
+      "reason": "get_current_user + owner_id",
+      "source": "app/api/orders.py:20"
+    }
+  ],
+  "forms": [
+    {
+      "id": "register",
+      "page_path": "/register",
+      "fields": [
+        {
+          "name": "full_name",
+          "label": "To'liq ism",
+          "type": "text",
+          "required": true,
+          "rules": "min:3",
+          "options": null
+        },
+        {
+          "name": "email",
+          "label": "Email",
+          "type": "email",
+          "required": true,
+          "rules": null,
+          "options": null
+        },
+        {
+          "name": "phone",
+          "label": "Telefon",
+          "type": "tel",
+          "required": true,
+          "rules": "regex:^\\+998\\d{9}$",
+          "options": null
+        },
+        {
+          "name": "password",
+          "label": "Parol",
+          "type": "password",
+          "required": true,
+          "rules": "min:8",
+          "options": null
+        }
+      ],
+      "submit": {
+        "role": "button",
+        "name": "Ro'yxatdan o'tish",
+        "label": null,
+        "testid": null,
+        "css": null
+      },
+      "api": "POST /api/auth/register"
+    }
+  ],
+  "entities": [
+    {
+      "name": "order",
+      "source": "app/models.py:40",
+      "owner_field": "user_id",
+      "pii_fields": [
+        "customer_name",
+        "phone",
+        "address"
+      ],
+      "actions": [
+        "create",
+        "list",
+        "view",
+        "cancel",
+        "pay",
+        "ship",
+        "deliver"
+      ],
+      "statuses": [
+        {
+          "value": "new",
+          "label": "Yangi",
+          "reachable_by": [
+            "customer"
+          ],
+          "set_by": [
+            "app/api/orders.py:30"
+          ]
+        },
+        {
+          "value": "paid",
+          "label": "To'langan",
+          "reachable_by": [
+            "customer"
+          ],
+          "set_by": [
+            "app/api/orders.py:70"
+          ]
+        },
+        {
+          "value": "shipped",
+          "label": "Jo'natilgan",
+          "reachable_by": [
+            "manager"
+          ],
+          "set_by": [
+            "app/api/staff.py:40"
+          ]
+        },
+        {
+          "value": "delivered",
+          "label": "Yetkazilgan",
+          "reachable_by": [
+            "courier"
+          ],
+          "set_by": [
+            "app/api/courier.py:30"
+          ]
+        },
+        {
+          "value": "cancelled",
+          "label": "Bekor qilingan",
+          "reachable_by": [
+            "customer"
+          ],
+          "set_by": [
+            "app/api/orders.py:55"
+          ]
+        },
+        {
+          "value": "refunded",
+          "label": "Qaytarilgan",
+          "reachable_by": [],
+          "set_by": [
+            "app/api/admin.py:40"
+          ]
+        }
+      ],
+      "status_field": "status",
+      "created_by": [
+        "customer"
+      ],
+      "confidence": 1.0
+    }
+  ],
+  "flows": [
+    {
+      "id": "register",
+      "title": "Ro'yxatdan o'tish",
+      "stage": "start",
+      "role": "customer",
+      "entity": null,
+      "action": null,
+      "requires": [],
+      "account": "A",
+      "source": "e2e/test_register.py:8",
+      "status": "unverified",
+      "confidence": 1.0,
+      "creates": null,
+      "steps": [
+        {
+          "action": "goto",
+          "target": null,
+          "path": "/register",
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": null,
+            "name": null,
+            "label": "To'liq ism",
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": "fake:full_name",
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": null,
+            "name": null,
+            "label": "Email",
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": "fake:email",
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": null,
+            "name": null,
+            "label": "Telefon",
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": "fake:phone_uz",
+          "text": null,
+          "rules": "regex:^\\+998\\d{9}$",
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": null,
+            "name": null,
+            "label": "Parol",
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": "fake:password",
+          "text": null,
+          "rules": "min:8",
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "click",
+          "target": {
+            "role": "button",
+            "name": "Ro'yxatdan o'tish",
+            "label": null,
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "verify_email",
+          "target": null,
+          "path": null,
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        }
+      ]
+    },
+    {
+      "id": "order.create",
+      "title": "Buyurtma berish",
+      "stage": "core",
+      "role": "customer",
+      "entity": "order",
+      "action": "create",
+      "requires": [
+        "register"
+      ],
+      "account": "A",
+      "source": "e2e/order.spec.ts:5",
+      "status": "unverified",
+      "confidence": 1.0,
+      "creates": "order",
+      "steps": [
+        {
+          "action": "goto",
+          "target": null,
+          "path": "/app/orders/new",
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "select",
+          "target": {
+            "role": null,
+            "name": null,
+            "label": "Mahsulot",
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": "literal:1",
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "fill",
+          "target": {
+            "role": null,
+            "name": null,
+            "label": "Miqdor",
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": "literal:2",
+          "text": null,
+          "rules": "min:1|max:99",
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "click",
+          "target": {
+            "role": "button",
+            "name": "Buyurtma berish",
+            "label": null,
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "expect_url",
+          "target": null,
+          "path": "/app/orders/{own:order_id}",
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        }
+      ]
+    },
+    {
+      "id": "order.cancel",
+      "title": "Buyurtmani bekor qilish",
+      "stage": "manage",
+      "role": "customer",
+      "entity": "order",
+      "action": "cancel",
+      "requires": [
+        "order.create"
+      ],
+      "account": "A",
+      "source": "web/src/pages/OrderDetail.jsx:40",
+      "status": "unverified",
+      "confidence": 1.0,
+      "creates": null,
+      "steps": [
+        {
+          "action": "goto",
+          "target": null,
+          "path": "/app/orders/{own:order_id}",
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "click",
+          "target": {
+            "role": "button",
+            "name": "Bekor qilish",
+            "label": null,
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "click",
+          "target": {
+            "role": "button",
+            "name": "Tasdiqlash",
+            "label": null,
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": true,
+          "destructive": true,
+          "payment": false
+        }
+      ]
+    },
+    {
+      "id": "manager.order.ship",
+      "title": "Buyurtmani jo'natish",
+      "stage": "core",
+      "role": "manager",
+      "entity": "order",
+      "action": "ship",
+      "requires": [
+        "order.create"
+      ],
+      "account": "A",
+      "source": "web/src/pages/staff/StaffOrder.jsx:30",
+      "status": "unverified",
+      "confidence": 1.0,
+      "creates": null,
+      "steps": [
+        {
+          "action": "goto",
+          "target": null,
+          "path": "/staff/orders/{own:order_id}",
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": false,
+          "destructive": false,
+          "payment": false
+        },
+        {
+          "action": "click",
+          "target": {
+            "role": "button",
+            "name": "Jo'natildi",
+            "label": null,
+            "testid": null,
+            "css": null
+          },
+          "path": null,
+          "data": null,
+          "text": null,
+          "rules": null,
+          "confirm": true,
+          "destructive": false,
+          "payment": false
+        }
+      ]
+    }
+  ],
+  "nav": [
+    {
+      "label": "Katalog",
+      "path": "/catalog"
+    },
+    {
+      "label": "Buyurtmalarim",
+      "path": "/app/orders"
+    }
+  ],
+  "i18n": {
+    "nav.catalog": "Katalog"
+  },
+  "excluded": [
+    {
+      "path": "/admin/users",
+      "kind": "page",
+      "methods": [],
+      "access": "excluded",
+      "roles": [],
+      "reason": "RequireAdmin",
+      "source": "web/src/App.jsx:60"
+    }
+  ]
+}

@@ -1,0 +1,409 @@
+{
+  "$defs": {
+    "Article": {
+      "additionalProperties": false,
+      "properties": {
+        "flow_id": {
+          "title": "Flow Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "purpose": {
+          "title": "Purpose",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepText"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "statuses": {
+          "items": {
+            "$ref": "#/$defs/StatusRow"
+          },
+          "title": "Statuses",
+          "type": "array"
+        },
+        "needs_review": {
+          "default": false,
+          "title": "Needs Review",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "flow_id",
+        "title",
+        "purpose"
+      ],
+      "title": "Article",
+      "type": "object"
+    },
+    "Coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "percent": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Percent",
+          "type": "object"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/CoverageItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "title": "Coverage",
+      "type": "object"
+    },
+    "CoverageItem": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "covered": {
+          "title": "Covered",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "covered"
+      ],
+      "title": "CoverageItem",
+      "type": "object"
+    },
+    "QA": {
+      "additionalProperties": false,
+      "properties": {
+        "q": {
+          "title": "Q",
+          "type": "string"
+        },
+        "a": {
+          "title": "A",
+          "type": "string"
+        }
+      },
+      "required": [
+        "q",
+        "a"
+      ],
+      "title": "QA",
+      "type": "object"
+    },
+    "RefEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "page_title": {
+          "title": "Page Title",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "purpose": {
+          "title": "Purpose",
+          "type": "string"
+        },
+        "elements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Elements",
+          "type": "array"
+        }
+      },
+      "required": [
+        "page_title",
+        "path",
+        "purpose"
+      ],
+      "title": "RefEntry",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "start",
+                "core",
+                "manage",
+                "social",
+                "payment",
+                "settings",
+                "exit"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "reference",
+                "faq",
+                "unverified"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Stage"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "intro": {
+          "title": "Intro",
+          "type": "string"
+        },
+        "articles": {
+          "items": {
+            "$ref": "#/$defs/Article"
+          },
+          "title": "Articles",
+          "type": "array"
+        },
+        "empty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Empty Reason"
+        }
+      },
+      "required": [
+        "id",
+        "stage",
+        "title",
+        "intro"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "StatusRow": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "meaning": {
+          "title": "Meaning",
+          "type": "string"
+        },
+        "what_you_can_do": {
+          "title": "What You Can Do",
+          "type": "string"
+        },
+        "patched_image": {
+          "default": false,
+          "title": "Patched Image",
+          "type": "boolean"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image"
+        }
+      },
+      "required": [
+        "status",
+        "meaning",
+        "what_you_can_do"
+      ],
+      "title": "StatusRow",
+      "type": "object"
+    },
+    "StepText": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image"
+        },
+        "markers": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Markers",
+          "type": "array"
+        },
+        "state_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State Id"
+        }
+      },
+      "required": [
+        "n",
+        "text"
+      ],
+      "title": "StepText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "project": {
+      "title": "Project",
+      "type": "string"
+    },
+    "language": {
+      "default": "uz",
+      "title": "Language",
+      "type": "string"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "role_label": {
+      "title": "Role Label",
+      "type": "string"
+    },
+    "role_granted_by": {
+      "default": "",
+      "title": "Role Granted By",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "source_mode": {
+      "enum": [
+        "A",
+        "A'",
+        "B",
+        "A+B",
+        "local"
+      ],
+      "title": "Source Mode",
+      "type": "string"
+    },
+    "models": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Models",
+      "type": "array"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/Section"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "reference": {
+      "items": {
+        "$ref": "#/$defs/RefEntry"
+      },
+      "title": "Reference",
+      "type": "array"
+    },
+    "faq": {
+      "items": {
+        "$ref": "#/$defs/QA"
+      },
+      "title": "Faq",
+      "type": "array"
+    },
+    "coverage": {
+      "$ref": "#/$defs/Coverage"
+    }
+  },
+  "required": [
+    "project",
+    "role",
+    "role_label",
+    "generated_at",
+    "source_mode",
+    "sections"
+  ],
+  "title": "Manual",
+  "type": "object"
+}
