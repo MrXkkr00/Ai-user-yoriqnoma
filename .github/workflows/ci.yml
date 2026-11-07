@@ -16,47 +16,62 @@ env:
   MARKERS: not llm and not slow and not server
 
 jobs:
-  checks:
-    name: checks (${{ matrix.os }})
+  # Local app: runs on the user's computer (Windows or Linux).
+  local:
+    name: local (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: local
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-
+          cache-dependency-glob: local/uv.lock
       - name: Install dependencies
-        run: uv sync --all-packages --locked
-
+        run: uv sync --locked
       - name: Ruff
         run: |
           uv run ruff check .
           uv run ruff format --check .
-
-      # The two Django projects need separate mypy runs (one settings module each).
-      - name: Mypy (packages, strict)
+      - name: Mypy
         run: uv run mypy
-      - name: Mypy (local app)
-        run: uv run --directory apps/local mypy
-      - name: Mypy (server app)
-        run: uv run --directory apps/server mypy
-
       - name: Django checks
         run: |
-          uv run python apps/local/manage.py check
-          uv run python apps/server/manage.py check
-          uv run python apps/local/manage.py makemigrations --check --dry-run
-          uv run python apps/server/manage.py makemigrations --check --dry-run
-
-      # Django settings are process-global, so each app gets its own pytest run.
-      - name: Tests (packages and workspace)
+          uv run python manage.py check
+          uv run python manage.py makemigrations --check --dry-run
+      - name: Tests
         run: uv run pytest -m "${{ env.MARKERS }}"
-      - name: Tests (local app)
-        run: uv run pytest apps/local -m "${{ env.MARKERS }}"
-      - name: Tests (server app)
-        run: uv run pytest apps/server -m "${{ env.MARKERS }}"
+
+  # Server app: runs on a Linux server in Docker.
+  server:
+    name: server (ubuntu-latest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: server/uv.lock
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Mypy
+        run: uv run mypy
+      - name: Django checks
+        run: |
+          uv run python manage.py check
+          uv run python manage.py makemigrations --check --dry-run
+      - name: Tests
+        run: uv run pytest -m "${{ env.MARKERS }}"

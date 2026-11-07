@@ -1,0 +1,103 @@
+# LOCAL APP. A complete, self-contained uv project: install and run it from this folder.
+# It works only on the user's computer (127.0.0.1) and never connects to the server app;
+# a blueprint.json or bundle.zip is carried to the server by a person.
+#
+# packages/ holds its libraries. schemas and core are also copied into ../server/packages;
+# tests/test_shared_copies.py keeps the two copies identical. scanner exists only here.
+
+[project]
+name = "yoriqnoma-local"
+version = "0.1.0"
+description = "Local Django app: scans code, explores the site and writes the manual with Ollama."
+requires-python = ">=3.12"
+dependencies = [
+    "yoriqnoma-schemas",
+    "yoriqnoma-scanner",
+    "yoriqnoma-core",
+    "django>=5.2,<5.3",
+    "huey>=2.5",
+    "waitress>=3.0",
+]
+
+[project.scripts]
+yoriqnoma-local = "yoriqnoma_local.launcher:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["yoriqnoma_local", "projects", "runs", "settings_app", "evaluation"]
+
+[tool.uv.workspace]
+members = ["packages/schemas", "packages/scanner", "packages/core"]
+
+[tool.uv.sources]
+yoriqnoma-schemas = { workspace = true }
+yoriqnoma-scanner = { workspace = true }
+yoriqnoma-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-django>=4.9",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "django-stubs[compatible-mypy]>=5.2,<5.3",
+    "pre-commit>=4.0",
+]
+
+# --- ruff ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["packages/schemas/src", "packages/scanner/src", "packages/core/src", "."]
+extend-exclude = ["migrations", "var"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
+    "DJ", # flake8-django
+]
+
+# --- mypy: strict everywhere, Django via django-stubs -------------------------------
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+explicit_package_bases = true
+mypy_path = ["packages/schemas/src", "packages/scanner/src", "packages/core/src"]
+files = ["."]
+exclude = ['^\.venv/', '^var/', '(^|/)migrations/']
+plugins = ["mypy_django_plugin.main"]
+
+[[tool.mypy.overrides]]
+module = ["huey", "huey.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "yoriqnoma_local.settings"
+
+# --- pytest -------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "yoriqnoma_local.settings_test"
+minversion = "8.0"
+testpaths = ["packages", "tests", "yoriqnoma_local", "projects", "runs", "settings_app", "evaluation"]
+python_files = ["test_*.py"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "llm: needs a real LLM (Ollama)",
+    "slow: integration tests that start demo_shop or a browser",
+    "server: server e2e tests (none here; registered so one -m filter works in both apps)",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

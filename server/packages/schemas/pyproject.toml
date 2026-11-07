@@ -1,0 +1,15 @@
+[project]
+name = "yoriqnoma-schemas"
+version = "0.1.0"
+description = "Pydantic models for blueprint, capture and manual: the contract between the apps."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yoriqnoma_schemas"]

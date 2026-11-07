@@ -25,7 +25,8 @@ node_modules/
 .env.*
 *.env
 .envrc
-docker/.env
+server/docker/.env
+server/docker/worker.env
 *.key
 *.pem
 *_key.txt
@@ -36,9 +37,9 @@ secrets/
 
 # Exceptions: deliberate test fixtures that belong in the repo.
 # demo_shop's .env holds FAKE secrets: the scanner must prove it never opens it.
-!fixtures/demo_shop/.env
+!local/fixtures/demo_shop/.env
 # demo_shop's built React app is committed so Node is only needed to rebuild it.
-!fixtures/demo_shop/web/dist/
+!local/fixtures/demo_shop/web/dist/
 
 # Editors and local tool settings
 .idea/

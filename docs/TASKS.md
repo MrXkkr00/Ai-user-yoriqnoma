@@ -3,15 +3,30 @@
 Bu faylda loyihani noldan qurish uchun Claude Code'ga **ketma-ket** yuboriladigan tayyor promptlar bor. Har bir vazifa kichik va tekshiriladigan qilib bo'lingan.
 
 **Yakuniy natija — ikkita Django dasturi:**
-- **Lokal dastur** (`apps/local`) — skan, tadqiqot, Ollama orqali yozish. Natija turi tanlanadi: to'liq yo'riqnoma, blueprint yoki bundle.
-- **Server dastur** (`apps/server`) — onlayn, Claude API, A / A' / B rejimlari.
+- **Lokal dastur** (`local/`) — skan, tadqiqot, Ollama orqali yozish. Natija turi tanlanadi: to'liq yo'riqnoma, blueprint yoki bundle.
+- **Server dastur** (`server/`) — onlayn, Claude API, A / A' / B rejimlari.
 
-Ikkalasi ham umumiy `packages/` (schemas, scanner, core) ustiga quriladi.
+Har biri o'z `packages/` papkasidagi kutubxonalar ustiga quriladi: `schemas` va `core` ikkalasida bir xil nusxa, `scanner` faqat lokalda.
 
 **Qurish tartibi:**
 1. Avval umumiy paketlar: F0–F3.
 2. Keyin lokal dastur: F4.
 3. Keyin server: F5–F6.
+
+**Repo tuzilmasi (2026-11-07 dan).** Repo ikki mustaqil papkaga bo'lingan: `local/` va `server/`. Har biri o'z `pyproject.toml`, `uv.lock` va `.venv` bilan alohida ishlaydi. Quyidagi vazifalarda eski yo'llar uchrasa, ularni shu jadval bo'yicha o'qing:
+
+| Vazifadagi yo'l | Hozirgi joyi |
+|---|---|
+| `apps/local/...` | `local/...` |
+| `apps/server/...` | `server/...` |
+| `packages/schemas`, `packages/core` | `local/packages/...` **va** `server/packages/...` — ikkita bir xil nusxa, ikkalasini ham yangilang (`tests/test_shared_copies.py` tekshiradi) |
+| `packages/scanner` | `local/packages/scanner` (faqat lokalda) |
+| `tests/` (workspace testlari) | `local/tests/` va `server/tests/` |
+| `fixtures/demo_shop` | `local/fixtures/demo_shop` |
+| `docker/` | `server/docker/` |
+| `uv run pytest apps/local`, `uv run --directory apps/server mypy` va h.k. | dastur papkasida `uv run pytest`, `uv run mypy` |
+
+Lokal dastur serverga ulanmaydi: blueprint va bundle serverga odam orqali o'tadi (T25). Serverda API kalitlar yo'q.
 
 ## 0. Boshlashdan oldin (o'zingiz bajarasiz)
 
@@ -590,7 +605,7 @@ Vazifa: apps/local ning backend qismi (UI keyingi vazifada).
 
 - Modellar (ARCHITECTURE 6.2): AppSettings (singleton), Project, ProjectAccount, BlueprintVersion,
   Run, RunEvent, InputRequest; migratsiyalar; Fernet shifrlash yordamchisi (var/secret.key birinchi
-  ishga tushishda yaratiladi) — parollar va server API kaliti shifrlangan.
+  ishga tushishda yaratiladi) — parollar shifrlangan.
 - services.py (biznes mantiq faqat shu yerda):
   scan_project(project) -> BlueprintVersion (scanner.scan, fayllar var/runs/... ga);
   upload_blueprint(project, file) -> BlueprintVersion (sxema tekshiruvi);
@@ -644,9 +659,10 @@ Vazifa: apps/local veb-interfeysi — Django shablonlar + HTMX, o'zbek tilida, t
   * Ish sahifasi: bosqichlar chizig'i, progress bar, jonli log (HTMX har 2 s), InputRequest bo'lsa
     sariq panel va kod kiritish formasi, "Bekor qilish", tugagach natijalar: "Yo'riqnomani ochish"
     (dist/html/index.html — /runs/<id>/files/ orqali), PDF/DOCX/blueprint/bundle/hisobot yuklab olish,
-    "Papkani ochish", "Serverga yuborish" (sozlamalarda server bo'lsa; T25 da ishlaydi, hozir disabled).
+    "Papkani ochish"; blueprint va bundle yonida "Bu faylni server sahifasidagi «Yangi ish» formasida
+    yuklang" ko'rsatmasi (lokal dastur serverga ulanmaydi).
   * Sozlamalar: Ollama host, o'rnatilgan modellar ro'yxati (Ollama /api/tags) dan tanlash, "Ulanishni
-    tekshirish"; server URL + API kalit (maskalangan ko'rsatiladi).
+    tekshirish".
 - Fayl berish: faqat run_dir ichidagi fayllar (resolve + is_relative_to tekshiruvi).
 - Testlar: Django test client — barcha sahifalar 200, formalar validatsiyasi, override toggle,
   path traversal rad etiladi, CSRF yoqilgan.
@@ -718,10 +734,9 @@ Rejim: plan
 @docs/TZ.md (4.6) @docs/ARCHITECTURE.md (7.1–7.5, 8)
 Vazifa: apps/server backend skeleti va docker/.
 
-- Modellar (ARCHITECTURE 7.2): accounts.ApiKey, domains.Domain, jobs.Job/JobEvent/InputRequest/Artifact;
+- Modellar (ARCHITECTURE 7.2): domains.Domain, jobs.Job/JobEvent/InputRequest/Artifact;
   Argon2PasswordHasher birinchi; Django admin /ops/ (staff).
-- DRF: ApiKeyAuthentication ("Api-Key <prefix>.<secret>", hash bilan solishtirish, last_used_at),
-  SessionAuthentication; IsOwner permission; ARCHITECTURE 7.4 dagi barcha endpointlar (ish hozircha
+- DRF: faqat SessionAuthentication (API kalitlar yo'q); IsOwner permission; ARCHITECTURE 7.4 dagi barcha endpointlar (ish hozircha
   "dummy pipeline" bilan: bosqichlarni o'tib, soxta artifact yaratadi).
 - Celery: celery.py, jobs.tasks.run_job (state machine 7.3, JobProgressSink/JobCancelToken/JobHumanInput),
   cleanup_expired va reap_stuck_jobs (beat), time_limit, acks_late, prefetch 1.
@@ -737,7 +752,7 @@ Vazifa: apps/server backend skeleti va docker/.
   sarfi hamda serverning shu oydagi sarfi tekshiriladi (Job.cost_usd yig'indisi + yangi ishning
   budget_usd). Limitdan oshsa ish yaratilmaydi va o'zbekcha sababi ko'rsatiladi. Limitlar env'dan
   (YORIQNOMA_USER_DAILY_BUDGET_USD, YORIQNOMA_USER_MONTHLY_BUDGET_USD, YORIQNOMA_MONTHLY_BUDGET_USD).
-- Testlar (pytest-django, CELERY_TASK_ALWAYS_EAGER): API kalit autentifikatsiyasi, boshqa user ishini
+- Testlar (pytest-django, CELERY_TASK_ALWAYS_EAGER): boshqa user ishini
   ko'ra olmaslik (SEC-15), job yaratish -> hodisalar ketma-ketligi, bekor qilish; xarajat limitlari
   (kunlik, oylik, server bo'yicha — oshganda ish yaratilmaydi); worker kalitsiz ishga tushmaydi;
   compose konfiguratsiyasida ANTHROPIC_API_KEY faqat worker servisida; `server` marker — compose'da smoke.
@@ -762,14 +777,14 @@ Vazifa: apps/server/security va domains integratsiyasi.
   host uchun url_guard; redirect'lar; httpx uchun maxsus transport. Worker konteyneri egress qoidalari
   (docker network + iptables yoki egress proxy — oddiyrog'ini tanla, docs/DEPLOY.md da tushuntir).
 - secrets: Fernet (YORIQNOMA_FERNET_KEY) — Job.accounts_enc, InputRequest.value_enc; ish tugagach
-  o'chirish; logging filter (parol, token, cookie, Authorization, Api-Key, x-api-key sarlavhasi va
+  o'chirish; logging filter (parol, token, cookie, Authorization, x-api-key sarlavhasi va
   "sk-ant-" bilan boshlanadigan har qanday qiymat maskalanadi; Django, Celery va anthropic loggerlariga ulanadi).
 - ratelimit: domen bo'yicha token bucket (Redis); robots.py (urllib.robotparser); User-Agent sozlamadan.
 - Django hardening (SEC-17): prod settings — SECURE_HSTS_*, SECURE_SSL_REDIRECT, SESSION/CSRF_COOKIE_SECURE,
   django-csp, login urinishlarini cheklash (django-axes); `manage.py check --deploy` toza.
 - Testlar (QM-5 qismi): 127.0.0.1, localhost, 169.254.169.254, [::1], 0x7f000001, ichki IP'ga redirect
   qiladigan tashqi URL (mock), DNS ikki xil javob (rebinding simulyatsiyasi) — hammasi bloklanadi;
-  tasdiqlanmagan domenda forma yuborilmaydi; loglarda parol, API kalit va Claude kaliti yo'q (soxta
+  tasdiqlanmagan domenda forma yuborilmaydi; loglarda parol va Claude kaliti yo'q (soxta
   "sk-ant-test-..." kalit va x-api-key sarlavhasi log qilinganda maskalanadi).
 
 Commit: "feat(server): domain verification, ssrf protection, secrets, hardening".
@@ -789,7 +804,7 @@ Vazifa: jobs/services.py ichida haqiqiy pipeline (A, A') va server veb-interfeys
 - A': bundle.zip — hajm limiti, zip slip (har yo'l normalizatsiya, root'dan chiqmasin), faqat ruxsat
   etilgan kengaytmalar, manifest sha256 tekshiruvi, capture sxemasi; keyin run_write -> run_render.
 - Veb sahifalar (Django shablonlar + HTMX, o'zbek tilida; lokal dastur bilan bir xil uslub):
-  login/register, /keys/ (yaratish — kalit bir marta ko'rsatiladi, o'chirish), /domains/ (qo'shish,
+  login/register, /domains/ (qo'shish,
   3 usul bo'yicha joylash yo'riqnomasi, "Tekshirish"), /jobs/new/ (rejim kartalari: A, A', B (hozircha
   "tez orada"), URL, muhit, akkauntlar, fayl yuklash, byudjet), /jobs/<id>/ (bosqichlar, log — events
   polling har 2 s, narx, input formasi, bekor qilish, natijalar), /jobs/.
@@ -801,24 +816,23 @@ Commit: "feat(server): modes A and A-prime with web ui".
 
 **Qabul mezoni:** server UI orqali demo_shop uchun A rejimida ish yarating va yo'riqnomani yuklab oling.
 
-### T25 — Lokal → Server integratsiyasi
+### T25 — Lokal natijani serverga qo'lda olib o'tish
 
 ```
-@docs/TZ.md (FR-L9, FR-SV9) @docs/ARCHITECTURE.md (6.3 5-qadam, 7.4)
-Vazifa: apps/local/uploader va server tomonida qabul qilish.
+@docs/TZ.md (FR-L9, FR-SV9, SEC-13) @docs/ARCHITECTURE.md (6.3 5-qadam, 7.5)
+Vazifa: lokal va server o'rtasida avtomatik aloqa YO'Q — fayl odam orqali o'tadi. Shu yo'lni qulay va xavfsiz qil.
 
-- uploader/client.py (httpx): ping() -> GET /api/me/; submit(run) -> POST /api/jobs/ (mode A — blueprint,
-  mode A' — bundle; url = project.base_url; environment; language; formats; budget) -> server_job_id/url;
-  status(run) -> GET /api/jobs/{id}/. Timeout, retry, aniq o'zbekcha xatolar (401 — kalit noto'g'ri,
-  403 — domen tasdiqlanmagan va h.k.). Katta bundle'lar uchun streaming upload.
-- Lokal UI: Sozlamalar'da "Ulanishni tekshirish"; ish sahifasida "Serverga yuborish" (blueprint/bundle
-  natijalari uchun) -> serverdagi ish havolasi va holati (HTMX har 10 s, faqat server_job_id bo'lsa);
-  tugagach "Natijani serverdan yuklab olish" (artifact'lar lokal run_dir/server/ ga).
-- Server: ish source="api"; domen tasdiqlanmagan bo'lsa A rejimi passiv bo'lishi haqida javobda ogohlantirish.
-- Testlar: uploader — respx mock bilan; `server` marker — compose'dagi server bilan lokal dasturdan
-  blueprint va bundle yuborish to'liq zanjiri (QM-4 ning "Serverga yuborish" qismi).
+- Lokal (local/): ish sahifasida blueprint.json / bundle.zip ni yuklab olish tugmasi, faylning hajmi va sha256,
+  qisqa ko'rsatma: "Bu faylni server sahifasidagi «Yangi ish» formasida yuklang".
+- Server (server/): /jobs/new/ dagi fayl maydoni — fayl turi tanlangan rejimga (A yoki A') mosligi tekshiriladi;
+  sxemaga mos kelmagan, zip slip yoki juda katta fayl uchun aniq o'zbekcha xabar; ish source="web".
+- Ajratish testi (local/tests): lokal kodda server API'siga murojaat yo'q (/api/jobs kabi yo'llar, server URL
+  yoki kalit sozlamalari topilmaydi); lokal sozlamalarda server manzili maydoni yo'q.
+- Testlar (server/tests): lokal dastur chiqaradigan formatdagi namunaviy blueprint.json va bundle.zip
+  (docs/schemas/examples va T18 namunasi) /jobs/new/ orqali yuklanadi -> ish yaratiladi (QM-4);
+  buzilgan fayllar rad etiladi.
 
-Commit: "feat: local to server upload integration".
+Commit: "feat: manual hand-off of local results to the server".
 ```
 
 > **F5 oxirida "Faza tekshiruvi" promptini yuboring.**
@@ -886,7 +900,7 @@ Commit: "feat(scout): auth, claude agent, validation probe, merge; mode B".
 ```
 @docs/TZ.md (9-bo'lim QM-4..QM-6, NFR-4)
 Vazifa: tests/e2e/server/ — compose'da A, A', B va A+B rejimlarini to'liq o'tkazuvchi testlar,
-lokal dasturdan yuborish zanjiri, vaqt o'lchovlari (NFR-4 bilan solishtirish), narx hisoboti,
+lokal dastur fayllarini server formasida qo'lda yuklash zanjiri, vaqt o'lchovlari (NFR-4 bilan solishtirish), narx hisoboti,
 xatolik stsenariylari (sayt o'chib qolsa, Claude xatosi, byudjet tugashi, bekor qilish).
 docs/DEPLOY.md: serverga o'rnatish (domen, Caddy TLS, MX yozuvi test pochta uchun, env'lar,
 superuser yaratish, zaxira nusxa — Postgres va MinIO, yangilash tartibi, monitoring).

@@ -1,15 +1,33 @@
-# Hooks run the ruff version pinned in uv.lock, so pre-commit and CI always agree.
-# Install once: uv run pre-commit install
+# local/ and server/ are separate uv projects, so each one is checked with its own ruff
+# (the version pinned in its uv.lock). Install once: uv run --directory local pre-commit install
 repos:
   - repo: local
     hooks:
-      - id: ruff
-        name: ruff check
-        entry: uv run ruff check --fix
+      - id: ruff-local
+        name: ruff check (local)
+        entry: uv run --directory local ruff check --fix .
         language: system
+        files: ^local/
         types_or: [python, pyi]
-      - id: ruff-format
-        name: ruff format
-        entry: uv run ruff format
+        pass_filenames: false
+      - id: ruff-format-local
+        name: ruff format (local)
+        entry: uv run --directory local ruff format .
         language: system
+        files: ^local/
         types_or: [python, pyi]
+        pass_filenames: false
+      - id: ruff-server
+        name: ruff check (server)
+        entry: uv run --directory server ruff check --fix .
+        language: system
+        files: ^server/
+        types_or: [python, pyi]
+        pass_filenames: false
+      - id: ruff-format-server
+        name: ruff format (server)
+        entry: uv run --directory server ruff format .
+        language: system
+        files: ^server/
+        types_or: [python, pyi]
+        pass_filenames: false

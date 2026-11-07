@@ -2,103 +2,116 @@
 
 Talablar: `docs/TZ.md`. Bu hujjatda kod darajasidagi tuzilma, sxemalar va interfeyslar berilgan. Tizim ikki Django dasturi (Lokal va Server) va uchta umumiy Python paketidan iborat.
 
-## 1. Repo tuzilmasi (uv workspace)
+## 1. Repo tuzilmasi
 
-Tizim **ikki dastur** va **uchta kutubxona paketidan** iborat:
-- **Dasturlar** Django'da yozilgan: `apps/local` va `apps/server`.
-- **Paketlar** toza Python, Django'ga bog'liq emas: `packages/*`.
+Repo ikki **mustaqil** dasturga bo'lingan. Har biri o'z papkasida, o'z `pyproject.toml`, `uv.lock` va `.venv` bilan alohida uv workspace:
+- **`local/`** — lokal dastur (Django). Foydalanuvchi kompyuterida ishlaydi.
+- **`server/`** — server dastur (Django). Onlayn serverda, Docker'da ishlaydi.
+
+Kutubxona paketlari toza Python, Django'ga bog'liq emas. Ikkala dasturga kerak bo'lgan `schemas` va `core` har bir dastur ichida **aynan bir xil nusxa** sifatida turadi (`local/packages/`, `server/packages/`). Shunda har bir dastur boshqasisiz o'rnatiladi va o'z mashinasiga ko'chiriladi. Nusxalar bir xilligini ikkala dasturdagi `tests/test_shared_copies.py` tekshiradi: birini o'zgartirsangiz, papkani ikkinchisiga ham ko'chiring.
 
 ```
 ai-user-yoriqnoma/
-├── CLAUDE.md
-├── pyproject.toml                 # workspace root: ruff, mypy, pytest sozlamalari
+├── CLAUDE.md  README.md  .gitignore  .gitattributes  .pre-commit-config.yaml
+├── .github/workflows/ci.yml       # alohida job'lar: local (ubuntu + windows), server (ubuntu)
 ├── docs/                          # TZ.md, ARCHITECTURE.md, TASKS.md, schemas/*.json
-├── packages/
-│   ├── schemas/src/yoriqnoma_schemas/
-│   │   ├── common.py              # Target, BBox, Role, Stage, Confidence...
-│   │   ├── policy.py              # Policy
-│   │   ├── blueprint.py           # Blueprint, Page, Entity, Flow, Step
-│   │   ├── capture.py             # CaptureRun, State, Element, FlowResult
-│   │   ├── manual.py              # Manual, Section, Article, Coverage
-│   │   └── export.py              # JSON Schema → docs/schemas/
-│   ├── scanner/src/yoriqnoma_scanner/
-│   │   ├── api.py                 # scan(project_dir, base_url, stack="auto") -> ScanResult
-│   │   ├── __main__.py            # debug: python -m yoriqnoma_scanner PATH --base-url URL
-│   │   ├── fs_guard.py  detect.py  ast_utils.py
-│   │   ├── parsers/               # base.py, fastapi_routes.py, react_router.py,
-│   │   │                          # jsx_forms.py, pydantic_forms.py, zod_yup.py,
-│   │   │                          # sqlalchemy_models.py, i18n.py,
-│   │   │                          # e2e_playwright_py.py, e2e_playwright_ts.py
-│   │   └── classify.py  entities.py  flows.py  build.py  report.py  overrides.py
-│   └── core/src/yoriqnoma_core/
-│       ├── safety/                # url_guard.py, pii.py, policy_engine.py
-│       ├── explorer/              # session, accounts, firewall, datagen, mailbox,
-│       │                          # steps, runner, capture, som, state_graph,
-│       │                          # patching, bundle, privilege
-│       ├── writer/                # providers/{base,fake,ollama,claude}.py,
-│       │                          # templates_uz.py, prompts/*.j2, tasks.py,
-│       │                          # assemble.py, validate.py, coverage.py, cache.py
-│       ├── render/                # images.py, html.py, pdf.py, docx.py,
-│       │                          # search_index.py, templates/
-│       └── pipeline.py            # run_explore(), run_write(), run_render() — dasturlar chaqiradi
-├── apps/
-│   ├── local/                     # LOKAL DASTUR (Django) — §6
-│   │   ├── manage.py
-│   │   ├── yoriqnoma_local/       # settings.py, urls.py, huey.py, launcher.py (yoriqnoma-local)
-│   │   ├── projects/              # Project, ProjectAccount; scan + blueprint ko'rib chiqish
-│   │   ├── runs/                  # Run, RunEvent, InputRequest; services.py; tasks.py (huey)
-│   │   ├── settings_app/          # AppSettings (Ollama, server URL, API kalit)
-│   │   ├── uploader/              # serverga yuborish (httpx)
-│   │   ├── evaluation/            # model solishtirish
-│   │   ├── templates/  static/    # HTMX
-│   │   └── */management/commands/ # scan, explore, write, render, run, bundle, eval
-│   └── server/                    # SERVER DASTUR (Django) — §7
-│       ├── manage.py
-│       ├── yoriqnoma_server/      # settings/{base,dev,prod}.py, urls.py, celery.py, asgi/wsgi
-│       ├── accounts/              # Django auth, ApiKey
-│       ├── domains/               # Domain, domen tasdiqlash
-│       ├── jobs/                  # Job, JobEvent, Artifact, InputRequest; services; tasks (celery)
-│       ├── scout/                 # B rejimi: preflight, crawler, js_routes, network_infer,
-│       │                          # auth_flow, agent, validation_probe, blueprint_builder, merge
-│       ├── security/              # ssrf integratsiyasi, secrets (Fernet), ratelimit, robots
-│       ├── api/                   # DRF: serializers, views, permissions, urls
-│       ├── storage.py             # django-storages S3 (MinIO)
-│       └── templates/  static/    # HTMX
-├── fixtures/demo_shop/            # poligon (§10)
-├── tests/                         # workspace testlari: test_no_db_drivers.py, e2e/
-└── docker/                        # Dockerfile.web, Dockerfile.worker, compose.yml (faqat server)
+├── local/                         # LOKAL DASTUR — §6
+│   ├── pyproject.toml  uv.lock  .python-version   # yoriqnoma-local + workspace (packages/*)
+│   ├── manage.py  startup.bat     # startup.bat — Windows'da bir bosishda ishga tushirish
+│   ├── yoriqnoma_local/           # settings.py, settings_test.py, urls.py, huey.py, launcher.py (yoriqnoma-local)
+│   ├── projects/                  # Project, ProjectAccount; scan + blueprint ko'rib chiqish
+│   ├── runs/                      # Run, RunEvent, InputRequest; services.py; tasks.py (huey)
+│   ├── settings_app/              # AppSettings (Ollama)
+│   ├── evaluation/                # model solishtirish
+│   ├── templates/  static/        # HTMX (htmx.min.js lokal nusxa, CDN yo'q)
+│   ├── */management/commands/     # scan, explore, write, render, run, bundle, eval
+│   ├── packages/
+│   │   ├── schemas/src/yoriqnoma_schemas/
+│   │   │   ├── common.py          # Target, BBox, Role, Stage, Confidence...
+│   │   │   ├── policy.py          # Policy
+│   │   │   ├── blueprint.py       # Blueprint, Page, Entity, Flow, Step
+│   │   │   ├── capture.py         # CaptureRun, State, Element, FlowResult
+│   │   │   ├── manual.py          # Manual, Section, Article, Coverage
+│   │   │   └── export.py          # JSON Schema → docs/schemas/
+│   │   ├── scanner/src/yoriqnoma_scanner/   # FAQAT LOKALDA
+│   │   │   ├── api.py             # scan(project_dir, base_url, stack="auto") -> ScanResult
+│   │   │   ├── __main__.py        # debug: python -m yoriqnoma_scanner PATH --base-url URL
+│   │   │   ├── fs_guard.py  detect.py  ast_utils.py
+│   │   │   ├── parsers/           # base.py, fastapi_routes.py, react_router.py,
+│   │   │   │                      # jsx_forms.py, pydantic_forms.py, zod_yup.py,
+│   │   │   │                      # sqlalchemy_models.py, i18n.py,
+│   │   │   │                      # e2e_playwright_py.py, e2e_playwright_ts.py
+│   │   │   └── classify.py  entities.py  flows.py  build.py  report.py  overrides.py
+│   │   └── core/src/yoriqnoma_core/
+│   │       ├── safety/            # url_guard.py, pii.py, policy_engine.py
+│   │       ├── explorer/          # session, accounts, firewall, datagen, mailbox,
+│   │       │                      # steps, runner, capture, som, state_graph,
+│   │       │                      # patching, bundle, privilege
+│   │       ├── writer/            # providers/{base,fake,ollama,claude}.py,
+│   │       │                      # templates_uz.py, prompts/*.j2, tasks.py,
+│   │       │                      # assemble.py, validate.py, coverage.py, cache.py
+│   │       ├── render/            # images.py, html.py, pdf.py, docx.py,
+│   │       │                      # search_index.py, templates/
+│   │       └── pipeline.py        # run_explore(), run_write(), run_render() — dasturlar chaqiradi
+│   ├── fixtures/demo_shop/        # poligon (§10)
+│   ├── tests/                     # test_no_db_drivers.py, test_shared_copies.py, golden/
+│   └── var/                       # o'z ma'lumotlari: local.sqlite3, huey.sqlite3, kalitlar, runs/ (git'da yo'q)
+└── server/                        # SERVER DASTUR — §7
+    ├── pyproject.toml  uv.lock  .python-version   # yoriqnoma-server + workspace (packages/*)
+    ├── manage.py
+    ├── yoriqnoma_server/          # settings/{base,dev,prod,test}.py, urls.py, celery.py, asgi/wsgi
+    ├── accounts/                  # Django auth: ro'yxatdan o'tish va kirish
+    ├── domains/                   # Domain, domen tasdiqlash
+    ├── jobs/                      # Job, JobEvent, Artifact, InputRequest; services; tasks (celery)
+    ├── scout/                     # B rejimi: preflight, crawler, js_routes, network_infer,
+    │                              # auth_flow, agent, validation_probe, blueprint_builder, merge
+    ├── security/                  # ssrf integratsiyasi, secrets (Fernet), ratelimit, robots
+    ├── api/                       # DRF: serializers, views, permissions, urls (faqat sessiya)
+    ├── storage.py                 # django-storages S3 (MinIO)
+    ├── templates/  static/        # HTMX
+    ├── packages/
+    │   ├── schemas/               # local/packages/schemas ning aynan nusxasi
+    │   └── core/                  # local/packages/core ning aynan nusxasi
+    ├── docker/                    # Dockerfile.web, Dockerfile.worker, compose.yml,
+    │                              # .env.example, worker.env.example (haqiqiy env'lar git'da yo'q)
+    ├── tests/                     # test_no_db_drivers.py, test_shared_copies.py, e2e/
+    └── var/                       # dev ma'lumotlari (git'da yo'q)
 ```
 
 **Bog'liqliklar:**
 
 | Qism | Nimaga bog'liq |
 |---|---|
-| `schemas` | Hech narsaga |
+| `schemas` | Hech narsaga (faqat pydantic) |
 | `scanner` | Faqat `schemas` |
 | `core` | Faqat `schemas` |
-| `apps/local` | `schemas`, `scanner`, `core` + Django, Huey, waitress |
-| `apps/server` | `schemas`, `core` + Django, DRF, Celery, psycopg, django-storages |
+| `local/` dasturi | o'zidagi `schemas`, `scanner`, `core` + Django, Huey, waitress |
+| `server/` dasturi | o'zidagi `schemas`, `core` + Django, DRF, Celery, psycopg, django-storages |
 
-**Muhim:** `apps/server` `scanner` ga bog'liq emas. Server kod o'qimaydi, u blueprint'ni lokal dasturdan oladi yoki saytning o'zidan tuzadi.
+**Muhim:**
+- `server/` da `scanner` yo'q. Server kod o'qimaydi: blueprint'ni foydalanuvchi yuklagan fayldan oladi yoki saytning o'zidan tuzadi.
+- Lokal va server bir-biriga ulanmaydi va bir-birining papkasidan import qilmaydi. Lokal natijasi (`blueprint.json`, `bundle.zip`) serverga faqat odam orqali o'tadi.
 
 ## 2. Ma'lumot oqimi
 
 ```
- ┌──────────────────────────── LOKAL DASTUR (Django, 127.0.0.1) ────────────────────────────┐
- │  kod ─► scanner.scan() ─► blueprint ─► [ko'rib chiqish, overrides] ─┬─► "Blueprint" natija  │──┐
- │                                                                     │                       │  │ fayl yoki
- │                     core.explorer (Playwright) ◄────────────────────┘                       │  │ "Serverga
- │                            │                                                                 │  │ yuborish"
- │                 capture/ ──┼─► bundle.zip ─────────────────────────────► "Bundle" natija     │──┤ (API kalit)
- │                            ▼                                                                 │  │
- │   core.writer (OllamaProvider) ─► manual.json ─► core.render ─► HTML/PDF/DOCX "To'liq"       │  │
- └──────────────────────────────────────────────────────────────────────────────────────────┘  │
-                                                                                                ▼
- ┌──────────────────────────── SERVER DASTUR (Django, Docker) ───────────────────────────────────┐
- │  A:  blueprint ───────────────► core.explorer ─┐                                               │
- │  A': bundle ──────────────────────────────────►├─► core.writer (ClaudeProvider) ─► core.render │
- │  B:  URL ─► scout ─► blueprint ► core.explorer ┘                                               │
- └───────────────────────────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────── LOKAL DASTUR (local/, Django, 127.0.0.1) ──────────────────────────┐
+ │  kod ─► scanner.scan() ─► blueprint ─► [ko'rib chiqish, overrides] ─┬─► blueprint.json      │
+ │                                                                     │                       │
+ │                     core.explorer (Playwright) ◄────────────────────┘                       │
+ │                            │                                                                │
+ │                 capture/ ──┼─► bundle.zip                                                   │
+ │                            ▼                                                                │
+ │   core.writer (OllamaProvider) ─► manual.json ─► core.render ─► HTML/PDF/DOCX "To'liq"      │
+ └─────────────────────────────────────────────────────────────────────────────────────────────┘
+         blueprint.json yoki bundle.zip: odam yuklab oladi va server veb-formasida yuklaydi
+                      (dasturlar o'rtasida tarmoq aloqasi yo'q)
+                                               ▼
+ ┌──────────────────────── SERVER DASTUR (server/, Django, Docker) ────────────────────────────┐
+ │  A:  yuklangan blueprint ─────► core.explorer ─┐                                             │
+ │  A': yuklangan bundle ────────────────────────►├─► core.writer (ClaudeProvider) ─► render    │
+ │  B:  URL ─► scout ─► blueprint ► core.explorer ┘                                             │
+ └─────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 3. Sxemalar (`yoriqnoma_schemas`, pydantic v2)
@@ -384,7 +397,7 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 
 ## 5. Ishlash papkasi
 
-**Lokal dasturda** papka `var/runs/<project_slug>/<run_id>/` da yaratiladi. **Serverda** xuddi shu tuzilma MinIO'da `jobs/<job_id>/` prefiksi ostida saqlanadi.
+**Lokal dasturda** papka `local/var/runs/<project_slug>/<run_id>/` da yaratiladi. **Serverda** xuddi shu tuzilma MinIO'da `jobs/<job_id>/` prefiksi ostida saqlanadi.
 
 ```
 <run_dir>/
@@ -410,7 +423,7 @@ def run_render(run_dir: Path, formats: set[str]) -> RenderResult
 
 `ProgressSink` va `CancelToken` protokollari dasturlarda implementatsiya qilinadi: lokalda Run/RunEvent orqali, serverda Job/JobEvent orqali.
 
-## 6. Lokal dastur (`apps/local`, Django)
+## 6. Lokal dastur (`local/`, Django)
 
 ### 6.1. Ishga tushirish
 
@@ -423,11 +436,11 @@ def run_render(run_dir: Path, formats: set[str]) -> RenderResult
 
 **Asosiy sozlamalar:**
 - `ALLOWED_HOSTS = ["127.0.0.1", "localhost"]`, `DEBUG=False` (`--dev` bayrog'i bilan `True`).
-- Baza: `var/local.sqlite3`.
-- Huey: `SqliteHuey("yoriqnoma", filename="var/huey.sqlite3")`.
-- `MEDIA_ROOT = var/runs`.
+- Baza: `local/var/local.sqlite3`.
+- Huey: `SqliteHuey("yoriqnoma", filename="local/var/huey.sqlite3")`.
+- `MEDIA_ROOT = local/var/runs`.
 - `LANGUAGE_CODE="uz"`, `TIME_ZONE="Asia/Tashkent"`.
-- Fernet kaliti `var/secret.key` faylida, birinchi ishga tushishda yaratiladi.
+- Fernet kaliti `local/var/secret.key` faylida, birinchi ishga tushishda yaratiladi.
 
 ### 6.2. Modellar
 
@@ -435,7 +448,6 @@ def run_render(run_dir: Path, formats: set[str]) -> RenderResult
 class AppSettings(models.Model):          # yagona yozuv (singleton)
     ollama_host = URLField(default="http://127.0.0.1:11434"); ollama_model = CharField(default="gemma4:26b")
     num_ctx = IntegerField(default=24576); language = CharField(default="uz")
-    server_url = URLField(blank=True); server_api_key_enc = BinaryField(null=True)
 
 class Project(models.Model):
     name; slug; source_dir = CharField(blank=True)          # bo'sh bo'lsa: blueprint qo'lda yuklanadi
@@ -456,12 +468,11 @@ class Run(models.Model):
     project = FK; blueprint = FK(BlueprintVersion)
     output = CharField(choices=full|blueprint|bundle)
     status = CharField(choices=queued|running|waiting_input|done|failed|cancelled)
-    stage = CharField(choices=explore|write|render|package|upload, blank=True)
+    stage = CharField(choices=explore|write|render|package, blank=True)
     progress_done = IntegerField(default=0); progress_total = IntegerField(default=0)
     model = CharField(blank=True); formats = JSONField(default=list)
     run_dir = CharField(); stats = JSONField(default=dict); error = TextField(blank=True)
     cancel_requested = BooleanField(default=False)
-    server_job_id = CharField(blank=True); server_job_url = URLField(blank=True)
     created_at; started_at; finished_at
 
 class RunEvent(models.Model): run = FK; at; level; stage; message
@@ -477,7 +488,7 @@ class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryFie
    - **`blueprint`** — darhol: overrides qo'llangan `blueprint.json` yoziladi, `Run.status=done`.
    - **`bundle`** — Huey `execute_run` → `core.pipeline.run_explore` → `explorer.bundle` → `bundle.zip`.
    - **`full`** — `run_explore` → `run_write(OllamaProvider)` → `run_render`.
-5. **(ixtiyoriy) "Serverga yuborish"** — `uploader.client.submit(run)` → `POST {server}/api/jobs/` (Api-Key bilan) → `server_job_url`. Holat har 10 soniyada `GET /api/jobs/{id}/` orqali yangilanadi.
+5. **(ixtiyoriy) Natijani serverga olib o'tish — qo'lda.** Foydalanuvchi ish sahifasidan `blueprint.json` yoki `bundle.zip` ni yuklab oladi va server veb-sahifasidagi `/jobs/new/` formasida o'zi yuklaydi. Lokal dastur serverga ulanmaydi, server manzili va kalitini bilmaydi.
 
 **Implementatsiyalar:**
 - `DbProgressSink` — `RunEvent` yozadi va `Run.progress_*` ni yangilaydi.
@@ -495,10 +506,10 @@ class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryFie
 | `/projects/<id>/blueprint/` | Ko'rib chiqish: Sahifalar · Obyektlar · Flow'lar · Chiqarib tashlanganlar · Hisobot (tablar, HTMX tugmalar) |
 | `POST /projects/<id>/blueprint/upload/` | Kodsiz loyiha uchun tayyor blueprint yuklash |
 | `/projects/<id>/runs/new/` | Natija turi (3 ta radio karta), model, formatlar |
-| `/runs/<id>/` | Progress (`/runs/<id>/status/` partial, har 2 s), log, input formasi, bekor qilish, natijalar, "Serverga yuborish" |
+| `/runs/<id>/` | Progress (`/runs/<id>/status/` partial, har 2 s), log, input formasi, bekor qilish, natijalar (yuklab olish; blueprint/bundle uchun "server sahifasida yuklang" ko'rsatmasi) |
 | `/runs/<id>/files/<name>` | Yuklab olish (faqat `run_dir` ichidagi fayllar, path traversal himoyasi) |
 | `POST /runs/<id>/open-folder/` | Papkani ochish: Windows'da `os.startfile`, Linux'da `xdg-open` |
-| `/settings/` | Ollama (host, model ro'yxati, ulanish testi), server (URL, API kalit, ulanish testi) |
+| `/settings/` | Ollama (host, model ro'yxati, ulanish testi) |
 | `/eval/` | Modellarni solishtirish natijalari |
 
 ### 6.5. Boshqaruv buyruqlari
@@ -515,7 +526,7 @@ manage.py eval    --golden tests/golden/ --models gemma4:26b,qwen3.6:27b
 
 Buyruqlar UI bilan bir xil `services.py` funksiyalarini chaqiradi. Terminalda `HumanInput` — `input()` orqali.
 
-## 7. Server dastur (`apps/server`, Django)
+## 7. Server dastur (`server/`, Django)
 
 ### 7.1. Komponentlar (docker compose)
 
@@ -529,15 +540,12 @@ Buyruqlar UI bilan bir xil `services.py` funksiyalarini chaqiradi. Terminalda `H
 | `redis` | Celery broker |
 | `minio` | Rasmlar, bundle'lar, natijalar (django-storages S3) |
 | `mailpit` | Catch-all test pochta: `*@inbox.<server-domeni>`, MX yozuvi serverga yo'naltiriladi |
-| `demo_shop` | Faqat `test` profilida: poligon nishon sifatida |
+| `demo_shop` | Faqat `test` profilida: poligon nishon sifatida (`../local/fixtures/demo_shop` dan build) |
 
 ### 7.2. Modellar
 
 ```python
-# accounts
-class ApiKey(models.Model):
-    user = FK(User); name; prefix = CharField(8); key_hash = CharField()   # sha256(secret)
-    created_at; last_used_at = DateTimeField(null=True); revoked = BooleanField(default=False)
+# accounts: Django'ning standart User modeli (ro'yxatdan o'tish, kirish). API kalitlar yo'q.
 
 # domains
 class Domain(models.Model):
@@ -583,13 +591,10 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 
 ### 7.4. REST API (DRF, `/api/`)
 
-**Autentifikatsiya:**
-- veb uchun — sessiya + CSRF;
-- lokal dastur uchun — `Authorization: Api-Key <prefix>.<secret>` (maxsus DRF `ApiKeyAuthentication`).
+**Autentifikatsiya:** faqat sessiya + CSRF (login qilgan foydalanuvchi). API kalitlar yo'q, chunki lokal dastur serverga ulanmaydi.
 
 | Metod | Yo'l | Tavsif |
 |---|---|---|
-| GET | `/api/me/` | API kalitni tekshirish (lokal "ulanish testi") |
 | GET, POST | `/api/domains/` | O'z domenlari; POST `{host}` → `{id, token, methods}` |
 | POST | `/api/domains/{id}/verify/` | well-known, meta yoki DNS TXT orqali tekshiradi |
 | GET, POST | `/api/jobs/` | POST multipart: `mode`, `url`, `environment`, `language`, `formats`, `accounts?`, `blueprint?`, `bundle?`, `budget_usd?` → `{id, web_url, status}` |
@@ -599,20 +604,19 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 | POST | `/api/jobs/{id}/cancel/` | Bekor qilish |
 | GET | `/api/jobs/{id}/artifacts/{name}/` | Qisqa muddatli imzolangan havolaga redirect |
 
-**Ruxsatlar:** har bir obyekt faqat egasiga ko'rinadi (`owner == request.user`). API kalit faqat veb-interfeysda yaratiladi.
+**Ruxsatlar:** har bir obyekt faqat egasiga ko'rinadi (`owner == request.user`).
 
 ### 7.5. Veb sahifalar
 
 - **Hisob:** `/accounts/login/`, `/accounts/register/`, `/accounts/logout/`.
-- **API kalitlar:** `/keys/` — yaratish (kalit faqat bir marta ko'rsatiladi) va o'chirish.
 - **Domenlar:** `/domains/` — qo'shish, token va 3 xil joylash yo'riqnomasi, "Tekshirish" tugmasi.
 - **Ishlar:**
   - `/jobs/` — ro'yxat;
-  - `/jobs/new/` — rejim kartalari, URL, muhit, akkauntlar, fayl, byudjet;
+  - `/jobs/new/` — rejim kartalari, URL, muhit, akkauntlar, fayl (lokal dastur yaratgan `blueprint.json` yoki `bundle.zip`), byudjet;
   - `/jobs/<id>/` — bosqichlar, log, narx, input formasi, natijalar.
 - **Admin:** `/ops/` — Django admin, faqat staff.
 
-### 7.6. Razvedkachi (B rejimi) — `apps/server/scout`
+### 7.6. Razvedkachi (B rejimi) — `server/scout`
 
 - **`preflight`** — url_guard; domen tasdiqlanganmi; `robots.txt`; `sitemap.xml`; til; texnologiya belgilari.
 - **`crawler`** — faqat shu domen ichida BFS. URL shablonlanadi (`/x/123` → `/x/:id`), har shablondan ≤ 2 namuna olinadi; `deny_paths`; limitlar.
@@ -628,9 +632,9 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 
 ## 8. Konfiguratsiya
 
-**Lokal dastur.** Sozlamalar `AppSettings` (baza) va `var/` papkasida. Env orqali qayta yozish mumkin:
+**Lokal dastur.** Sozlamalar `AppSettings` (baza) va `local/var/` papkasida. Env orqali qayta yozish mumkin:
 - `YORIQNOMA_LOCAL_PORT` (standart 8765);
-- `YORIQNOMA_VAR_DIR`;
+- `YORIQNOMA_VAR_DIR` (standart `local/var`);
 - `YORIQNOMA_HUEY_WORKERS`.
 
 **Server dastur** (django-environ, env fayllar faqat serverning o'zida, git'da faqat `*.example` shablonlar):
@@ -653,26 +657,27 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 
 | Daraja | Qayerda | Marker |
 |---|---|---|
-| Unit | `packages/*/tests`, `apps/*/<app>/tests` (pytest-django) | — |
+| Unit | `<dastur>/packages/*/tests`, `<dastur>/<ilova>/tests` (pytest-django) | — |
 | Integratsion | demo_shop ishga tushiriladi (pytest fixture, port 8800) | `slow` |
 | LLM | Haqiqiy Ollama yoki Claude | `llm` |
 | Server e2e | docker compose (`--profile test`) | `server` |
 
-- **Ishga tushirish:** Django sozlamalari global bo'lgani uchun har bir dastur alohida pytest jarayonida sinaladi: `uv run pytest` (paketlar va `tests/`), `uv run pytest apps/local`, `uv run pytest apps/server`. mypy ham shunday: `uv run mypy`, `uv run --directory apps/<dastur> mypy`.
+- **Ishga tushirish:** har bir dastur o'z papkasida (`cd local` yoki `cd server`): `uv run pytest` — kutubxonalar, `tests/` va Django ilovalari bitta jarayonda; `uv run mypy` — strict, django-stubs bilan.
 - **Django sozlamalari testlarda:**
   - lokal uchun Huey `immediate=True` (`yoriqnoma_local.settings_test`);
   - server uchun `CELERY_TASK_ALWAYS_EAGER=True`; unit testlar SQLite'da, `server` marker testlari compose'dagi PostgreSQL'da.
-- **Oltin to'plam** `tests/golden/`: 20–30 holat (rasm + elementlar) va kutilgan natija belgilari.
-- **`tests/test_no_db_drivers.py`:** `packages/scanner` va `packages/core` ning manba kodida (AST) va `pyproject` bog'liqliklarida `sqlite3`, `psycopg`, `pymysql`, `sqlalchemy`, `sqlmodel`, `asyncpg`, `aiosqlite`, `django` bo'lmasligi tekshiriladi.
+- **Oltin to'plam** `local/tests/golden/`: 20–30 holat (rasm + elementlar) va kutilgan natija belgilari.
+- **`tests/test_shared_copies.py`** (ikkala dasturda bir xil): `schemas` va `core` ning lokal va server nusxalari bayt-ma-bayt bir xil; `scanner` serverda yo'q.
+- **`tests/test_no_db_drivers.py`** (ikkala dasturda bir xil): `packages/scanner` va `packages/core` ning manba kodida (AST) va `pyproject` bog'liqliklarida `sqlite3`, `psycopg`, `pymysql`, `sqlalchemy`, `sqlmodel`, `asyncpg`, `aiosqlite`, `django` bo'lmasligi tekshiriladi.
 
-## 10. Poligon: `fixtures/demo_shop`
+## 10. Poligon: `local/fixtures/demo_shop`
 
 **Maqsadi:** barcha komponentlarni boshqariladigan, ichida ataylab admin qismi ham bor sayt ustida sinash.
 
 **Stek:**
 - backend: FastAPI + SQLite (poligonning **o'z** bazasi);
 - frontend: React (Vite, React Router v6), build qilingan `dist/` repoga commit qilinadi, shuning uchun Node faqat qayta build uchun kerak;
-- ishga tushirish: `uv run demo-shop` (port 8800).
+- ishga tushirish: `local/` papkasida `uv run demo-shop` (port 8800). Server `docker compose --profile test` ham shu papkadan build qiladi.
 
 **Foydalanuvchi qismi:**
 - **Ochiq sahifalar:** `/`, `/catalog`, `/catalog/:id`

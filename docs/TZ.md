@@ -44,6 +44,8 @@ Yo'riqnomani o'qigan odam saytdan to'liq foydalana olishi kerak:
 
 Tizim **ikkita dastur** va ular birga ishlatadigan **uchta kutubxona paketidan** iborat.
 
+Repo ham ikki papkaga bo'lingan: `local/` (lokal dastur) va `server/` (server dastur). Har biri o'z kutubxonalari bilan alohida o'rnatiladi va ishlaydi. Ikkala dasturga kerak bo'lgan `schemas` va `core` paketlari ikkala papkada aynan bir xil nusxada turadi (`local/packages`, `server/packages`), `scanner` esa faqat lokalda. Dasturlar bir-biriga ulanmaydi va bir-birining kodini import qilmaydi.
+
 | Dastur | Ichidagi qismlar | Texnologiya | Qayerda | Internet |
 |---|---|---|---|---|
 | **Lokal dastur** (oldingi 1.0 + 2.1) | Skaner, Tadqiqotchi, Yozuvchi (Ollama), Renderer | Django 5.2, Huey, SQLite | Foydalanuvchi kompyuteri, `127.0.0.1` | Kerak emas |
@@ -60,8 +62,8 @@ Tizim **ikkita dastur** va ular birga ishlatadigan **uchta kutubxona paketidan**
 | Natija turi | Bajariladigan bosqichlar | Natija | Keyin nima qilinadi |
 |---|---|---|---|
 | **To'liq yo'riqnoma** | Skan → tadqiqot → yozish (Ollama) → render | HTML, PDF, DOCX | Tayyor |
-| **Blueprint (server A uchun)** | Skan → blueprint ko'rib chiqish | `blueprint.json` | Serverga yuklanadi, server saytga o'zi kiradi |
-| **Bundle (server A' uchun)** | Skan → tadqiqot | `bundle.zip` | Serverga yuklanadi, server faqat yozadi va render qiladi |
+| **Blueprint (server A uchun)** | Skan → blueprint ko'rib chiqish | `blueprint.json` | Odam serverga yuklaydi, server saytga o'zi kiradi |
+| **Bundle (server A' uchun)** | Skan → tadqiqot | `bundle.zip` | Odam serverga yuklaydi, server faqat yozadi va render qiladi |
 
 **Server rejimlari:**
 - **A** — blueprint + URL;
@@ -69,7 +71,7 @@ Tizim **ikkita dastur** va ular birga ishlatadigan **uchta kutubxona paketidan**
 - **B** — faqat URL;
 - **A+B** — blueprint asosiy, Razvedkachi bo'sh joylarni to'ldiradi.
 
-Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi** (API kalit bilan) yoki fayl sifatida saqlaydi.
+Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga **odam o'zi yuklaydi**: server veb-sahifasidagi ish yaratish formasi orqali. Lokal dastur serverga ulanmaydi va hech narsa yubormaydi.
 
 ## 4. Funksional talablar
 
@@ -216,7 +218,7 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
   - HTML yo'riqnomani ochish;
   - PDF, DOCX, `blueprint.json`, `bundle.zip` va hisobotlarni yuklab olish;
   - natija papkasini ochish (Windows Explorer).
-- **FR-L9. Serverga yuborish.** Sozlamalarda server URL'i va API kalit bo'lsa, blueprint yoki bundle tugma bilan serverga yuboriladi. Server ish havolasini qaytaradi va ish holati lokal sahifada ham ko'rinadi.
+- **FR-L9. Server uchun fayl.** "Blueprint" va "Bundle" natijalari ish sahifasidan yuklab olinadi (`blueprint.json`, `bundle.zip`) va natija papkasida saqlanadi. Sahifada qisqa ko'rsatma bor: "Bu faylni server sahifasidagi «Yangi ish» formasida yuklang". Lokal dastur serverga ulanmaydi, server manzili yoki kalitini so'ramaydi va saqlamaydi.
 - **FR-L10. Boshqaruv buyruqlari** (avtomatlashtirish va CI uchun):
 
   ```
@@ -236,13 +238,12 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
 - **FR-SV1. Rejimlar:** A, A', B, A+B.
 - **FR-SV2. Veb-interfeys** (Django shablonlar + HTMX):
   - server foydalanuvchilari uchun ro'yxatdan o'tish va kirish (Django auth);
-  - API kalitlarini yaratish va o'chirish (lokal dastur uchun);
   - domen qo'shish va tasdiqlash;
-  - ish yaratish;
+  - ish yaratish (A va A' rejimlarida lokal dastur yaratgan faylni yuklash bilan);
   - jarayonni jonli kuzatish (HTMX polling);
   - SMS kodini kiritish;
   - natijalarni yuklab olish.
-- **FR-SV3. REST API** (DRF) — ARCHITECTURE §7.4 da. Sessiya va API kalit bilan autentifikatsiya qilinadi.
+- **FR-SV3. REST API** (DRF) — ARCHITECTURE §7.4 da. Faqat sessiya (login) bilan autentifikatsiya qilinadi; API kalitlar yo'q.
 - **FR-SV4. Navbat.** Celery + Redis, worker'lar va Celery beat (davriy vazifalar). Bir vaqtdagi ishlar soni konfiguratsiyada belgilanadi.
 - **FR-SV5. Razvedkachi (B rejimi):**
   - preflight;
@@ -268,7 +269,7 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
     Limitlar konfiguratsiyada belgilanadi. Limitga yetilganda yangi ish yaratilmaydi va foydalanuvchiga sababi ko'rsatiladi.
 - **FR-SV7. Saqlash muddati.** Natijalar konfiguratsiyadagi muddat (standart 30 kun) o'tgach o'chiriladi.
 - **FR-SV8. Django admin.** Server operatorlari uchun `/ops/` yo'lida joylashadi (`/admin/` emas) va faqat staff'ga ochiq.
-- **FR-SV9. Lokal dasturdan qabul qilish.** API kalit bilan `POST /api/jobs` orqali blueprint (A rejimi) yoki bundle (A' rejimi) qabul qilinadi. Javobda ish id'si va veb-havola qaytadi.
+- **FR-SV9. Lokal dastur faylini qabul qilish.** Foydalanuvchi login qilib, `/jobs/new/` formasida `blueprint.json` (A rejimi) yoki `bundle.zip` (A' rejimi) faylini o'zi yuklaydi. Fayl sxema va SEC-13 bo'yicha tekshiriladi. Lokal dasturdan avtomatik qabul qilish yo'li yo'q.
 
 ## 5. Xavfsizlik talablari (SEC)
 
@@ -321,9 +322,8 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
   - Bitta domenga 1–2 so'rov/soniya.
   - User-Agent: `AI-user-yoriqnoma/<versiya> (+<kontakt URL>)`.
 - **SEC-15. Server foydalanuvchilari.**
-  - Har kim faqat o'z domenlari, ishlari va API kalitlarini ko'radi.
+  - Har kim faqat o'z domenlari va ishlarini ko'radi.
   - Parollar argon2 bilan saqlanadi (Django `Argon2PasswordHasher`).
-  - API kalitlar faqat hash ko'rinishida saqlanadi va faqat yaratilganda bir marta ko'rsatiladi.
 - **SEC-16. Lokal dastur.**
   - Faqat `127.0.0.1` da tinglaydi, `ALLOWED_HOSTS` = `localhost`, `127.0.0.1`.
   - CSRF yoqilgan.
@@ -361,7 +361,7 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
 ## 7. Kirish va chiqish formatlari
 
 - **Sxemalar:** `blueprint.json`, `capture.json`, `manual.json` — `packages/schemas` da. JSON Schema `docs/schemas/` papkasiga eksport qilinadi.
-- **Bitta ishning papkasi** (lokalda `var/runs/`, serverda MinIO'da xuddi shu tuzilma):
+- **Bitta ishning papkasi** (lokalda `local/var/runs/`, serverda MinIO'da xuddi shu tuzilma):
 
   ```
   runs/<project>/<run_id>/
@@ -399,7 +399,7 @@ Lokal dastur blueprint yoki bundle'ni serverga **to'g'ridan-to'g'ri yubora oladi
 - **QM-4. Lokal dastur:**
   - UI orqali "To'liq yo'riqnoma" Ollama bilan internetsiz boshidan oxirigacha ishlaydi;
   - "Blueprint" va "Bundle" natijalari server sxemasidan o'tadi;
-  - "Serverga yuborish" ishlaydi.
+  - lokal dastur serverga hech qanday so'rov yubormaydi; uning fayllari server veb-formasi orqali yuklanib, ish yaratiladi.
 - **QM-5. Server dastur:**
   - A, A' va B rejimlari demo_shop'da ishlaydi;
   - SSRF testlari bloklanadi: `127.0.0.1`, `169.254.169.254`, IPv6 loopback, redirect orqali ichki IP;
