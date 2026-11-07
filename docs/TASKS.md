@@ -31,7 +31,7 @@ Lokal dastur serverga ulanmaydi: blueprint va bundle serverga odam orqali o'tadi
 **Rollar va xiralashtirish (2026-11-07 dan, TZ FR-RL va FR-E10).** Vosita endi faqat "oddiy foydalanuvchi" uchun emas, administrator va adminga o'xshash rollardan boshqa **har bir rol** uchun yo'riqnoma yozadi. Rol ish boshida variantlardan tanlanadi. Vazifalarda `user` roli, `reachable_by_user`, "test user" yoki "oddiy foydalanuvchi" deyilgan joylarni "maqsadli rol" deb o'qing:
 - skaner guard'larni rol bo'yicha tasniflaydi (T04–T06, T08): `require_role("manager")` → shu rol, faqat admin yoki adminga o'xshash → `excluded`;
 - akkauntlar va flow'lar maqsadli rol uchun (T10, T11, T18); yordamchi rol akkaunti (masalan, test mijoz) faqat obyekt tayyorlash uchun;
-- skrinshotda maqsadli rol ko'radigan narsa xiralashtirilmaydi; faqat rolga tegishli bo'lmagan elementlar xiralashtiriladi. Begona shaxslarning ma'lumotlari (ism, telefon, email, manzil...) xiralashtirilmaydi, balki to'qima test ma'lumotlari bilan almashtiriladi (T09, T10, T12, T16);
+- skrinshotda maqsadli rol ko'radigan narsa xiralashtirilmaydi; faqat rolga tegishli bo'lmagan elementlar xiralashtiriladi. Begona shaxslarning ma'lumotlari (ism, telefon, email, manzil...) xiralashtirilmaydi, balki to'qima test ma'lumotlari bilan almashtiriladi. Saytning o'z tashkilot ma'lumotlari va nashr kontenti (maqola, muallif, reklama) o'z holicha qoladi; qaror zona bo'yicha, to'qima qiymat HMAC bilan, rasm ichidagi matn OCR bilan tekshiriladi (T09, T10, T12, T16);
 - manual'da `role` bor va yo'riqnoma boshida qaysi rol uchun yozilgani aytiladi (T15).
 
 ## 0. Boshlashdan oldin (o'zingiz bajarasiz)
@@ -141,7 +141,8 @@ Vazifa: packages/schemas da yoriqnoma_schemas paketini to'liq yoz.
 - common.py, policy.py, blueprint.py, capture.py, manual.py — ARCHITECTURE 3-bo'limdagi modellar,
   extra="forbid", schema_version="1.0"; rollar ham: RoleInfo, Blueprint.roles, RouteInfo.access/roles,
   EntityStatus.reachable_by, Flow.role, CaptureRun.role, State.hidden, Manual.role; almashtirish uchun
-  Entity.pii_fields, State.substituted, CaptureRun.test_values (ARCHITECTURE 3.3, 3.4).
+  Entity.pii_fields, State.substituted, State.kept_public, CaptureRun.test_values, CaptureRun.public_values
+  (ARCHITECTURE 3.3, 3.4).
 - Validatorlar: Flow.requires mavjud id'larga ishora qiladi; requires grafi sikl'siz
   (sikl bo'lsa xabarda sikl yo'lini ko'rsat); Target kamida bitta maydonli; pages ichida
   access="excluded" yo'q; flow.role va route.roles mavjud, excluded bo'lmagan rollarga ishora qiladi;
@@ -183,6 +184,9 @@ Vazifa: fixtures/demo_shop poligonini yarat. Bu sinov sayti — barcha keyingi i
 - E2E: e2e/test_register.py (Playwright Python) va e2e/order.spec.ts (Playwright TS) — ro'yxatdan o'tish
   va buyurtma yaratish/bekor qilish.
 - Tuzoqlar: .env (SECRET_KEY=fake..., DATABASE_URL=sqlite:///var/demo.db), README'da "skaner buni ochmasligi kerak".
+- FR-E10 sinov ma'lumotlari (ARCHITECTURE 10): footer'da do'konning o'z emaili va telefoni; /catalog/:id da seed
+  mijozlarining sharhlari (schema.org Review belgisi bilan) va kirgan mijoz uchun sharh yozish formasi; boshqa mijoz
+  buyurtmasiga ilova qilingan PNG (yetkazish varaqasi, ichida ism va telefon), menejer buyurtma sahifasida ko'radi.
 - `uv run demo-shop` (port 8800, --reset bilan bazani qayta yaratadi).
 - tests/: pytest fixture `demo_shop_url` (subprocess'da ishga tushiradi, tayyor bo'lishini kutadi, oxirida o'chiradi);
   smoke test: har bir rolning sahifalari o'sha rol uchun 200, boshqa rol uchun 403/redirect;
@@ -377,8 +381,10 @@ Vazifa: yoriqnoma_core.safety va explorer/firewall.py.
   IP literal, IPv6, decimal/octal IP yozuvlari ("http://2130706433/") ham ushlanadi.
   allow_private=True faqat lokal dastur uchun (lokal sayt 127.0.0.1 bo'lishi mumkin) — server uni HECH QACHON ishlatmaydi.
 - safety/pii.py: email, +998 telefon, karta raqami (Luhn), ism (form label "Ism"/"F.I.Sh" yonidagi qiymat),
-  manzil, pasport seriyasi va JSHSHIR (14 raqam) uchun regex/qoidalar; find_pii(text, ignore=test_values)
-  -> (tur, qiymat, joy) ro'yxati; mask_text() (zaxira va log uchun); is_pii_field(name) — maydon nomidan.
+  manzil, pasport seriyasi va JSHSHIR (14 raqam) uchun regex/qoidalar; find_pii(text, ignore=test_values+public_values)
+  -> (tur, qiymat, joy) ro'yxati; mask_text() (zaxira va log uchun); is_pii_field(name) — maydon nomidan;
+  is_name_header(text) — jadval ustuni sarlavhasi ism ustunimi («Ism», «F.I.Sh», «Mijoz», «ФИО», «Name»...);
+  is_site_email(email, base_url) — email sayt domenida yoki uning subdomenidami (tashkilot ma'lumoti).
 - text_uz.py (yoriqnoma_core/text_uz.py): normalize_uz(s) — o'zbek lotin yozuvini bitta ko'rinishga
   keltiradi: kichik harf; apostrof variantlari (' ‘ ’ ` ʻ ʼ) bitta belgiga; yangi alifbo harflari eski
   ko'rinishga: ö -> o', ğ -> g', ş -> sh, ç -> ch. Ba'zi saytlar (masalan, kun.uz) yangi alifboda
@@ -411,9 +417,12 @@ Vazifa: explorer/session.py, accounts.py, mailbox.py, datagen.py, steps.py.
 - datagen: Faker (ru_RU asosida, o'zbekcha ism-familiya ro'yxati qo'shimcha), seed; generatorlar:
   full_name, email (mailbox domeniga: <alias>+<run_id>@<domain>), phone_uz (+998 9X XXX XX XX), password
   (qoidaga mos), text, number(min,max); rules satrini o'qib qiymatni moslash.
-  substitute(kind, real_value) -> begona shaxs ma'lumoti uchun to'qima qiymat (TZ FR-E10): bir xil haqiqiy
-  qiymat ish davomida doim bir xil to'qima qiymat beradi, bitta odamning ismi, telefoni va emaili bitta
-  to'qima odamga tegishli bo'ladi; jadval faqat xotirada; yaratilgan barcha qiymatlar test_values'ga.
+  substitute(kind, real_value, record_key=None) -> begona shaxs ma'lumoti uchun to'qima qiymat (TZ FR-E10,
+  ARCHITECTURE 4.3): seed = HMAC-SHA256(pseudonym_key, run_id + kind + normalize(real)); bir xil haqiqiy qiymat
+  ish davomida va resume'dan keyin ham doim bir xil to'qima qiymat beradi; record_key berilsa (yozuvning email,
+  telefon yoki ismi) shu yozuvdagi ism, telefon va email bitta to'qima odamdan olinadi; jadval yo'q;
+  yaratilgan barcha qiymatlar test_values'ga. Test: ikki alohida jarayonda bir xil kalit va run_id -> bir xil
+  qiymat; boshqa run_id -> boshqa qiymat; kalit va haqiqiy qiymat hech qaysi faylga yozilmaydi.
 - mailbox: MailpitMailbox (REST API: xabarlar ro'yxati, qidiruv to:, xabar matni) va DirMailbox (.eml);
   wait_for(to) -> havola va 6 xonali kodni ajratib beradi.
 - accounts: ensure(role, A, B): maqsadli rol uchun akkaunt berilgan bo'lsa login; rol self_signup bo'lsa
@@ -471,13 +480,18 @@ Vazifa: explorer/capture.py, pseudonymize.py, som.py, bundle.py va runner'ga ula
 - Xiralashtirish (TZ FR-E10): maqsadli rol ko'radigan narsa xiralashtirilmaydi. Faqat rolga tegishli
   bo'lmagan elementlar (PolicyEngine taqiqlagan yoki boshqa rol yoki excluded route'ga olib boradigan)
   page.screenshot(mask=[...]) bilan yashiriladi va State.hidden ga yoziladi.
-- Almashtirish (TZ FR-E10, SEC-7; ARCHITECTURE 4.3): pseudonymize.py — begona shaxs ma'lumotlari
-  skrinshotdan oldin datagen.substitute() qiymatlariga almashtiriladi: (1) API JSON javoblarida
-  route.fetch/fulfill orqali (Entity.pii_fields + is_pii_field, obyekt test akkauntniki bo'lmasa);
-  (2) DOM'da JS bilan (find_pii topgan, test_values'da yo'q qiymatlar; begona profil rasmi -> neytral
-  avatar); (3) almashtirib bo'lmasa — faqat shu qiymat xiralashtiriladi, State.hidden + hisobot;
-  (4) skrinshotdan keyin aria va name'larda yakuniy find_pii. State.substituted — soni. Haqiqiy
-  qiymatlar va almashtirish jadvali capture.json, rasm, log va bundle'ga hech qachon yozilmaydi.
+- Almashtirish (TZ FR-E10, SEC-7; ARCHITECTURE 4.3): zones.py — har bir topilgan qiymatning zonasi
+  (own, user_content, org, editorial, other; aniqlanmasa other); pseudonymize.py — user_content va other
+  zonasidagi begona shaxs ma'lumotlari skrinshotdan oldin datagen.substitute() qiymatlariga almashtiriladi:
+  (1) API JSON javoblarida route.fetch/fulfill orqali (Entity.pii_fields + is_pii_field, obyekt test
+  akkauntniki bo'lmasa; foydalanuvchi kontentining matni ham); (2) DOM'da JS bilan (find_pii topgan
+  qiymatlar va tuzilmadan topilgan ismlar: muallif elementlari, jadval ism ustunlari, Person belgisi;
+  begona profil rasmi -> neytral avatar); (3) ocr.py — RapidOCR bilan rasm ichidagi matn, begona zonada
+  topilgan joy xiralashtiriladi, State.hidden + sabab; (4) boshqa almashtirib bo'lmagan qiymat — faqat
+  shu joy xiralashtiriladi; (5) skrinshotdan keyin aria va name'larda yakuniy find_pii
+  (ignore=test_values+public_values). org va editorial qiymatlari o'z holicha qoladi va public_values'ga
+  yoziladi. State.substituted va State.kept_public — sonlar. Begona haqiqiy qiymatlar capture.json, rasm,
+  log va bundle'ga hech qachon yozilmaydi.
 - som.py: toza rasmga Pillow bilan raqamli belgilar va ingichka ramka chizish (modelga beriladigan rasm),
   rang kontrasti, belgilar bir-birini yopmasligi.
 - capture.json yozish (CaptureRun), images/<state_id>_clean.png va _som.png.
@@ -487,7 +501,12 @@ Vazifa: explorer/capture.py, pseudonymize.py, som.py, bundle.py va runner'ga ula
   sahifasida seed'dagi boshqa mijozning ismi, emaili va telefoni yo'q, o'rnida to'qima qiymatlar bor
   (rasm OCR'siz: aria, element nomlari, capture.json va bundle ichidagi barcha matnda seed qiymatlari
   qidiriladi — 0 ta); bitta mijoz ro'yxat va tafsilot sahifasida bir xil to'qima ism bilan chiqadi;
-  maqsadli rolga tegishli tugma va matnlar xiralashtirilmagan; bundle ochilib sxemadan o'tadi.
+  footer'dagi do'kon emaili va telefoni o'z holicha (public_values'da); /catalog/:id dagi sharhlarda seed
+  ismlari va matni yo'q; buyurtma ilovasi rasmidagi telefon OCR bilan topilib xiralashtirilgan
+  (State.hidden, sababi bilan); resume testi — capture o'rtada to'xtatilib qayta boshlansa, to'qima
+  qiymatlar o'zgarmaydi; zona jadval testlari (footer, article + NewsArticle, muallif havolasi, Review,
+  kabinet jadvali, noaniq blok -> other); maqsadli rolga tegishli tugma va matnlar xiralashtirilmagan;
+  bundle ochilib sxemadan o'tadi.
 
 Commit: "feat(core): capture, set-of-mark, pseudonymization, bundle".
 ```
@@ -567,7 +586,7 @@ Vazifa: writer/templates_uz.py, prompts/*.j2, tasks.py, assemble.py, validate.py
   7-bo'limlar shunday bo'ladi.
 - validate: markerlar mavjud, LLM matnidagi «...» ichidagi nomlar elementlar nomlariga mos
   (fuzzy, T09 dagi normalize_uz bilan: eski va yangi lotin alifbosi, «Yuborish» = «Yuboriş»),
-  begona shaxslarning haqiqiy ma'lumoti yo'q (find_pii, test_values bundan mustasno); xato -> qayta
+  begona shaxslarning haqiqiy ma'lumoti yo'q (find_pii, test_values va public_values bundan mustasno); xato -> qayta
   so'rash -> needs_review.
 - coverage: TZ FR-W6; percent va items.
 - pipeline.write(run_dir, provider) -> manual.json.
@@ -621,7 +640,8 @@ Vazifa: packages/core/src/yoriqnoma_core/pipeline.py — ikkala Django dasturi c
   async run_write(run_dir, provider, progress, cancel) -> Manual; run_render(run_dir, formats) -> RenderResult;
   make_bundle(run_dir) -> Path.
 - ExploreOptions (pydantic): base_url, environment, accounts (A/B login+parol, ixtiyoriy), mailbox,
-  allow_private (default False!), headless, viewport, locale, seed, limits.
+  allow_private (default False!), headless, viewport, locale, seed, limits, pseudonym_key (SecretBytes,
+  majburiy; repr va logda ko'rinmaydi).
 - Oddiy implementatsiyalar testlar va debug uchun: ConsoleProgressSink, NeverCancel, TerminalHumanInput.
 - `python -m yoriqnoma_core run --blueprint B --base-url URL --out DIR --provider fake|ollama` — debug.
 - Testlar (slow): demo_shop'da FakeProvider bilan run_explore -> run_write -> run_render to'liq zanjir;
@@ -648,7 +668,8 @@ Vazifa: apps/local ning backend qismi (UI keyingi vazifada).
 
 - Modellar (ARCHITECTURE 6.2): AppSettings (singleton), Project, ProjectAccount, BlueprintVersion,
   Run, RunEvent, InputRequest; migratsiyalar; Fernet shifrlash yordamchisi (var/secret.key birinchi
-  ishga tushishda yaratiladi) — parollar shifrlangan.
+  ishga tushishda yaratiladi) — parollar shifrlangan; almashtirish kaliti var/pseudonym.key (birinchi
+  ishga tushishda yaratiladi, ExploreOptions.pseudonym_key orqali beriladi).
 - services.py (biznes mantiq faqat shu yerda):
   scan_project(project) -> BlueprintVersion (scanner.scan, fayllar var/runs/... ga);
   upload_blueprint(project, file) -> BlueprintVersion (sxema tekshiruvi);
@@ -762,7 +783,8 @@ Vazifa: packages/core/.../writer/providers/claude.py (Django'siz).
   BudgetExceeded — byudjetdan oshsa (ProgressSink.event("cost", ...) orqali xabar).
 - Rate limit va 5xx uchun exponential backoff; SchemaError bo'lsa 2 martagacha qayta urinish.
 - Yuborishdan oldin (TZ SEC-7): rasm almashtirishdan o'tganini tekshirish (capture metadata); matnda
-  pii.find_pii(ignore=test_values) — topilma bo'lsa, matn mask_text qilinadi va hodisa logga yoziladi.
+  pii.find_pii(ignore=test_values+public_values) — topilma bo'lsa, matn mask_text qilinadi va hodisa logga
+  yoziladi.
 - Kalit (TZ SEC-12): AsyncAnthropic(api_key=...) ga konstruktor orqali beriladi; provider Django
   sozlamalarini o'qimaydi. Kalit provider'ning repr/str, log yozuvlari va xato matnlariga hech qachon
   tushmaydi (test: soxta "sk-ant-test-..." kalit bilan xato chiqarib, matnda kalit yo'qligini tekshirish).
@@ -794,6 +816,7 @@ Vazifa: apps/server backend skeleti va docker/.
   demo_shop; healthcheck'lar. Env fayllar (ARCHITECTURE 8): docker/.env — hamma servislar uchun, Claude
   kalitisiz; docker/worker.env — faqat ANTHROPIC_API_KEY, faqat worker servisiga env_file bilan.
   Repoda qiymatsiz .env.example va worker.env.example. Kalit Dockerfile'ga (ARG/ENV) yozilmaydi.
+  docker/.env da YORIQNOMA_PSEUDONYM_KEY ham bor (TZ FR-E10); bo'sh bo'lsa worker ishga tushmaydi.
 - Worker ishga tushganda (Celery worker_init signali) ANTHROPIC_API_KEY bo'sh bo'lsa, aniq xabar bilan
   to'xtaydi (TZ SEC-12).
 - Xarajat limitlari (TZ FR-SV6): ish yaratishda (veb va API) foydalanuvchining shu kungi va shu oydagi

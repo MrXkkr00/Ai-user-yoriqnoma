@@ -46,7 +46,7 @@ ai-user-yoriqnoma/
 │   │       ├── safety/            # url_guard.py, pii.py, policy_engine.py
 │   │       ├── explorer/          # session, accounts, firewall, datagen, mailbox,
 │   │       │                      # steps, runner, capture, som, state_graph,
-│   │       │                      # patching, pseudonymize, bundle, privilege
+│   │       │                      # patching, zones, pseudonymize, ocr, bundle, privilege
 │   │       ├── writer/            # providers/{base,fake,ollama,claude}.py,
 │   │       │                      # templates_uz.py, prompts/*.j2, tasks.py,
 │   │       │                      # assemble.py, validate.py, coverage.py, cache.py
@@ -248,6 +248,7 @@ class State(BaseModel):
     patched: bool = False; network: list[NetCall] = []
     hidden: list[BBox] = []                            # FR-E10: xiralashtirilgan joylar (rolga tegishli emas yoki almashtirib bo'lmagan qiymat)
     substituted: int = 0                               # FR-E10: almashtirilgan begona qiymatlar soni (qiymatlarning o'zi saqlanmaydi)
+    kept_public: int = 0                               # FR-E10: topilgan, lekin tashkilot yoki nashr zonasida bo'lgani uchun o'z holicha qoldirilganlar soni
 
 class FlowResult(BaseModel):
     flow_id: str; status: Literal["verified", "failed", "skipped"]
@@ -262,6 +263,7 @@ class CaptureRun(BaseModel):
     flows: list[FlowResult]; states: list[State]
     firewall_log: list[BlockedRequest]; own_objects: dict[str, list[str]]   # entity → id'lar
     test_values: list[str] = []                        # datagen yaratgan barcha qiymatlar (o'z va almashtirilgan); PII tekshiruvi ularni o'tkazib yuboradi
+    public_values: list[str] = []                      # FR-E10: umumiy deb qoldirilgan qiymatlar (tashkilot, nashr); PII tekshiruvi ularni ham o'tkazib yuboradi
 ```
 
 ### 3.5. Manual
@@ -406,12 +408,26 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 **Xiralashtirish va almashtirish (TZ FR-E10).** Skrinshot maqsadli rol akkauntida olinadi. Umumiy ma'lumotlar va test akkauntning o'z ma'lumotlari o'z holicha qoladi. Boshqa ikki holat:
 - **Rolga tegishli bo'lmagan element** — `PolicyEngine` taqiqlagan yoki blueprint bo'yicha boshqa rol yoki `excluded` route'ga olib boradigan havola va bloklar (masalan, ekranda ko'rinib qolgan "Admin panel"). Ular `State.hidden` ga yoziladi, rasmda xiralashtiriladi va matnga kirmaydi.
 - **Begona shaxs ma'lumoti** — `explorer/pseudonymize.py` uni skrinshotdan oldin to'qima qiymat bilan almashtiradi:
-  1. **Tarmoq darajasi.** Saytning o'z API'si qaytargan JSON javoblar `route.fetch()` → o'zgartirish → `route.fulfill()` orqali o'tadi (`patching` bilan bir xil mexanizm). `Entity.pii_fields` dagi va nomidan aniqlangan (`name`, `full_name`, `email`, `phone`, `address`, `card`, `passport`, `avatar`...) maydonlar, agar obyekt test akkauntniki bo'lmasa (`owner_field`, `own_objects`, `test_values` bo'yicha), `datagen` qiymatlariga almashtiriladi.
-  2. **DOM darajasi** (server-rendered saytlar va qolganlar uchun). Skrinshotdan oldin `pii.find_pii` matn tugunlari va maydon qiymatlarida `test_values` da yo'q qiymatlarni topadi va JS bilan ularni to'qima qiymatga almashtiradi. Begona odamning profil rasmi neytral avatar bilan almashtiriladi.
-  3. **Zaxira.** Almashtirib bo'lmagan qiymat (rasm yoki canvas ichida) xiralashtiriladi va `State.hidden` ga yoziladi; sabab hisobotga tushadi.
-  4. **Yakuniy tekshiruv.** Skrinshotdan keyin aria va element nomlarida `pii.find_pii` qayta ishlaydi; `test_values` dan boshqa topilma bo'lsa, `mask_text` qilinadi va holat hisobotda belgilanadi.
+  0. **Zona.** `explorer/zones.py` har bir topilgan qiymatning DOM'dagi joyiga qarab zonasini aniqlaydi (TZ FR-E10), birinchi mos kelgani olinadi:
+     - `own` — test akkauntning o'z obyekti (`own_objects`, `test_values`) → o'z holicha;
+     - `user_content` — schema.org `Comment`/`Review`/`UserComments`, `comment`/`review`/`reply`/`izoh`/`sharh`/`отзыв` sinf va id'lari, blueprint'da `self_signup` rol yaratadigan obyekt → almashtiriladi;
+     - `org` — `base_url` domeni yoki uning subdomenidagi email; `header`, `footer`, `nav`, `[role=banner]`, `[role=contentinfo]`; «Aloqa» va «Biz haqimizda» sahifalari (`/contact`, `/about`, `/aloqa` va nav'dagi nomi bo'yicha) → o'z holicha;
+     - `editorial` — `article`, schema.org `Article`/`NewsArticle`/`BlogPosting` sahifasining asosiy qismi, muallif imzosi (`/author/`, `rel=author`, `itemprop=author`), reklama bloklari → o'z holicha. Agar shu turdagi kontentni `self_signup` rol yarata olsa (blueprint flow'lari yoki B rejimida topilgan forma), `user_content` hisoblanadi;
+     - `other` — qolgan hamma joy → test akkauntniki bo'lmasa almashtiriladi; zona aniqlanmasa ham shu (default-deny).
 
-Almashtirish jadvali (haqiqiy → to'qima) faqat xotirada: bitta haqiqiy qiymat ish davomida doim bitta to'qima qiymatga aylanadi, lekin jadval diskka, logga va bundle'ga yozilmaydi. `datagen` yaratgan barcha qiymatlar `CaptureRun.test_values` da saqlanadi. Begona obyektlarga DELETE, PUT va PATCH baribir firewall'da to'xtaydi (SEC-4), shuning uchun almashtirilgan qiymat saytga qaytib yozilmaydi.
+     `org` va `editorial` qiymatlari `CaptureRun.public_values` ga, soni `State.kept_public` ga yoziladi.
+  1. **Tarmoq darajasi.** Saytning o'z API'si qaytargan JSON javoblar `route.fetch()` → o'zgartirish → `route.fulfill()` orqali o'tadi (`patching` bilan bir xil mexanizm). `Entity.pii_fields` dagi va nomidan aniqlangan (`name`, `full_name`, `email`, `phone`, `address`, `card`, `passport`, `avatar`...) maydonlar, agar obyekt test akkauntniki bo'lmasa (`owner_field`, `own_objects`, `test_values` bo'yicha) va obyekt nashr yoki tashkilot obyekti bo'lmasa, `datagen` qiymatlariga almashtiriladi. Foydalanuvchi kontenti obyektlarida matn maydonlari (`text`, `body`, `comment`...) ham to'qima matnga almashtiriladi.
+  2. **DOM darajasi** (server-rendered saytlar va qolganlar uchun). Skrinshotdan oldin `pii.find_pii` matn tugunlari va maydon qiymatlarida `test_values` da yo'q qiymatlarni topadi. Ismlar tuzilmadan ham topiladi: muallif elementlari, jadvalning ism ustunlari (sarlavhasi «Ism», «F.I.Sh», «Mijoz», «ФИО», «Name»...), `itemtype=Person` ichidagi `itemprop=name`. Zona `user_content` yoki `other` bo'lsa, qiymat JS bilan to'qima qiymatga almashtiriladi. Begona odamning profil rasmi neytral avatar bilan almashtiriladi.
+  3. **Rasm ichidagi matn.** `explorer/ocr.py` (RapidOCR, `rapidocr-onnxruntime`, Apache 2.0, offline, CPU) skrinshotdagi har bir rasm, canvas, fon rasmi va video kadri (≥ 48×16 px) ichidagi matnni o'qiydi; natija rasm xeshi bo'yicha keshlanadi. OCR matnida `pii.find_pii` ishlaydi, qaror rasm turgan zonaga qarab qabul qilinadi. `user_content` yoki `other` zonasida topilgan matn joyi xiralashtiriladi va `State.hidden` ga sababi bilan yoziladi.
+  4. **Zaxira.** Boshqa yo'l bilan almashtirib bo'lmagan qiymat (canvas, PDF ko'rinishi) xiralashtiriladi va `State.hidden` ga yoziladi; sabab hisobotga tushadi.
+  5. **Yakuniy tekshiruv.** Skrinshotdan keyin aria va element nomlarida `pii.find_pii` qayta ishlaydi; `test_values` va `public_values` dan boshqa topilma bo'lsa, `mask_text` qilinadi va holat hisobotda belgilanadi.
+
+**To'qima qiymatni hisoblash** (`datagen.substitute`). Jadval saqlanmaydi: qiymat har safar qayta hisoblanadi.
+- `seed = HMAC-SHA256(pseudonym_key, run_id + kind + normalize(real))`. Bir xil haqiqiy qiymat bitta ish ichida, to'xtab qayta boshlanganda ham, doim bitta to'qima qiymat beradi. Boshqa ishda boshqa qiymat chiqadi, shuning uchun ishlarni bir-biriga bog'lab bo'lmaydi.
+- Bitta yozuvdagi (JSON obyekt, jadval qatori, kartochka) qiymatlar bitta to'qima odamdan olinadi: kalit sifatida yozuvdagi eng barqaror identifikator olinadi (email, keyin telefon, keyin ism).
+- `normalize` email'ni kichik harfga, telefonni faqat raqamlarga keltiradi, ismdagi ortiqcha bo'shliqlarni olib tashlaydi.
+- Kalit faqat `ExploreOptions.pseudonym_key` orqali beriladi, `core` uni o'zi o'qimaydi. Lokalda u `var/pseudonym.key` faylida turadi va birinchi ishga tushishda yaratiladi. Serverda u `YORIQNOMA_PSEUDONYM_KEY` env'ida turadi. Kalit capture, bundle, log va yo'riqnomaga yozilmaydi.
+- `datagen` yaratgan barcha qiymatlar `CaptureRun.test_values` da saqlanadi. Begona obyektlarga DELETE, PUT va PATCH baribir firewall'da to'xtaydi (SEC-4), shuning uchun almashtirilgan qiymat saytga qaytib yozilmaydi.
 
 ### 4.4. Renderer
 
@@ -468,6 +484,7 @@ def run_render(run_dir: Path, formats: set[str]) -> RenderResult
 - `MEDIA_ROOT = local/var/runs`.
 - `LANGUAGE_CODE="uz"`, `TIME_ZONE="Asia/Tashkent"`.
 - Fernet kaliti `local/var/secret.key` faylida, birinchi ishga tushishda yaratiladi.
+- Almashtirish (HMAC) kaliti `local/var/pseudonym.key` faylida, u ham birinchi ishga tushishda yaratiladi (TZ FR-E10).
 
 ### 6.2. Modellar
 
@@ -678,6 +695,7 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 - `ANTHROPIC_API_KEY` — faqat `docker/worker.env` da. Bo'sh bo'lsa worker ishga tushmaydi.
 - `YORIQNOMA_USER_DAILY_BUDGET_USD`, `YORIQNOMA_USER_MONTHLY_BUDGET_USD`, `YORIQNOMA_MONTHLY_BUDGET_USD` — umumiy xarajat limitlari (TZ FR-SV6)
 - `YORIQNOMA_FERNET_KEY`
+- `YORIQNOMA_PSEUDONYM_KEY` — begona shaxs ma'lumotini almashtirish uchun HMAC kaliti (TZ FR-E10)
 - `YORIQNOMA_MAIL_DOMAIN`, `YORIQNOMA_PUBLIC_URL`
 - `YORIQNOMA_MAX_CONCURRENT_JOBS`, `YORIQNOMA_RETENTION_DAYS`
 - `YORIQNOMA_MODEL_HAIKU=claude-haiku-5-5`, `YORIQNOMA_MODEL_SONNET=claude-sonnet-5-5`, `YORIQNOMA_MODEL_OPUS=claude-opus-5-5`
@@ -717,8 +735,13 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 
 Seed'da `manager` va `courier` test akkauntlari bor: ular sayt egasi beradigan akkauntlarni taqlid qiladi.
 
+**FR-E10 ni sinash uchun ma'lumotlar** (har biri natijada qanday chiqishi kerakligi bilan):
+- footer'da do'konning o'z aloqa ma'lumotlari: `info@demo-shop.uz`, `+998 71 200-00-00` — tashkilot zonasi, o'z holicha qoladi;
+- `/catalog/:id` da seed mijozlarining sharhlari (ism, matn) — foydalanuvchi kontenti, almashtiriladi;
+- boshqa mijoz buyurtmasiga ilova qilingan rasm (yetkazish varaqasi: ichida ism va telefon) — menejer ko'radi, OCR bilan topilib xiralashtiriladi.
+
 **Foydalanuvchi qismi:**
-- **Ochiq sahifalar:** `/`, `/catalog`, `/catalog/:id`
+- **Ochiq sahifalar:** `/`, `/catalog`, `/catalog/:id` (mahsulot sharhlari bilan; sharh yozish — kirgan mijoz uchun)
 - **Hisob:** `/register`, `/login`, `/verify-email`, `/forgot-password`
 - **Shaxsiy kabinet:**
   - `/app/dashboard`
