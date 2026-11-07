@@ -46,6 +46,8 @@ Menejer kabi xodim rollari uchun esa shu rolning ishlari: masalan, buyurtmalarni
 | Test akkaunt | Vosita yaratgan yoki egasi bergan, maqsadli roldagi akkaunt (admin yoki adminga o'xshash emas) |
 | Default-deny | Noaniq holatda taqiqlash |
 | Yamalgan javob | Maqsadli rol yeta olmaydigan statusni ko'rsatish uchun o'z obyekti javobida faqat `status` maydonini almashtirish |
+| Begona shaxs ma'lumoti | Test akkauntga emas, saytdagi boshqa odamga tegishli ma'lumot: ism, email, telefon, manzil, karta raqami, hujjat raqami (pasport, JSHSHIR), profil rasmi |
+| Almashtirish | Begona shaxs ma'lumotini rasm va matnda vosita yaratgan, mavjud bo'lmagan test ma'lumoti bilan almashtirish (FR-E10) |
 
 ## 3. Tizim tarkibi
 
@@ -150,7 +152,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - Topologik tartibda bajariladi.
   - Har bir qadamdan keyin kutilgan natija tekshiriladi.
   - Natija: `verified`, `failed` yoki `skipped` — sababi bilan.
-- **FR-E4. Test ma'lumoti generatori.** Validatsiya qoidalariga mos ma'lumot yaratadi (Faker va qoidalar), seed deterministik.
+- **FR-E4. Test ma'lumoti generatori.** Validatsiya qoidalariga mos ma'lumot yaratadi (Faker va qoidalar), seed deterministik. Begona shaxs ma'lumotlari o'rniga qo'yiladigan to'qima qiymatlarni ham shu generator yaratadi (FR-E10).
 - **FR-E5. Tasdiqlash.**
   - Email — pochta adapteri orqali.
   - SMS va boshqa kodlar — odam kiritadi: lokal yoki server UI'da, `manage.py` buyruqlarida terminalda.
@@ -167,10 +169,16 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - URL, flow va qadam;
   - obyekt statusi;
   - tarmoq so'rovlari: metod, yo'l shabloni, status kodi. **So'rov tanasi yozilmaydi.**
-- **FR-E10. Xiralashtirish va maskalash.** Skrinshotlar maqsadli rolning o'z akkaunti bilan olinadi, shuning uchun:
-  - shu rol ko'ra oladigan va qila oladigan hamma narsa — sahifalar, menyular, tugmalar, matnlar, rasmlar, ro'yxatlar, o'z ma'lumotlari — **xiralashtirilmaydi**, o'z holicha ko'rsatiladi;
-  - shu rolga tegishli bo'lmagan yoki u foydalana olmaydigan narsa (masalan, ekranda ko'rinib qolgan admin havolasi yoki boshqa rolning bo'limi) xiralashtiriladi va yo'riqnoma matniga kiritilmaydi;
-  - istisno — haqiqiy odamlarning shaxsiy ma'lumotlari (email, telefon, karta raqami, ism): rol ularni ko'rsa ham, faqat shu qiymatning o'zi yashiriladi, atrofi aniq qoladi. Vosita yaratgan test ma'lumotlari (FR-E4) haqiqiy emas, ular yashirilmaydi.
+- **FR-E10. Xiralashtirish va almashtirish.** Skrinshotlar maqsadli rolning o'z akkaunti bilan olinadi. Yo'riqnomaga uch xil narsa uch xil yo'l bilan kiradi:
+  - **o'z holicha ko'rsatiladi:** umumiy ma'lumotlar (sahifalar, menyular, tugmalar, matnlar, katalog, narxlar, ro'yxat va jadvallarning tuzilishi) va rolning test akkaunti kirganda ochiladigan o'z ma'lumotlari (o'z profili, o'zi yaratgan obyektlar). Bular **xiralashtirilmaydi**;
+  - **almashtiriladi:** begona shaxs ma'lumotlari — rol ularni ko'ra olsa ham (masalan, menejer ko'radigan mijozlarning ismi, telefoni, manzili). Ular rasmda ham, matnda ham FR-E4 generatori yaratgan, mavjud bo'lmagan test ma'lumotlari bilan almashtiriladi. Atrofi (jadval, ustunlar, status, tugmalar) aniq qoladi, xiralashtirish yo'q. Bitta odam bitta ish davomida doim bitta to'qima odamga almashtiriladi, shuning uchun ro'yxat va tafsilot sahifalari bir-biriga mos keladi;
+  - **xiralashtiriladi va matnga kirmaydi:** shu rolga tegishli bo'lmagan yoki u foydalana olmaydigan narsa (masalan, ekranda ko'rinib qolgan admin havolasi yoki boshqa rolning bo'limi).
+
+  Qo'shimcha qoidalar:
+  - haqiqiy qiymat va almashtirish jadvali (haqiqiy → to'qima) faqat xotirada turadi; `capture.json`, rasmlar, loglar, `bundle.zip` va yo'riqnomaga yozilmaydi;
+  - qiymatni almashtirib bo'lmasa (rasm, canvas yoki PDF ichidagi matn), faqat shu qiymat xiralashtiriladi va hisobotga sababi bilan yoziladi;
+  - noaniq qiymat (begonami yoki o'zinikimi — aniqlab bo'lmasa) begona deb hisoblanadi (default-deny);
+  - egasi bergan test akkauntning o'z ma'lumotlari o'z holicha ko'rsatiladi, shuning uchun test akkauntga haqiqiy odamning ma'lumotlarini yozmaslik kerak (bu ogohlantirish akkaunt formasida ko'rsatiladi).
 - **FR-E11. Chiqish:** `capture/` papkasi (`capture.json` + `images/`) va `bundle.zip`.
 - **FR-E12. Davom ettirish (resume).** To'xtab qolgan ish bajarilgan flow'larni qayta bajarmaydi.
 
@@ -310,7 +318,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 ## 5. Xavfsizlik talablari (SEC)
 
 - **SEC-1. Default-deny** — barcha komponentlarda.
-- **SEC-2. Admin yo'q.** Administrator va adminga o'xshash rollarning yo'llari va huquqlari hech qachon olinmaydi va ko'rsatilmaydi. Boshqa haqiqiy odamlarning shaxsiy ma'lumotlari yo'riqnomada ochiq ko'rsatilmaydi (FR-E10).
+- **SEC-2. Admin yo'q.** Administrator va adminga o'xshash rollarning yo'llari va huquqlari hech qachon olinmaydi va ko'rsatilmaydi. Begona shaxslarning haqiqiy ma'lumotlari yo'riqnomaga kirmaydi: ular to'qima test ma'lumotlari bilan almashtiriladi (FR-E10).
 - **SEC-3. Skaner chegaralari.**
   - Fayllar faqat `SafeFS` orqali o'qiladi.
   - **O'qilmaydigan fayllar:** `.env*`, `*.pem`, `*.key`, `*.p12`, `*.sql`, `*.db`, `*.sqlite*`, `*dump*`, `docker-compose*.yml`, `secrets*`, `storage/`, `uploads/`, `logs/`, `node_modules/`, `.git/`, `venv/`, `.venv/`.
@@ -331,7 +339,10 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - Admin kontenti ochilsa, ish **to'xtatiladi**.
   - Akkaunt tanlangan rolda bo'lmasa yoki adminga o'xshash huquqi topilsa (foydalanuvchilar, rollar yoki sozlamalarni boshqarish sahifalari ochilsa), ish to'xtatiladi.
   - Natija faqat "ha/yo'q" ko'rinishida saqlanadi, sahifa mazmuni saqlanmaydi.
-- **SEC-7. Maskalash.** Haqiqiy odamlarning PII'si maskalanadi (FR-E10); vosita yaratgan test ma'lumotlari maskalanmaydi. Claude'ga faqat shu qoida bo'yicha maskalangan ma'lumot yuboriladi.
+- **SEC-7. Almashtirish.**
+  - Begona shaxs ma'lumotlari skrinshot olinishidan oldin to'qima test ma'lumotlari bilan almashtiriladi (FR-E10); vosita yaratgan va test akkauntning o'z ma'lumotlari almashtirilmaydi.
+  - Claude'ga (va Ollama'ga) faqat almashtirishdan o'tgan rasm va matn beriladi. Yuborishdan oldin matn yana tekshiriladi: test qiymatlaridan boshqa shaxsiy ma'lumot topilsa, u yuborilmaydi.
+  - Almashtirish jadvali faqat xotirada turadi va diskka yozilmaydi.
 - **SEC-8. Captcha** avtomatik yechilmaydi, odamdan so'raladi yoki tayyor akkaunt talab qilinadi.
 - **SEC-9. Domen tasdiqlash (server).**
   - Usullar: `/.well-known/yoriqnoma-verify.txt` fayli, `<meta name="yoriqnoma-verify">` tegi yoki DNS TXT yozuvi.
@@ -433,7 +444,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - 9 bo'lim mavjud;
   - qamrov ≥ 90%;
   - marker xatolari 0 ta;
-  - natijada haqiqiy PII topilmaydi (regex skaner bilan; test ma'lumotlari bundan mustasno);
+  - natijada begona shaxslarning haqiqiy ma'lumotlari topilmaydi (regex skaner bilan; test ma'lumotlari bundan mustasno). demo_shop'da: menejer yo'riqnomasi, `capture.json` va `bundle.zip` ichida seed'dagi boshqa mijozning ismi, emaili va telefoni yo'q, ularning o'rnida to'qima qiymatlar turadi;
   - maqsadli rol ko'radigan elementlar xiralashtirilmagan, boshqa rol va admin elementlari matnda yo'q.
 - **QM-4. Lokal dastur:**
   - UI orqali rol variantlari chiqadi va tanlangan rol uchun "To'liq yo'riqnoma" Ollama bilan internetsiz boshidan oxirigacha ishlaydi;

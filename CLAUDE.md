@@ -62,11 +62,11 @@ uv run pytest -m llm                               # lokalda Ollama, serverda Cl
 5. **Captcha avtomatik yechilmaydi.**
 6. **Har bir tashqi URL `yoriqnoma_core.safety.url_guard` dan o'tadi.** Serverda `allow_private=False` majburiy.
 7. **LLM chaqiruvlari faqat `LLMProvider` interfeysi orqali.** Testlarda `FakeProvider` ishlatiladi.
-8. **Claude'ga faqat maskalangan rasm va matn yuboriladi** (haqiqiy odamlarning shaxsiy ma'lumotlari yashirilgan, 12-qoida).
+8. **Claude'ga boshqa shaxslarning haqiqiy ma'lumotlari yuborilmaydi.** Rasm va matnda ular to'qima test ma'lumotlariga almashtirilgan bo'ladi (12-qoida).
 9. **Lokal dastur faqat `127.0.0.1` da tinglaydi.** U lokal papkalarni o'qiydi, shuning uchun tarmoqqa ochilmaydi.
 10. **Lokal va server bir-biriga ulanmaydi.** Lokal dastur serverga hech narsa yubormaydi, server ham lokalga murojaat qilmaydi. `blueprint.json` yoki `bundle.zip` ni odam serverning veb-formasida yuklaydi. Ikki dastur bir-birining kodini import qilmaydi.
 11. **Umumiy kutubxonalar ikki nusxada.** `schemas` va `core` `local/packages` va `server/packages` da aynan bir xil turadi. Birini o'zgartirsangiz, papkani ikkinchisiga ham ko'chiring. Buni ikkala dasturdagi `tests/test_shared_copies.py` tekshiradi. `scanner` faqat lokalda.
-12. **Yo'riqnoma bitta maqsadli rol uchun, ko'rinadigan narsa xiralashtirilmaydi.** Barcha skrinshot va flow'lar shu rolning test akkaunti bilan olinadi. Rol ko'ra oladigan va qila oladigan hamma narsa rasmda aniq qoladi. Rolga tegishli bo'lmagan narsa (boshqa rollar, admin qismlari) xiralashtiriladi va matnga kirmaydi. Istisno: haqiqiy odamlarning shaxsiy ma'lumotlari (email, telefon, karta, ism) — faqat qiymatning o'zi yashiriladi; vosita yaratgan test ma'lumotlari yashirilmaydi.
+12. **Yo'riqnoma bitta maqsadli rol uchun, ko'rinadigan narsa xiralashtirilmaydi.** Barcha skrinshot va flow'lar shu rolning test akkaunti bilan olinadi. Rol ko'ra oladigan va qila oladigan hamma narsa rasmda aniq qoladi. Rolga tegishli bo'lmagan narsa (boshqa rollar, admin qismlari) xiralashtiriladi va matnga kirmaydi. Umumiy ma'lumotlar va rolning test akkaunti o'z ma'lumotlari o'z holicha ko'rsatiladi. **Boshqa shaxslarga tegishli ma'lumotlar** (ism, email, telefon, manzil, karta, hujjat raqami, profil rasmi) rol ularni ko'ra olsa ham yo'riqnomaga kirmaydi: rasm va matnda ular vosita yaratgan, mavjud bo'lmagan test ma'lumotlari bilan **almashtiriladi**, atrofi aniq qoladi. Haqiqiy qiymat faylga, logga va bundle'ga yozilmaydi.
 
 ## Konvensiyalar
 

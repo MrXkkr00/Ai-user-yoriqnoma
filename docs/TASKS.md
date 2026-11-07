@@ -31,7 +31,7 @@ Lokal dastur serverga ulanmaydi: blueprint va bundle serverga odam orqali o'tadi
 **Rollar va xiralashtirish (2026-11-07 dan, TZ FR-RL va FR-E10).** Vosita endi faqat "oddiy foydalanuvchi" uchun emas, administrator va adminga o'xshash rollardan boshqa **har bir rol** uchun yo'riqnoma yozadi. Rol ish boshida variantlardan tanlanadi. Vazifalarda `user` roli, `reachable_by_user`, "test user" yoki "oddiy foydalanuvchi" deyilgan joylarni "maqsadli rol" deb o'qing:
 - skaner guard'larni rol bo'yicha tasniflaydi (T04–T06, T08): `require_role("manager")` → shu rol, faqat admin yoki adminga o'xshash → `excluded`;
 - akkauntlar va flow'lar maqsadli rol uchun (T10, T11, T18); yordamchi rol akkaunti (masalan, test mijoz) faqat obyekt tayyorlash uchun;
-- skrinshotda maqsadli rol ko'radigan narsa xiralashtirilmaydi; faqat rolga tegishli bo'lmagan elementlar va haqiqiy odamlarning PII'si yashiriladi (T12, T16);
+- skrinshotda maqsadli rol ko'radigan narsa xiralashtirilmaydi; faqat rolga tegishli bo'lmagan elementlar xiralashtiriladi. Begona shaxslarning ma'lumotlari (ism, telefon, email, manzil...) xiralashtirilmaydi, balki to'qima test ma'lumotlari bilan almashtiriladi (T09, T10, T12, T16);
 - manual'da `role` bor va yo'riqnoma boshida qaysi rol uchun yozilgani aytiladi (T15).
 
 ## 0. Boshlashdan oldin (o'zingiz bajarasiz)
@@ -140,7 +140,8 @@ Vazifa: packages/schemas da yoriqnoma_schemas paketini to'liq yoz.
 
 - common.py, policy.py, blueprint.py, capture.py, manual.py — ARCHITECTURE 3-bo'limdagi modellar,
   extra="forbid", schema_version="1.0"; rollar ham: RoleInfo, Blueprint.roles, RouteInfo.access/roles,
-  EntityStatus.reachable_by, Flow.role, CaptureRun.role, State.hidden, Manual.role.
+  EntityStatus.reachable_by, Flow.role, CaptureRun.role, State.hidden, Manual.role; almashtirish uchun
+  Entity.pii_fields, State.substituted, CaptureRun.test_values (ARCHITECTURE 3.3, 3.4).
 - Validatorlar: Flow.requires mavjud id'larga ishora qiladi; requires grafi sikl'siz
   (sikl bo'lsa xabarda sikl yo'lini ko'rsat); Target kamida bitta maydonli; pages ichida
   access="excluded" yo'q; flow.role va route.roles mavjud, excluded bo'lmagan rollarga ishora qiladi;
@@ -281,7 +282,9 @@ Commit: "feat(scanner): react router, jsx forms, i18n".
 Vazifa: parsers/sqlalchemy_models.py va entities.py.
 
 - SQLAlchemy/SQLModel modellari (faqat KOD sifatida, AST orqali; hech qanday import/ulanish yo'q):
-  jadval nomi, user'ga FK (user_id/owner_id/author_id) -> owner_field, Enum status maydonlari va qiymatlari.
+  jadval nomi, user'ga FK (user_id/owner_id/author_id) -> owner_field, Enum status maydonlari va qiymatlari;
+  shaxsga oid maydonlar (name, full_name, first_name, last_name, email, phone, address, card, passport,
+  pinfl, birth_date, avatar va shunga o'xshash nomlar) -> pii_fields.
 - API route'lar bilan bog'lash: /orders POST -> create, GET list/{id} -> list/view, PUT/PATCH -> update,
   DELETE -> delete, POST /orders/{id}/<fe'l> -> maxsus amal (<fe'l>).
 - Status o'tishlari: route handler'larida `obj.status = Status.X` topilsa, X ni o'sha route'ning
@@ -373,8 +376,9 @@ Vazifa: yoriqnoma_core.safety va explorer/firewall.py.
   Faqat http/https; host'ning BARCHA DNS natijalari (getaddrinfo) SEC-10 diapazonlariga tekshiriladi;
   IP literal, IPv6, decimal/octal IP yozuvlari ("http://2130706433/") ham ushlanadi.
   allow_private=True faqat lokal dastur uchun (lokal sayt 127.0.0.1 bo'lishi mumkin) — server uni HECH QACHON ishlatmaydi.
-- safety/pii.py: email, +998 telefon, karta raqami (Luhn), ism (form label "Ism"/"F.I.Sh" yonidagi qiymat)
-  uchun regex/qoidalar; mask_text(); find_pii() (natija tekshiruvi uchun).
+- safety/pii.py: email, +998 telefon, karta raqami (Luhn), ism (form label "Ism"/"F.I.Sh" yonidagi qiymat),
+  manzil, pasport seriyasi va JSHSHIR (14 raqam) uchun regex/qoidalar; find_pii(text, ignore=test_values)
+  -> (tur, qiymat, joy) ro'yxati; mask_text() (zaxira va log uchun); is_pii_field(name) — maydon nomidan.
 - text_uz.py (yoriqnoma_core/text_uz.py): normalize_uz(s) — o'zbek lotin yozuvini bitta ko'rinishga
   keltiradi: kichik harf; apostrof variantlari (' ‘ ’ ` ʻ ʼ) bitta belgiga; yangi alifbo harflari eski
   ko'rinishga: ö -> o', ğ -> g', ş -> sh, ç -> ch. Ba'zi saytlar (masalan, kun.uz) yangi alifboda
@@ -407,6 +411,9 @@ Vazifa: explorer/session.py, accounts.py, mailbox.py, datagen.py, steps.py.
 - datagen: Faker (ru_RU asosida, o'zbekcha ism-familiya ro'yxati qo'shimcha), seed; generatorlar:
   full_name, email (mailbox domeniga: <alias>+<run_id>@<domain>), phone_uz (+998 9X XXX XX XX), password
   (qoidaga mos), text, number(min,max); rules satrini o'qib qiymatni moslash.
+  substitute(kind, real_value) -> begona shaxs ma'lumoti uchun to'qima qiymat (TZ FR-E10): bir xil haqiqiy
+  qiymat ish davomida doim bir xil to'qima qiymat beradi, bitta odamning ismi, telefoni va emaili bitta
+  to'qima odamga tegishli bo'ladi; jadval faqat xotirada; yaratilgan barcha qiymatlar test_values'ga.
 - mailbox: MailpitMailbox (REST API: xabarlar ro'yxati, qidiruv to:, xabar matni) va DirMailbox (.eml);
   wait_for(to) -> havola va 6 xonali kodni ajratib beradi.
 - accounts: ensure(role, A, B): maqsadli rol uchun akkaunt berilgan bo'lsa login; rol self_signup bo'lsa
@@ -449,32 +456,40 @@ Commit: "feat(core): flow runner with dependency order and resume".
 
 **Qabul mezoni:** QM-2 testi yashil.
 
-### T12 — Capture: skrinshotlar, elementlar, SoM, maskalash, bundle
+### T12 — Capture: skrinshotlar, elementlar, SoM, almashtirish, bundle
 
 Rejim: plan
 
 ```
 @docs/TZ.md (FR-E9..E11) @docs/ARCHITECTURE.md (3.4, 4.3 Elementlarni yig'ish, 5)
-Vazifa: explorer/capture.py, som.py, bundle.py va runner'ga ulash.
+Vazifa: explorer/capture.py, pseudonymize.py, som.py, bundle.py va runner'ga ulash.
 
 - snapshot(page, ctx) -> State: sahifa barqarorligini kutish (networkidle + animatsiyalar tugashi),
   toza skrinshot (full_page=False, viewport), elementlar ro'yxati (JS orqali; ko'rinadigan, interaktiv,
   accessible name), markerlar barqaror tartibda, aria_snapshot, DOM hash (normalizatsiya: raqamlar, vaqt,
   CSRF token'lar olib tashlanadi), network (path templating: raqam/uuid -> :id).
-- Xiralashtirish va maskalash (TZ FR-E10): maqsadli rol ko'radigan narsa xiralashtirilmaydi. Faqat (1) rolga
-  tegishli bo'lmagan elementlar (PolicyEngine taqiqlagan yoki boshqa rol yoki excluded route'ga olib boradigan)
-  va (2) datagen yaratmagan haqiqiy PII qiymatlari page.screenshot(mask=[...]) bilan yashiriladi va
-  State.hidden ga yoziladi; aria va name'larda faqat haqiqiy PII mask_text qilinadi.
+- Xiralashtirish (TZ FR-E10): maqsadli rol ko'radigan narsa xiralashtirilmaydi. Faqat rolga tegishli
+  bo'lmagan elementlar (PolicyEngine taqiqlagan yoki boshqa rol yoki excluded route'ga olib boradigan)
+  page.screenshot(mask=[...]) bilan yashiriladi va State.hidden ga yoziladi.
+- Almashtirish (TZ FR-E10, SEC-7; ARCHITECTURE 4.3): pseudonymize.py — begona shaxs ma'lumotlari
+  skrinshotdan oldin datagen.substitute() qiymatlariga almashtiriladi: (1) API JSON javoblarida
+  route.fetch/fulfill orqali (Entity.pii_fields + is_pii_field, obyekt test akkauntniki bo'lmasa);
+  (2) DOM'da JS bilan (find_pii topgan, test_values'da yo'q qiymatlar; begona profil rasmi -> neytral
+  avatar); (3) almashtirib bo'lmasa — faqat shu qiymat xiralashtiriladi, State.hidden + hisobot;
+  (4) skrinshotdan keyin aria va name'larda yakuniy find_pii. State.substituted — soni. Haqiqiy
+  qiymatlar va almashtirish jadvali capture.json, rasm, log va bundle'ga hech qachon yozilmaydi.
 - som.py: toza rasmga Pillow bilan raqamli belgilar va ingichka ramka chizish (modelga beriladigan rasm),
   rang kontrasti, belgilar bir-birini yopmasligi.
 - capture.json yozish (CaptureRun), images/<state_id>_clean.png va _som.png.
 - bundle.py: capture/ -> bundle.zip (faqat json va rasmlar), manifest bilan (sha256 lar).
 - Testlar: demo_shop'da register va order sahifalari holatlari; elementlar orasida "Ro'yxatdan o'tish"
-  tugmasi bor; test akkauntning o'z (datagen) ma'lumotlari ochiq ko'rinadi; manager sahifasida boshqa
-  mijozning email'i maskalangan; maqsadli rolga tegishli tugma va matnlar xiralashtirilmagan;
-  bundle ochilib sxemadan o'tadi.
+  tugmasi bor; test akkauntning o'z (datagen) ma'lumotlari o'zgarmasdan ochiq ko'rinadi; manager
+  sahifasida seed'dagi boshqa mijozning ismi, emaili va telefoni yo'q, o'rnida to'qima qiymatlar bor
+  (rasm OCR'siz: aria, element nomlari, capture.json va bundle ichidagi barcha matnda seed qiymatlari
+  qidiriladi — 0 ta); bitta mijoz ro'yxat va tafsilot sahifasida bir xil to'qima ism bilan chiqadi;
+  maqsadli rolga tegishli tugma va matnlar xiralashtirilmagan; bundle ochilib sxemadan o'tadi.
 
-Commit: "feat(core): capture, set-of-mark, masking, bundle".
+Commit: "feat(core): capture, set-of-mark, pseudonymization, bundle".
 ```
 
 ### T13 — Holatlar grafi va yamalgan javob
@@ -552,7 +567,8 @@ Vazifa: writer/templates_uz.py, prompts/*.j2, tasks.py, assemble.py, validate.py
   7-bo'limlar shunday bo'ladi.
 - validate: markerlar mavjud, LLM matnidagi «...» ichidagi nomlar elementlar nomlariga mos
   (fuzzy, T09 dagi normalize_uz bilan: eski va yangi lotin alifbosi, «Yuborish» = «Yuboriş»),
-  PII yo'q; xato -> qayta so'rash -> needs_review.
+  begona shaxslarning haqiqiy ma'lumoti yo'q (find_pii, test_values bundan mustasno); xato -> qayta
+  so'rash -> needs_review.
 - coverage: TZ FR-W6; percent va items.
 - pipeline.write(run_dir, provider) -> manual.json.
 - Testlar: FakeProvider bilan demo_shop capture'idan (T12/T13 fixture) to'liq manual; 9 bo'lim;
@@ -676,7 +692,9 @@ Vazifa: apps/local veb-interfeysi — Django shablonlar + HTMX, o'zbek tilida, t
 - Sahifalar ARCHITECTURE 6.4 jadvalidagidek. Asosiy talablar:
   * Bosh sahifa: loyihalar kartalari + tizim holati paneli (Ollama/model/Playwright — yashil/qizil, yechim matni).
   * Loyiha formasi: kod papkasi yo'li (matn maydoni + "tekshirish": mavjudmi, stek nima — detect natijasi),
-    base URL, muhit (production tanlansa ogohlantirish), rol bo'yicha A/B akkauntlar (o'zi ro'yxatdan o'ta oladigan rol uchun ixtiyoriy), pochta.
+    base URL, muhit (production tanlansa ogohlantirish), rol bo'yicha A/B akkauntlar (o'zi ro'yxatdan o'ta oladigan rol uchun ixtiyoriy; yonida ogohlantirish:
+    "Test akkauntning o'z ma'lumotlari yo'riqnomada o'zgarmasdan ko'rinadi — unga haqiqiy odamning
+    ma'lumotlarini yozmang", TZ FR-E10), pochta.
   * Blueprint ko'rib chiqish: tablar (Rollar — tasnifi va sababi bilan, Sahifalar, Obyektlar va statuslar, Flow'lar bosqichlar bo'yicha,
     Chiqarib tashlanganlar — sabab bilan, Skan hisoboti); har sahifa/flow yonida "Chiqarish" toggle
     (HTMX POST -> set_override), flow nomini tahrirlash; statistika.
@@ -743,7 +761,8 @@ Vazifa: packages/core/.../writer/providers/claude.py (Django'siz).
 - usage'dan token va narx hisobi (narxlar parametr sifatida), cache_read/creation tokenlari alohida;
   BudgetExceeded — byudjetdan oshsa (ProgressSink.event("cost", ...) orqali xabar).
 - Rate limit va 5xx uchun exponential backoff; SchemaError bo'lsa 2 martagacha qayta urinish.
-- Yuborishdan oldin: rasm maskalangan ekanini tekshirish (capture metadata), matnlarda pii.mask_text.
+- Yuborishdan oldin (TZ SEC-7): rasm almashtirishdan o'tganini tekshirish (capture metadata); matnda
+  pii.find_pii(ignore=test_values) — topilma bo'lsa, matn mask_text qilinadi va hodisa logga yoziladi.
 - Kalit (TZ SEC-12): AsyncAnthropic(api_key=...) ga konstruktor orqali beriladi; provider Django
   sozlamalarini o'qimaydi. Kalit provider'ning repr/str, log yozuvlari va xato matnlariga hech qachon
   tushmaydi (test: soxta "sk-ant-test-..." kalit bilan xato chiqarib, matnda kalit yo'qligini tekshirish).
@@ -835,7 +854,7 @@ Vazifa: jobs/services.py ichida haqiqiy pipeline (A, A') va server veb-interfeys
 - Veb sahifalar (Django shablonlar + HTMX, o'zbek tilida; lokal dastur bilan bir xil uslub):
   login/register, /domains/ (qo'shish,
   3 usul bo'yicha joylash yo'riqnomasi, "Tekshirish"), /jobs/new/ (rejim kartalari: A, A', B (hozircha
-  "tez orada"), URL, muhit, rol variantlari (TZ FR-RL3) va rol akkauntlari, fayl yuklash, byudjet), /jobs/<id>/ (bosqichlar, log — events
+  "tez orada"), URL, muhit, rol variantlari (TZ FR-RL3) va rol akkauntlari (TZ FR-E10 ogohlantirishi bilan), fayl yuklash, byudjet), /jobs/<id>/ (bosqichlar, log — events
   polling har 2 s, narx, input formasi, bekor qilish, natijalar), /jobs/.
 - Testlar (server): compose'da demo_shop'ga A rejimi (blueprint T08'dan) va A' (bundle T18'dan) —
   natijada HTML/PDF/DOCX artifact'lari; zip slip va katta fayl rad etiladi.
@@ -888,7 +907,8 @@ Vazifa: apps/server/scout — preflight.py, crawler.py, js_routes.py, network_in
   (path:"/...", <Route path=...>, router config'lar), ochiq *.map bo'lsa sourcesContent'dan; topilgan
   yo'llar crawler navbatiga (deny_paths filtri bilan).
 - network_infer: ko'rilgan XHR/fetch (metod + shablon) -> entity va action nomzodlari
-  (REST naqshlari, /api/<resurs>/:id/<fe'l>), confidence.
+  (REST naqshlari, /api/<resurs>/:id/<fe'l>), confidence; JSON javoblardagi shaxsga oid maydon
+  NOMLARI (qiymatlari emas) -> Entity.pii_fields (TZ FR-E10 almashtirishi uchun).
 - Natija: qisman Blueprint (source="discovered") — pages, nav, forms (DOM'dan), entities.
 - Testlar (server): demo_shop'da kodsiz: barcha guest sahifalar, JS'dan /app/* yo'llari topiladi,
   /admin* excluded'da.
@@ -912,7 +932,7 @@ jobs pipeline'ga B va A+B rejimlari.
   (datagen), test pochta job-<id>@inbox.<domen> (server Mailpit), tasdiqlash; captcha topilsa
   JobHumanInput yoki "tayyor akkaunt bering" xabari bilan to'xtash. Keyin core privilege tekshiruvi.
 - agent: Claude Sonnet tool use sikli. Har qadamda: SoM rasm + elementlar + hozirgi flow konteksti +
-  topilgan flow'lar ro'yxati. Tool'lar ARCHITECTURE 7.6 dagidek; har chaqiruv PolicyEngine'dan;
+  topilgan flow'lar ro'yxati (rasm va matn almashtirishdan o'tgan, TZ SEC-7). Tool'lar ARCHITECTURE 7.6 dagidek; har chaqiruv PolicyEngine'dan;
   natija agentga qaytadi; byudjet (sahifa, qadam, $) tugasa to'xtaydi. Maqsad: har sahifadagi user
   vazifalarini topish va bajarib, Flow sifatida yozish (steps — haqiqatda bajarilgan qadamlar).
 - validation_probe: o'z obyekti formalarida bo'sh/noto'g'ri qiymat bilan submit, xato xabarlarini

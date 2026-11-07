@@ -46,7 +46,7 @@ ai-user-yoriqnoma/
 │   │       ├── safety/            # url_guard.py, pii.py, policy_engine.py
 │   │       ├── explorer/          # session, accounts, firewall, datagen, mailbox,
 │   │       │                      # steps, runner, capture, som, state_graph,
-│   │       │                      # patching, bundle, privilege
+│   │       │                      # patching, pseudonymize, bundle, privilege
 │   │       ├── writer/            # providers/{base,fake,ollama,claude}.py,
 │   │       │                      # templates_uz.py, prompts/*.j2, tasks.py,
 │   │       │                      # assemble.py, validate.py, coverage.py, cache.py
@@ -183,6 +183,7 @@ class EntityStatus(BaseModel):
 
 class Entity(BaseModel):
     name: str; source: str; owner_field: str | None
+    pii_fields: list[str] = []                         # begona shaxs ma'lumoti bo'lishi mumkin bo'lgan maydonlar: full_name, phone, email, address...
     actions: list[str]                                 # create, view, list, update, delete, cancel, pay, ...
     statuses: list[EntityStatus] = []
     confidence: float = 1.0
@@ -245,7 +246,8 @@ class State(BaseModel):
     elements: list[Element]; aria: str
     entity: str | None = None; entity_status: str | None = None
     patched: bool = False; network: list[NetCall] = []
-    hidden: list[BBox] = []                            # FR-E10: xiralashtirilgan joylar (rolga tegishli emas yoki haqiqiy PII)
+    hidden: list[BBox] = []                            # FR-E10: xiralashtirilgan joylar (rolga tegishli emas yoki almashtirib bo'lmagan qiymat)
+    substituted: int = 0                               # FR-E10: almashtirilgan begona qiymatlar soni (qiymatlarning o'zi saqlanmaydi)
 
 class FlowResult(BaseModel):
     flow_id: str; status: Literal["verified", "failed", "skipped"]
@@ -259,6 +261,7 @@ class CaptureRun(BaseModel):
     base_url: HttpUrl; environment: Environment; started_at: datetime; finished_at: datetime | None
     flows: list[FlowResult]; states: list[State]
     firewall_log: list[BlockedRequest]; own_objects: dict[str, list[str]]   # entity → id'lar
+    test_values: list[str] = []                        # datagen yaratgan barcha qiymatlar (o'z va almashtirilgan); PII tekshiruvi ularni o'tkazib yuboradi
 ```
 
 ### 3.5. Manual
@@ -400,11 +403,15 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 - Markerlar o'qish tartibida beriladi: avval y, keyin x bo'yicha.
 - Matn uchun `page.locator("body").aria_snapshot()`.
 
-**Xiralashtirish va maskalash (TZ FR-E10).** Skrinshot maqsadli rol akkauntida olinadi, shuning uchun sukut bo'yicha hech narsa xiralashtirilmaydi. Faqat ikki holat:
+**Xiralashtirish va almashtirish (TZ FR-E10).** Skrinshot maqsadli rol akkauntida olinadi. Umumiy ma'lumotlar va test akkauntning o'z ma'lumotlari o'z holicha qoladi. Boshqa ikki holat:
 - **Rolga tegishli bo'lmagan element** — `PolicyEngine` taqiqlagan yoki blueprint bo'yicha boshqa rol yoki `excluded` route'ga olib boradigan havola va bloklar (masalan, ekranda ko'rinib qolgan "Admin panel"). Ular `State.hidden` ga yoziladi, rasmda xiralashtiriladi va matnga kirmaydi.
-- **Haqiqiy shaxsiy ma'lumot** — `pii.find_pii` topgan, lekin `datagen` yaratmagan email, telefon, karta raqami, ism. Faqat qiymatning o'z maydoni yashiriladi.
+- **Begona shaxs ma'lumoti** — `explorer/pseudonymize.py` uni skrinshotdan oldin to'qima qiymat bilan almashtiradi:
+  1. **Tarmoq darajasi.** Saytning o'z API'si qaytargan JSON javoblar `route.fetch()` → o'zgartirish → `route.fulfill()` orqali o'tadi (`patching` bilan bir xil mexanizm). `Entity.pii_fields` dagi va nomidan aniqlangan (`name`, `full_name`, `email`, `phone`, `address`, `card`, `passport`, `avatar`...) maydonlar, agar obyekt test akkauntniki bo'lmasa (`owner_field`, `own_objects`, `test_values` bo'yicha), `datagen` qiymatlariga almashtiriladi.
+  2. **DOM darajasi** (server-rendered saytlar va qolganlar uchun). Skrinshotdan oldin `pii.find_pii` matn tugunlari va maydon qiymatlarida `test_values` da yo'q qiymatlarni topadi va JS bilan ularni to'qima qiymatga almashtiradi. Begona odamning profil rasmi neytral avatar bilan almashtiriladi.
+  3. **Zaxira.** Almashtirib bo'lmagan qiymat (rasm yoki canvas ichida) xiralashtiriladi va `State.hidden` ga yoziladi; sabab hisobotga tushadi.
+  4. **Yakuniy tekshiruv.** Skrinshotdan keyin aria va element nomlarida `pii.find_pii` qayta ishlaydi; `test_values` dan boshqa topilma bo'lsa, `mask_text` qilinadi va holat hisobotda belgilanadi.
 
-`datagen` yaratgan test qiymatlari ro'yxati capture bilan saqlanadi; ular maskalanmaydi.
+Almashtirish jadvali (haqiqiy → to'qima) faqat xotirada: bitta haqiqiy qiymat ish davomida doim bitta to'qima qiymatga aylanadi, lekin jadval diskka, logga va bundle'ga yozilmaydi. `datagen` yaratgan barcha qiymatlar `CaptureRun.test_values` da saqlanadi. Begona obyektlarga DELETE, PUT va PATCH baribir firewall'da to'xtaydi (SEC-4), shuning uchun almashtirilgan qiymat saytga qaytib yozilmaydi.
 
 ### 4.4. Renderer
 
