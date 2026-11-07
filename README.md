@@ -1,7 +1,8 @@
 # AI_user_yoriqnoma
 
-Sayt yoki veb-tizimni o'rganib, **oddiy foydalanuvchi** uchun o'zbek tilida matn va rasmli,
-qadamma-qadam yo'riqnoma yaratadigan vosita. U ikkita **alohida** dasturdan iborat:
+Sayt yoki veb-tizimni o'rganib, **administratordan boshqa har bir foydalanuvchi roli** (oddiy
+foydalanuvchi, menejer, sotuv menejeri va h.k.) uchun o'zbek tilida matn va rasmli, qadamma-qadam
+yo'riqnoma yaratadigan vosita. Saytdagi rollar topiladi va qaysi rol uchun yozish variantlardan tanlanadi. U ikkita **alohida** dasturdan iborat:
 
 | Papka | Dastur | Qayerda ishlaydi | Yo'riqnomani kim yozadi |
 |---|---|---|---|

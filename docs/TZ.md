@@ -6,14 +6,18 @@ Versiya 1.1 · 2026-11-07 (ikki Django dasturi: Lokal va Server)
 
 **1.1. Nomi.** AI_user_yoriqnoma — foydalanuvchi yo'riqnomasi generatori.
 
-**1.2. Maqsad.** Veb-sayt yoki veb-tizimni avtomatik o'rganish va **oddiy foydalanuvchi rolining barcha imkoniyatlarini** qamraydigan, matn va rasmli, qadamma-qadam yo'riqnoma yaratish. Tizimni kodi orqali yoki faqat URL orqali o'rganish mumkin.
+**1.2. Maqsad.** Veb-sayt yoki veb-tizimni avtomatik o'rganish va **tanlangan foydalanuvchi rolining barcha imkoniyatlarini** qamraydigan, matn va rasmli, qadamma-qadam yo'riqnoma yaratish. Tizimni kodi orqali yoki faqat URL orqali o'rganish mumkin.
 
-Yo'riqnomani o'qigan odam saytdan to'liq foydalana olishi kerak:
+Saytda bir nechta rol bo'lishi mumkin: oddiy foydalanuvchi (mijoz), menejer, sotuv menejeri, kuryer va hokazo. Vosita administrator va adminga o'xshash (saytni boshqaradigan) rollardan **boshqa barcha rollar** uchun yo'riqnoma yoza oladi. U saytdagi rollarni topadi, ularni variant sifatida ko'rsatadi va qaysi rol uchun yo'riqnoma yozishni so'raydi (FR-RL).
+
+Yo'riqnomani o'qigan odam o'z roli doirasida saytdan to'liq foydalana olishi kerak. Masalan, oddiy foydalanuvchi uchun:
 - ro'yxatdan o'tish va kirish;
 - asosiy ishlar;
 - o'z ma'lumotlarini boshqarish va statuslar;
 - to'lovlar va muloqot;
 - sozlamalar va hisobni o'chirish.
+
+Menejer kabi xodim rollari uchun esa shu rolning ishlari: masalan, buyurtmalarni ko'rish, statusini o'zgartirish, hisobotlar.
 
 **1.3. Kimlar foydalanadi:**
 
@@ -36,9 +40,12 @@ Yo'riqnomani o'qigan odam saytdan to'liq foydalana olishi kerak:
 | Capture | Tadqiqotchi yig'gan holatlar, skrinshotlar va natijalar (`capture.json` + rasmlar) |
 | Manual | Yo'riqnomaning tuzilgan ko'rinishi (`manual.json`) |
 | SoM | Set-of-Mark — skrinshot ustidagi raqamli markerlar |
-| Test akkaunt | Vosita yaratgan yoki egasi bergan **oddiy** (admin emas) akkaunt |
+| Rol | Saytdagi foydalanuvchi turi: mijoz, menejer, sotuv menejeri va h.k. Har bir rolning o'z sahifalari va huquqlari bor |
+| Maqsadli rol | Yo'riqnoma yozilayotgan rol. Ish boshida variantlardan tanlanadi |
+| Adminga o'xshash rol | Saytni boshqaradigan rol: administrator, superadmin yoki foydalanuvchilar, rollar, huquqlar va sayt sozlamalarini boshqaradigan har qanday rol. Bunday rollar uchun yo'riqnoma yozilmaydi |
+| Test akkaunt | Vosita yaratgan yoki egasi bergan, maqsadli roldagi akkaunt (admin yoki adminga o'xshash emas) |
 | Default-deny | Noaniq holatda taqiqlash |
-| Yamalgan javob | Test user yeta olmaydigan statusni ko'rsatish uchun o'z obyekti javobida faqat `status` maydonini almashtirish |
+| Yamalgan javob | Maqsadli rol yeta olmaydigan statusni ko'rsatish uchun o'z obyekti javobida faqat `status` maydonini almashtirish |
 
 ## 3. Tizim tarkibi
 
@@ -75,6 +82,26 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 
 ## 4. Funksional talablar
 
+### 4.0. Rollar va rol tanlash (FR-RL) — ikkala dasturda
+
+- **FR-RL1. Rollarni topish.**
+  - Lokal (kod bor): skaner rollarni koddan oladi — rol enum'lari va `choices`, guard'lar (`require_role("manager")`, `@permission_required`, `user.role == ...`), Django guruh va huquqlari, frontend'dagi rol tekshiruvlari (`<RequireRole role="manager">`), E2E testlardagi akkauntlar.
+  - Server A rejimi: rollar yuklangan blueprint'da bor.
+  - Server B rejimi (kod yo'q): rollar foydalanuvchi bergan test akkauntlaridan va saytdagi ochiq belgilardan (masalan, ro'yxatdan o'tishdagi "Men sotuvchiman / xaridorman" tanlovi) olinadi. Foydalanuvchi rol nomini va shu roldagi akkauntni qo'lda qo'sha oladi.
+- **FR-RL2. Rollarni tasniflash.** Har bir rolga sababi bilan uchtadan biri beriladi:
+  - `guest` — kirmagan mehmon;
+  - `role` — bu rol uchun yo'riqnoma yozish mumkin;
+  - `excluded` — administrator yoki adminga o'xshash rol, yoki noaniq rol (default-deny).
+
+  Adminga o'xshash rol belgilari: superuser yoki staff bayrog'i; foydalanuvchilar, rollar yoki huquqlarni boshqarish; sayt sozlamalarini o'zgartirish; hamma yozuvlarga hech qanday cheklovsiz kirish; nomi `admin`, `administrator`, `superadmin`, `root` kabi. Sayt ishini bajaradigan xodim rollari (menejer, sotuv menejeri, operator, kuryer) bu belgilar bo'lmasa `role` hisoblanadi.
+- **FR-RL3. Rol tanlash — variantlar.** Ishni boshlashda lokal va server veb-interfeysi topilgan rollarni kartalar (variantlar) ko'rinishida chiqaradi va so'raydi: "Saytda administratordan boshqa 4 ta rol topildi. Qaysi rol uchun yo'riqnoma yozay?" Har bir kartada:
+  - rol nomi va qisqa tavsifi;
+  - shu rolga ochiq sahifalar va vazifalar soni;
+  - akkaunt kerakmi (vosita o'zi ro'yxatdan o'ta oladimi yoki sayt egasi berishi kerakmi).
+
+  Bitta yoki bir nechta rol tanlanadi; har bir rol uchun **alohida** yo'riqnoma yoziladi. Chiqarib tashlangan rollar ham sababi bilan ko'rsatiladi, lekin ularni tanlab bo'lmaydi. Terminal buyruqlarida: `--list-roles` (variantlar ro'yxati) va `--role <id>`.
+- **FR-RL4. Rol akkauntlari.** O'zi ro'yxatdan o'ta oladigan rol (odatda oddiy foydalanuvchi) uchun vosita o'zi ro'yxatdan o'tadi. Boshqa rollar uchun sayt egasi shu roldagi test akkauntlarini beradi (A, kerak bo'lsa B). Kirgandan keyin akkaunt haqiqatan tanlangan rolda ekani va admin yoki adminga o'xshash huquqi yo'qligi tekshiriladi (SEC-6). Akkaunt boshqa rolda yoki adminga o'xshash bo'lsa, ish to'xtaydi.
+
 ### 4.1. Skaner — `yoriqnoma_scanner`, lokal dastur ichida (FR-S)
 
 - **FR-S1. Kirish nuqtasi.**
@@ -92,17 +119,18 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - formalar va validatsiya: pydantic, zod/yup, HTML atributlari;
   - i18n fayllari;
   - navigatsiya komponentlari.
-- **FR-S4. Rol tasnifi.** Har bir route `guest`, `user` yoki `excluded` deb belgilanadi va sababi yoziladi.
-  - Admin rol tekshiruvi → `excluded`.
-  - Egalik tekshiruvi → `user`.
+- **FR-S4. Route'larning rollari.** Har bir route uchun unga kira oladigan rollar (`guest` yoki bir yoki bir nechta `role`) yoki `excluded` belgilanadi va sababi yoziladi.
+  - Faqat admin yoki adminga o'xshash rolga ochiq → `excluded`.
+  - Rol tekshiruvi (`require_role("manager")`) → shu rol(lar).
+  - Faqat kirish yoki egalik tekshiruvi → kira oladigan barcha `role`'lar.
   - Noaniq → `excluded`, hisobotga ham tushadi.
 - **FR-S5. Obyektlar.** Har bir obyekt uchun:
   - amallar (CRUD va maxsus amallar);
   - statuslar;
-  - har bir statusga **user yeta oladimi** (`reachable_by_user`). Status faqat admin route'larida o'zgarsa — `false`.
+  - har bir statusga **qaysi rollar yeta oladi** (`reachable_by`, rollar ro'yxati). Status faqat admin route'larida o'zgarsa — ro'yxat bo'sh.
 - **FR-S6. Flow'lar.**
   - Har bir obyekt va amal juftligi alohida flow bo'ladi, hisob flow'lari ham qo'shiladi.
-  - Har bir flow'ga `requires` va `stage` beriladi.
+  - Har bir flow'ga `role`, `requires` va `stage` beriladi. Flow faqat `guest` yoki `role` turidagi rolga beriladi.
   - E2E testlardan olingan flow'lar ustun turadi.
 - **FR-S7. Chiqish:**
   - `blueprint.json` (sxemaga mos);
@@ -114,9 +142,10 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 - **FR-E1. Kirish ma'lumotlari:**
   - blueprint va base URL;
   - muhit: `staging` yoki `production`;
-  - test akkauntlar — ixtiyoriy, bo'lmasa vosita o'zi ro'yxatdan o'tadi;
+  - maqsadli rol (FR-RL3);
+  - maqsadli roldagi test akkauntlar — o'zi ro'yxatdan o'ta oladigan rolda ixtiyoriy (FR-RL4);
   - pochta adapteri: Mailpit yoki papka.
-- **FR-E2. Akkauntlar.** Ikkita test akkaunt (A, B), har biri alohida toza brauzer kontekstida.
+- **FR-E2. Akkauntlar.** Maqsadli roldagi ikkita test akkaunt (A, B), har biri alohida toza brauzer kontekstida. Faqat maqsadli rolning flow'lari bajariladi.
 - **FR-E3. Flow'larni bajarish.**
   - Topologik tartibda bajariladi.
   - Har bir qadamdan keyin kutilgan natija tekshiriladi.
@@ -130,7 +159,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - Xavfsiz elementlar bosiladi: tab, accordion, dropdown, modal ochuvchi tugmalar, filtrlar, sahifalash.
   - Takroriy holatlar DOM hash bo'yicha o'tkazib yuboriladi.
   - Chuqurlik va holatlar soniga limit qo'yiladi.
-- **FR-E8. Yamalgan javob.** `reachable_by_user=false` statuslar shu usulda ko'rsatiladi. Rasmga `patched=true` belgisi qo'yiladi.
+- **FR-E8. Yamalgan javob.** Maqsadli rol yeta olmaydigan (`reachable_by` da yo'q) statuslar shu usulda ko'rsatiladi. Rasmga `patched=true` belgisi qo'yiladi.
 - **FR-E9. Har bir holat uchun yig'iladi:**
   - toza va SoM skrinshot (PNG);
   - elementlar: marker, role, name, bbox, selector;
@@ -138,7 +167,10 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - URL, flow va qadam;
   - obyekt statusi;
   - tarmoq so'rovlari: metod, yo'l shabloni, status kodi. **So'rov tanasi yozilmaydi.**
-- **FR-E10. Maskalash.** Skrinshot va matnlardagi email, telefon, ism va karta raqamlari yashiriladi.
+- **FR-E10. Xiralashtirish va maskalash.** Skrinshotlar maqsadli rolning o'z akkaunti bilan olinadi, shuning uchun:
+  - shu rol ko'ra oladigan va qila oladigan hamma narsa — sahifalar, menyular, tugmalar, matnlar, rasmlar, ro'yxatlar, o'z ma'lumotlari — **xiralashtirilmaydi**, o'z holicha ko'rsatiladi;
+  - shu rolga tegishli bo'lmagan yoki u foydalana olmaydigan narsa (masalan, ekranda ko'rinib qolgan admin havolasi yoki boshqa rolning bo'limi) xiralashtiriladi va yo'riqnoma matniga kiritilmaydi;
+  - istisno — haqiqiy odamlarning shaxsiy ma'lumotlari (email, telefon, karta raqami, ism): rol ularni ko'rsa ham, faqat shu qiymatning o'zi yashiriladi, atrofi aniq qoladi. Vosita yaratgan test ma'lumotlari (FR-E4) haqiqiy emas, ular yashirilmaydi.
 - **FR-E11. Chiqish:** `capture/` papkasi (`capture.json` + `images/`) va `bundle.zip`.
 - **FR-E12. Davom ettirish (resume).** To'xtab qolgan ish bajarilgan flow'larni qayta bajarmaydi.
 
@@ -162,9 +194,11 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   7. Hisobni o'chirish
   8. Imkoniyatlar ma'lumotnomasi (A–Z)
   9. Xatolar va FAQ
+
+  Yo'riqnoma boshida qaysi rol uchun yozilgani va bu rolni kim beradi (masalan, «Sotuv menejeri» rolini sayt administratori beradi) aytiladi.
 - **FR-W5. Faqat tasdiqlangan flow'lar.** Yo'riqnomaga faqat `verified` flow'lar kiradi. `failed` flow'lar "Tekshirilmagan" ilovasiga tushadi.
 - **FR-W6. Qamrov hisoboti.**
-  - Foiz hisoblanadi: user yo'llari, formalar, tugmalar, amallar, statuslar bo'yicha.
+  - Foiz hisoblanadi: maqsadli rol yo'llari, formalar, tugmalar, amallar, statuslar bo'yicha.
   - Qamralmaganlar ro'yxati sababi bilan chiqariladi.
 - **FR-W7. Kesh.** Bir xil kirish (holat hash + prompt versiyasi + model) uchun LLM qayta chaqirilmaydi. Kesh fayllarda saqlanadi.
 
@@ -174,7 +208,8 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - maqsad atrofida qirqim;
   - spotlight;
   - raqamli belgilar;
-  - strelka.
+  - strelka;
+  - xiralashtirish faqat FR-E10 bo'yicha: maqsadli rol ko'radigan narsa aniq qoladi.
 - **FR-R2. HTML.** Offline ishlaydigan bitta papkali sayt: mundarija va lokal qidiruv (JS indeks).
 - **FR-R3. PDF.** Playwright `page.pdf()` orqali: A4, sahifa raqamlari. WeasyPrint ishlatilmaydi, chunki Windows'da GTK talab qiladi.
 - **FR-R4. DOCX.** python-docx orqali: sarlavha uslublari, rasmlar va izohlar, mundarija maydoni.
@@ -191,15 +226,15 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - nomi;
   - kod papkasining yo'li (ixtiyoriy — kodsiz loyihada faqat bundle uchun qo'lda yozilgan blueprint yuklash mumkin);
   - base URL va muhit (staging yoki production);
-  - test akkauntlar (ixtiyoriy);
+  - test akkauntlar — rol bo'yicha (FR-RL4);
   - pochta adapteri (Mailpit URL yoki papka);
   - til.
-- **FR-L4. Natija turini tanlash.** Har bir ishni boshlashda foydalanuvchi uchtadan birini tanlaydi:
+- **FR-L4. Rol va natija turini tanlash.** Har bir ishni boshlashda foydalanuvchi maqsadli rol(lar)ni variantlardan tanlaydi (FR-RL3) va uchta natija turidan birini tanlaydi:
   - **To'liq yo'riqnoma** — skan → blueprint ko'rib chiqish → tadqiqot → yozish (Ollama) → render (HTML, PDF, DOCX);
   - **Blueprint (server A uchun)** — skan → ko'rib chiqish → `blueprint.json`;
   - **Bundle (server A' uchun)** — skan → ko'rib chiqish → tadqiqot → `bundle.zip`.
 - **FR-L5. Blueprint ko'rib chiqish.** Skandan keyin foydalanuvchi quyidagilarni ko'radi va o'zgartira oladi:
-  - sahifalar, obyektlar va flow'lar ro'yxati;
+  - rollar (tasnifi va sababi bilan), sahifalar, obyektlar va flow'lar ro'yxati;
   - istalgan sahifa yoki flow'ni **chiqarib tashlash** mumkin, lekin `excluded` qilinganini qo'shib bo'lmaydi (default-deny saqlanadi);
   - flow nomini o'zgartirish mumkin.
 
@@ -239,7 +274,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 - **FR-SV2. Veb-interfeys** (Django shablonlar + HTMX):
   - server foydalanuvchilari uchun ro'yxatdan o'tish va kirish (Django auth);
   - domen qo'shish va tasdiqlash;
-  - ish yaratish (A va A' rejimlarida lokal dastur yaratgan faylni yuklash bilan);
+  - ish yaratish: rol tanlash (variantlar, FR-RL3) va A, A' rejimlarida lokal dastur yaratgan faylni yuklash;
   - jarayonni jonli kuzatish (HTMX polling);
   - SMS kodini kiritish;
   - natijalarni yuklab olish.
@@ -252,6 +287,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - tarmoq kuzatuvi;
   - kirish yoki ro'yxatdan o'tish;
   - imtiyoz tekshiruvi;
+  - rollarni aniqlash: berilgan akkauntlar va saytdagi belgilardan (FR-RL1);
   - Claude agenti (tool use);
   - validatsiyani o'rganish.
 
@@ -274,7 +310,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 ## 5. Xavfsizlik talablari (SEC)
 
 - **SEC-1. Default-deny** — barcha komponentlarda.
-- **SEC-2. Admin yo'q.** Admin yo'llari, admin huquqlari va boshqa haqiqiy foydalanuvchilar ma'lumotlari hech qachon olinmaydi va ko'rsatilmaydi.
+- **SEC-2. Admin yo'q.** Administrator va adminga o'xshash rollarning yo'llari va huquqlari hech qachon olinmaydi va ko'rsatilmaydi. Boshqa haqiqiy odamlarning shaxsiy ma'lumotlari yo'riqnomada ochiq ko'rsatilmaydi (FR-E10).
 - **SEC-3. Skaner chegaralari.**
   - Fayllar faqat `SafeFS` orqali o'qiladi.
   - **O'qilmaydigan fayllar:** `.env*`, `*.pem`, `*.key`, `*.p12`, `*.sql`, `*.db`, `*.sqlite*`, `*dump*`, `docker-compose*.yml`, `secrets*`, `storage/`, `uploads/`, `logs/`, `node_modules/`, `.git/`, `venv/`, `.venv/`.
@@ -282,10 +318,10 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 - **SEC-4. Tarmoq firewall'i (Tadqiqotchi).**
   - `deny_paths` ga tushgan so'rovlar bekor qilinadi.
   - Boshqa domenlar: faqat statik resurslar uchun GET'ga ruxsat (stylesheet, script, font, image). Boshqa domenga xhr/fetch, navigatsiya va GET bo'lmagan so'rovlar bekor qilinadi.
-  - Test user o'zi yaratmagan obyektga DELETE, PUT yoki PATCH bekor qilinadi.
+  - Test akkauntlar o'zi yaratmagan obyektga DELETE, PUT yoki PATCH bekor qilinadi.
   - Barcha bloklangan so'rovlar logga yoziladi.
 - **SEC-5. Xavfli amallar.**
-  - O'chirish, bekor qilish va tahrirlash faqat test user o'zi yaratgan obyektlarda.
+  - O'chirish, bekor qilish, tahrirlash va status o'zgartirish faqat test akkauntlar o'zi yaratgan obyektlarda. Menejer kabi rollar boshqalarning yozuvlarini ko'ra olsa ham, ularni o'zgartirmaydi: kerakli obyektlar avval yordamchi test akkauntda (masalan, test mijoz) yaratiladi va maqsadli rol faqat shular ustida ishlaydi.
   - **Production:** faqat tasdiqlash oynasigacha.
   - **To'lov:** faqat sandbox.
   - **Hisobni o'chirish:** eng oxirida va faqat test akkauntda.
@@ -293,8 +329,9 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - Admin API'larga yuborilgan so'rov 401, 403 yoki 404 qaytarishi kutiladi.
   - `/admin` sahifasi login'ga qaytarishi yoki 403 ko'rsatishi kutiladi.
   - Admin kontenti ochilsa, ish **to'xtatiladi**.
+  - Akkaunt tanlangan rolda bo'lmasa yoki adminga o'xshash huquqi topilsa (foydalanuvchilar, rollar yoki sozlamalarni boshqarish sahifalari ochilsa), ish to'xtatiladi.
   - Natija faqat "ha/yo'q" ko'rinishida saqlanadi, sahifa mazmuni saqlanmaydi.
-- **SEC-7. Maskalash.** PII maskalanadi. Claude'ga faqat maskalangan ma'lumot yuboriladi.
+- **SEC-7. Maskalash.** Haqiqiy odamlarning PII'si maskalanadi (FR-E10); vosita yaratgan test ma'lumotlari maskalanmaydi. Claude'ga faqat shu qoida bo'yicha maskalangan ma'lumot yuboriladi.
 - **SEC-8. Captcha** avtomatik yechilmaydi, odamdan so'raladi yoki tayyor akkaunt talab qilinadi.
 - **SEC-9. Domen tasdiqlash (server).**
   - Usullar: `/.well-known/yoriqnoma-verify.txt` fayli, `<meta name="yoriqnoma-verify">` tegi yoki DNS TXT yozuvi.
@@ -376,7 +413,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 ## 8. Cheklovlar va farazlar
 
 - Skaner MVP'da o'rganiladigan loyihalarning FastAPI + React stekini qo'llab-quvvatlaydi. Django va boshqa steklar F7 bosqichida qo'shiladi.
-- B rejimi faqat sayt orqali ko'rinadigan va topiladigan funksiyalarni qamraydi.
+- B rejimi faqat sayt orqali ko'rinadigan va topiladigan funksiyalarni qamraydi. Rollar faqat berilgan akkauntlar va saytda ko'rinadigan belgilar orqali aniqlanadi.
 - Admin harakati talab qiladigan holatlar yamalgan javob yoki matn orqali ko'rsatiladi.
 - Server-rendered saytlar ham qo'llab-quvvatlanadi, chunki Tadqiqotchi DOM bilan ishlaydi.
 - Mobil ilovalar va desktop dasturlar doiradan tashqari.
@@ -384,20 +421,22 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 ## 9. Qabul qilish mezonlari (demo_shop poligonida)
 
 - **QM-1. Skaner:**
-  - user yo'llarining 100% topiladi;
+  - admindan boshqa barcha rollar topiladi va to'g'ri tasniflanadi (demo_shop: `customer`, `manager`, `courier` — `role`; `admin` — `excluded`);
+  - har bir rol yo'llarining 100% topiladi;
   - admin yo'llari 0 ta;
   - `.env` fayli ochilmagani testda isbotlangan.
 - **QM-2. Tadqiqotchi:**
-  - flow'larning ≥ 90% `verified`;
+  - har bir tanlangan rol uchun flow'larning ≥ 90% `verified`;
   - admin so'rovlari 0 ta (firewall logi bo'yicha);
   - begona obyektga DELETE 0 ta.
 - **QM-3. Yo'riqnoma:**
   - 9 bo'lim mavjud;
   - qamrov ≥ 90%;
   - marker xatolari 0 ta;
-  - natijada PII topilmaydi (regex skaner bilan tekshiriladi).
+  - natijada haqiqiy PII topilmaydi (regex skaner bilan; test ma'lumotlari bundan mustasno);
+  - maqsadli rol ko'radigan elementlar xiralashtirilmagan, boshqa rol va admin elementlari matnda yo'q.
 - **QM-4. Lokal dastur:**
-  - UI orqali "To'liq yo'riqnoma" Ollama bilan internetsiz boshidan oxirigacha ishlaydi;
+  - UI orqali rol variantlari chiqadi va tanlangan rol uchun "To'liq yo'riqnoma" Ollama bilan internetsiz boshidan oxirigacha ishlaydi;
   - "Blueprint" va "Bundle" natijalari server sxemasidan o'tadi;
   - lokal dastur serverga hech qanday so'rov yubormaydi; uning fayllari server veb-formasi orqali yuklanib, ish yaratiladi.
 - **QM-5. Server dastur:**

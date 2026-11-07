@@ -121,8 +121,9 @@ Barcha modellarda `model_config = ConfigDict(extra="forbid")`. Har bir faylning 
 ### 3.1. Umumiy tiplar
 
 ```python
-Role = Literal["guest", "user"]
-RouteRole = Literal["guest", "user", "excluded", "unknown"]
+RoleId = str                        # "guest" — mehmon; boshqalari saytdagi rol id'si: "customer", "manager"
+RoleKind = Literal["guest", "role", "excluded"]      # TZ FR-RL2
+Access = Literal["guest", "roles", "excluded", "unknown"]
 Stage = Literal["start", "core", "manage", "social", "payment", "settings", "exit"]
 Environment = Literal["staging", "production"]
 Source = Literal["code", "discovered", "merged"]
@@ -141,7 +142,8 @@ class BBox(BaseModel): x: float; y: float; w: float; h: float
 
 ```python
 class Policy(BaseModel):
-    roles: list[Role] = ["guest", "user"]
+    target_role: RoleId               # yo'riqnoma yozilayotgan rol (TZ FR-RL3)
+    helper_roles: list[RoleId] = []   # obyekt tayyorlash uchun yordamchi rollar (masalan, test mijoz; SEC-5)
     deny_paths: list[str]           # glob: "/admin*", "/api/admin*", ...
     deny_action_words: list[str]    # "o'chirish", "удалить", "delete", "to'lash", "оплатить", "pay", ...
     default: Literal["deny"] = "deny"
@@ -157,9 +159,15 @@ class Policy(BaseModel):
 ### 3.3. Blueprint
 
 ```python
+class RoleInfo(BaseModel):
+    id: RoleId; label: str                             # "manager", "Menejer"
+    kind: RoleKind; reason: str; source: str           # nega role/excluded ekani va qayerdan topilgani
+    self_signup: bool = False                          # vosita o'zi ro'yxatdan o'ta oladimi (FR-RL4)
+    description: str | None = None                     # variant kartasi uchun qisqa tavsif
+
 class RouteInfo(BaseModel):
     path: str; kind: Literal["page", "api"]; methods: list[str]
-    role: RouteRole; reason: str; source: str          # "app/api/orders.py:42"
+    access: Access; roles: list[RoleId] = []; reason: str; source: str          # "app/api/orders.py:42"
 
 class FormField(BaseModel):
     name: str; label: str | None; type: str            # text|email|password|tel|number|select|file|...
@@ -171,7 +179,7 @@ class Form(BaseModel):
     submit: Target; api: str | None                    # "POST /api/orders"
 
 class EntityStatus(BaseModel):
-    value: str; label: str | None; reachable_by_user: bool; set_by: list[str]  # route manbalari
+    value: str; label: str | None; reachable_by: list[RoleId]; set_by: list[str]  # route manbalari
 
 class Entity(BaseModel):
     name: str; source: str; owner_field: str | None
@@ -196,7 +204,7 @@ class Step(BaseModel):
     payment: bool = False
 
 class Flow(BaseModel):
-    id: str; title: str; stage: Stage; role: Role
+    id: str; title: str; stage: Stage; role: RoleId   # faqat kind="guest" yoki "role" bo'lgan rol
     entity: str | None = None; action: str | None = None
     requires: list[str] = []; account: Literal["A", "B"] = "A"
     source: str; status: Literal["unverified", "verified", "failed", "skipped"] = "unverified"
@@ -206,6 +214,7 @@ class Blueprint(BaseModel):
     schema_version: Literal["1.0"]; project: str; base_url: HttpUrl
     source: Source; generated_at: datetime; generator: str
     language: str = "uz"; policy: Policy
+    roles: list[RoleInfo]               # topilgan barcha rollar, excluded ham (sababi bilan)
     pages: list[RouteInfo]; forms: list[Form]; entities: list[Entity]; flows: list[Flow]
     nav: list[dict[str, str]] = []      # menyu: {label, path}
     i18n: dict[str, str] = {}           # kalit → o'zbekcha matn
@@ -215,8 +224,9 @@ class Blueprint(BaseModel):
 **Validatorlar:**
 - `requires` dagi id'lar mavjud bo'lishi kerak;
 - graf sikl'siz bo'lishi kerak;
-- `excluded` ichida `role != "excluded"` bo'lmasligi kerak;
-- `pages` ichida `excluded` bo'lmasligi kerak.
+- `excluded` ichida faqat `access="excluded"` route'lar;
+- `pages` ichida `access="excluded"` yo'q;
+- `flow.role` va `route.roles` dagi id'lar `roles` da bor va `kind="excluded"` emas.
 
 ### 3.4. Capture
 
@@ -235,6 +245,7 @@ class State(BaseModel):
     elements: list[Element]; aria: str
     entity: str | None = None; entity_status: str | None = None
     patched: bool = False; network: list[NetCall] = []
+    hidden: list[BBox] = []                            # FR-E10: xiralashtirilgan joylar (rolga tegishli emas yoki haqiqiy PII)
 
 class FlowResult(BaseModel):
     flow_id: str; status: Literal["verified", "failed", "skipped"]
@@ -244,6 +255,7 @@ class BlockedRequest(BaseModel): method: str; url: str; rule: str; at: datetime
 
 class CaptureRun(BaseModel):
     schema_version: Literal["1.0"]; run_id: str; blueprint_hash: str
+    role: RoleId                                       # maqsadli rol
     base_url: HttpUrl; environment: Environment; started_at: datetime; finished_at: datetime | None
     flows: list[FlowResult]; states: list[State]
     firewall_log: list[BlockedRequest]; own_objects: dict[str, list[str]]   # entity → id'lar
@@ -272,6 +284,7 @@ class Coverage(BaseModel): percent: dict[str, float]; items: list[CoverageItem]
 
 class Manual(BaseModel):
     schema_version: Literal["1.0"]; project: str; language: str
+    role: RoleId; role_label: str                      # yo'riqnoma qaysi rol uchun
     generated_at: datetime; source_mode: Literal["A", "A'", "B", "A+B", "local"]
     models: list[str]; sections: list[Section]
     reference: list[RefEntry]; faq: list[QA]; coverage: Coverage
@@ -363,9 +376,9 @@ class StepExecutor:
 ```
 
 **Runner tartibi:**
-1. `accounts.ensure(A, B)` — akkauntlarni tayyorlaydi.
-2. `privilege_check` — admin huquqi yo'qligini tekshiradi.
-3. `topo_sort(flows)` — flow'larni bog'liqlik bo'yicha tartiblaydi.
+1. `accounts.ensure(role, A, B)` — maqsadli roldagi akkauntlarni (kerak bo'lsa yordamchi rol akkauntini ham) tayyorlaydi.
+2. `privilege_check` — akkaunt maqsadli rolda ekanini va admin yoki adminga o'xshash huquqi yo'qligini tekshiradi.
+3. `topo_sort(flows)` — maqsadli rolning flow'larini bog'liqlik bo'yicha tartiblaydi.
 4. Har bir flow bajariladi: qadamlar, har qadamdan keyin `capture.snapshot()`.
 5. `state_graph.explore(page)` — holatlar grafi.
 6. `patching.render_unreachable_statuses()` — yetib bo'lmaydigan statuslar.
@@ -387,6 +400,12 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 - Markerlar o'qish tartibida beriladi: avval y, keyin x bo'yicha.
 - Matn uchun `page.locator("body").aria_snapshot()`.
 
+**Xiralashtirish va maskalash (TZ FR-E10).** Skrinshot maqsadli rol akkauntida olinadi, shuning uchun sukut bo'yicha hech narsa xiralashtirilmaydi. Faqat ikki holat:
+- **Rolga tegishli bo'lmagan element** — `PolicyEngine` taqiqlagan yoki blueprint bo'yicha boshqa rol yoki `excluded` route'ga olib boradigan havola va bloklar (masalan, ekranda ko'rinib qolgan "Admin panel"). Ular `State.hidden` ga yoziladi, rasmda xiralashtiriladi va matnga kirmaydi.
+- **Haqiqiy shaxsiy ma'lumot** — `pii.find_pii` topgan, lekin `datagen` yaratmagan email, telefon, karta raqami, ism. Faqat qiymatning o'z maydoni yashiriladi.
+
+`datagen` yaratgan test qiymatlari ro'yxati capture bilan saqlanadi; ular maskalanmaydi.
+
 ### 4.4. Renderer
 
 `render.build(manual, capture_dir, out_dir, formats={"html", "pdf", "docx"}) -> RenderResult`
@@ -394,6 +413,7 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 - **HTML** Jinja2 orqali yaratiladi.
 - **PDF** shu HTML'dan olinadi: `page.pdf(format="A4", display_header_footer=True)`.
 - **DOCX** python-docx bilan alohida quriladi.
+- Rasmlarda faqat `State.hidden` joylari xiralashtiriladi (TZ FR-E10); spotlight atrofni biroz qorong'ilashtiradi, lekin o'qiladigan qoldiradi.
 
 ## 5. Ishlash papkasi
 
@@ -456,7 +476,7 @@ class Project(models.Model):
     language = CharField(default="uz"); created_at
 
 class ProjectAccount(models.Model):
-    project = FK(Project); alias = CharField(choices=A|B); login; password_enc = BinaryField()
+    project = FK(Project); role = CharField(); alias = CharField(choices=A|B); login; password_enc = BinaryField()
 
 class BlueprintVersion(models.Model):
     project = FK; created_at; scanner_version; source = CharField(choices=scan|upload)
@@ -466,6 +486,7 @@ class BlueprintVersion(models.Model):
 
 class Run(models.Model):
     project = FK; blueprint = FK(BlueprintVersion)
+    role = CharField(blank=True)          # maqsadli rol; "blueprint" natijasida bo'sh (barcha rollar)
     output = CharField(choices=full|blueprint|bundle)
     status = CharField(choices=queued|running|waiting_input|done|failed|cancelled)
     stage = CharField(choices=explore|write|render|package, blank=True)
@@ -483,8 +504,8 @@ class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryFie
 
 1. **Loyiha yaratish.**
 2. **"Skanerlash".** Huey vazifasi `scan_project` → `scanner.scan()` → yangi `BlueprintVersion`.
-3. **"Blueprint'ni ko'rib chiqish".** Overrides HTMX orqali saqlanadi. `scanner.overrides.apply(blueprint, overrides)` faqat **kamaytiradi**: sahifa yoki flow'ni chiqaradi, nomini o'zgartiradi. `excluded` dagi narsani qaytara olmaydi.
-4. **"Ishga tushirish"** — natija turi tanlanadi:
+3. **"Blueprint'ni ko'rib chiqish".** Birinchi tab — «Rollar»: topilgan rollar, tasnifi va sababi. Overrides HTMX orqali saqlanadi. `scanner.overrides.apply(blueprint, overrides)` faqat **kamaytiradi**: sahifa yoki flow'ni chiqaradi, nomini o'zgartiradi. `excluded` dagi narsani qaytara olmaydi.
+4. **"Ishga tushirish"** — avval maqsadli rol variantlardan tanlanadi (TZ FR-RL3: "Saytda administratordan boshqa N ta rol topildi. Qaysi rol uchun yo'riqnoma yozay?"), keyin natija turi:
    - **`blueprint`** — darhol: overrides qo'llangan `blueprint.json` yoziladi, `Run.status=done`.
    - **`bundle`** — Huey `execute_run` → `core.pipeline.run_explore` → `explorer.bundle` → `bundle.zip`.
    - **`full`** — `run_explore` → `run_write(OllamaProvider)` → `run_render`.
@@ -503,9 +524,9 @@ class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryFie
 | `/projects/new/`, `/projects/<id>/edit/` | Loyiha formasi (kod papkasi, base URL, muhit, akkauntlar, pochta) |
 | `/projects/<id>/` | Loyiha: oxirgi blueprint, ishlar tarixi, tugmalar |
 | `POST /projects/<id>/scan/` | Skanerlashni boshlash |
-| `/projects/<id>/blueprint/` | Ko'rib chiqish: Sahifalar · Obyektlar · Flow'lar · Chiqarib tashlanganlar · Hisobot (tablar, HTMX tugmalar) |
+| `/projects/<id>/blueprint/` | Ko'rib chiqish: Rollar · Sahifalar · Obyektlar · Flow'lar · Chiqarib tashlanganlar · Hisobot (tablar, HTMX tugmalar) |
 | `POST /projects/<id>/blueprint/upload/` | Kodsiz loyiha uchun tayyor blueprint yuklash |
-| `/projects/<id>/runs/new/` | Natija turi (3 ta radio karta), model, formatlar |
+| `/projects/<id>/runs/new/` | Rol variantlari (kartalar, bir yoki bir nechta), natija turi (3 ta radio karta), model, formatlar |
 | `/runs/<id>/` | Progress (`/runs/<id>/status/` partial, har 2 s), log, input formasi, bekor qilish, natijalar (yuklab olish; blueprint/bundle uchun "server sahifasida yuklang" ko'rsatmasi) |
 | `/runs/<id>/files/<name>` | Yuklab olish (faqat `run_dir` ichidagi fayllar, path traversal himoyasi) |
 | `POST /runs/<id>/open-folder/` | Papkani ochish: Windows'da `os.startfile`, Linux'da `xdg-open` |
@@ -516,10 +537,10 @@ class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryFie
 
 ```
 manage.py scan    --project <slug> | --path DIR --base-url URL  [--out FILE]
-manage.py explore --project <slug> [--blueprint FILE]
+manage.py explore --project <slug> --role <id> [--blueprint FILE]
 manage.py write   --run <id> [--model gemma4:26b]
 manage.py render  --run <id> [--formats html,pdf,docx]
-manage.py run     --project <slug> --output full|blueprint|bundle [--model ...]
+manage.py run     --project <slug> --output full|blueprint|bundle [--role <id> ...] [--list-roles] [--model ...]
 manage.py bundle  --run <id> --out bundle.zip
 manage.py eval    --golden tests/golden/ --models gemma4:26b,qwen3.6:27b
 ```
@@ -556,6 +577,7 @@ class Domain(models.Model):
 class Job(models.Model):
     owner = FK(User); domain = FK(Domain)
     mode = CharField(choices=A|A_PRIME|B|A_PLUS_B); url; environment; language; formats = JSONField()
+    role = CharField()                                       # maqsadli rol (TZ FR-RL3)
     status = CharField(choices=queued|preflight|scouting|exploring|writing|rendering|waiting_input|done|failed|cancelled)
     progress_done; progress_total
     budget_usd = DecimalField(); cost_usd = DecimalField(default=0); tokens_in; tokens_out
@@ -612,7 +634,7 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 - **Domenlar:** `/domains/` — qo'shish, token va 3 xil joylash yo'riqnomasi, "Tekshirish" tugmasi.
 - **Ishlar:**
   - `/jobs/` — ro'yxat;
-  - `/jobs/new/` — rejim kartalari, URL, muhit, akkauntlar, fayl (lokal dastur yaratgan `blueprint.json` yoki `bundle.zip`), byudjet;
+  - `/jobs/new/` — rejim kartalari, URL, muhit, rol variantlari (A: blueprint'dagi rollar; A': bundle'dagi rol; B: akkauntlardan aniqlangan yoki qo'lda kiritilgan rollar) va rol akkauntlari, fayl (lokal dastur yaratgan `blueprint.json` yoki `bundle.zip`), byudjet;
   - `/jobs/<id>/` — bosqichlar, log, narx, input formasi, natijalar.
 - **Admin:** `/ops/` — Django admin, faqat staff.
 
@@ -623,6 +645,7 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 - **`js_routes`** — yuklangan JS bundle'lar va ochiq source map'lardan route satrlari olinadi.
 - **`network_infer`** — XHR/fetch so'rovlaridan REST shablonlari va CRUD amallari xaritasi tuziladi.
 - **`auth_flow`** — ro'yxatdan o'tish va kirish formalari topiladi (Haiku tasnifi). Test pochta `job-<id>@inbox.<domen>`.
+- **`roles`** — berilgan har bir akkaunt bilan kirib, ko'rinadigan menyu va sahifalardan rolni aniqlaydi; ro'yxatdan o'tishdagi rol tanlovini topadi; adminga o'xshash belgilar bo'lsa rolni `excluded` qiladi (TZ FR-RL1, FR-RL2).
 - **`agent`** — Claude Sonnet, tool use. Tool'lar: `goto(path)`, `click(marker)`, `fill(marker, value_kind)`, `select(marker, option)`, `back()`, `finish_flow(title, stage, entity, action)`, `give_up(reason)`.
   - Har bir tool chaqiruvi `PolicyEngine` dan o'tadi.
   - Byudjet limiti: sahifa, qadam va dollar.
@@ -679,6 +702,14 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 - frontend: React (Vite, React Router v6), build qilingan `dist/` repoga commit qilinadi, shuning uchun Node faqat qayta build uchun kerak;
 - ishga tushirish: `local/` papkasida `uv run demo-shop` (port 8800). Server `docker compose --profile test` ham shu papkadan build qiladi.
 
+**Rollar** (rol tanlash va FR-E10 ni sinash uchun):
+- `customer` — mijoz, o'zi ro'yxatdan o'tadi (pastdagi "Foydalanuvchi qismi");
+- `manager` — barcha buyurtmalarni ko'radi va `paid` → `shipped` qiladi (`/staff/orders`);
+- `courier` — o'ziga biriktirilgan buyurtmalarni ko'radi va `shipped` → `delivered` qiladi (`/courier`);
+- `admin` — foydalanuvchilar, rollar va sozlamalar (`/admin*`): adminga o'xshash, topilmasligi kerak.
+
+Seed'da `manager` va `courier` test akkauntlari bor: ular sayt egasi beradigan akkauntlarni taqlid qiladi.
+
 **Foydalanuvchi qismi:**
 - **Ochiq sahifalar:** `/`, `/catalog`, `/catalog/:id`
 - **Hisob:** `/register`, `/login`, `/verify-email`, `/forgot-password`
@@ -693,13 +724,14 @@ Hodisalar `JobEvent` da saqlanadi. UI ularni `/jobs/<id>/events/?after=<event_id
 
 **Buyurtma statuslari:**
 - `new` → `paid` (user bajaradi);
-- `paid` → `shipped` → `delivered` (faqat admin);
+- `paid` → `shipped` (manager), `shipped` → `delivered` (courier);
+- `paid` → `refunded` (faqat admin);
 - `new` → `cancelled` (user bajaradi).
 
 **Admin qismi (topilmasligi kerak):**
-- `/admin`, `/admin/users`, `/admin/orders/:id/ship`;
+- `/admin`, `/admin/users`, `/admin/roles`, `/admin/orders/:id/refund`;
 - `/api/admin/*` — `Depends(require_admin)` bilan himoyalangan;
-- React'da `<RequireAdmin>` komponenti.
+- React'da `<RequireAdmin>` komponenti; xodim sahifalari `<RequireRole role="manager">` va `<RequireRole role="courier">` bilan.
 
 **Pochta:** SMTP orqali Mailpit'ga yuboriladi. Mailpit bo'lmasa, `./var/mail/*.eml` papkasiga yoziladi (`DirMailbox`).
 

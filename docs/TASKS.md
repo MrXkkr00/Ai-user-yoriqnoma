@@ -28,6 +28,12 @@ Har biri o'z `packages/` papkasidagi kutubxonalar ustiga quriladi: `schemas` va 
 
 Lokal dastur serverga ulanmaydi: blueprint va bundle serverga odam orqali o'tadi (T25). Serverda API kalitlar yo'q.
 
+**Rollar va xiralashtirish (2026-11-07 dan, TZ FR-RL va FR-E10).** Vosita endi faqat "oddiy foydalanuvchi" uchun emas, administrator va adminga o'xshash rollardan boshqa **har bir rol** uchun yo'riqnoma yozadi. Rol ish boshida variantlardan tanlanadi. Vazifalarda `user` roli, `reachable_by_user`, "test user" yoki "oddiy foydalanuvchi" deyilgan joylarni "maqsadli rol" deb o'qing:
+- skaner guard'larni rol bo'yicha tasniflaydi (T04–T06, T08): `require_role("manager")` → shu rol, faqat admin yoki adminga o'xshash → `excluded`;
+- akkauntlar va flow'lar maqsadli rol uchun (T10, T11, T18); yordamchi rol akkaunti (masalan, test mijoz) faqat obyekt tayyorlash uchun;
+- skrinshotda maqsadli rol ko'radigan narsa xiralashtirilmaydi; faqat rolga tegishli bo'lmagan elementlar va haqiqiy odamlarning PII'si yashiriladi (T12, T16);
+- manual'da `role` bor va yo'riqnoma boshida qaysi rol uchun yozilgani aytiladi (T15).
+
 ## 0. Boshlashdan oldin (o'zingiz bajarasiz)
 
 1. **O'rnating:**
@@ -133,15 +139,17 @@ Rejim: plan
 Vazifa: packages/schemas da yoriqnoma_schemas paketini to'liq yoz.
 
 - common.py, policy.py, blueprint.py, capture.py, manual.py — ARCHITECTURE 3-bo'limdagi modellar,
-  extra="forbid", schema_version="1.0".
+  extra="forbid", schema_version="1.0"; rollar ham: RoleInfo, Blueprint.roles, RouteInfo.access/roles,
+  EntityStatus.reachable_by, Flow.role, CaptureRun.role, State.hidden, Manual.role.
 - Validatorlar: Flow.requires mavjud id'larga ishora qiladi; requires grafi sikl'siz
   (sikl bo'lsa xabarda sikl yo'lini ko'rsat); Target kamida bitta maydonli; pages ichida
-  role="excluded" yo'q; Policy.deny_paths glob formatida.
+  access="excluded" yo'q; flow.role va route.roles mavjud, excluded bo'lmagan rollarga ishora qiladi;
+  Policy.deny_paths glob formatida.
 - Yordamchilar: Blueprint.topo_order() -> list[Flow]; Blueprint.content_hash();
   CaptureRun.state_by_id(); load_json/save_json (UTF-8, indent=2, ensure_ascii=False).
 - export.py: `python -m yoriqnoma_schemas.export` -> docs/schemas/{blueprint,capture,manual}.schema.json.
 - docs/schemas/examples/ ga har sxema uchun bitta to'liq, real ko'rinishdagi namuna
-  (demo_shop'ga mos: buyurtma obyekti, statuslar, 3-4 flow).
+  (demo_shop'ga mos: rollar customer/manager/courier/admin, buyurtma obyekti, statuslar, 3-4 flow).
 - Testlar: namunalar validatsiyadan o'tadi; noto'g'ri namunalar (sikl, noma'lum requires,
   extra maydon) aniq xato beradi; topo_order to'g'ri; round-trip (save -> load) teng.
 
@@ -158,14 +166,16 @@ Rejim: plan
 @docs/ARCHITECTURE.md (10-bo'lim) ni diqqat bilan o'qi.
 Vazifa: fixtures/demo_shop poligonini yarat. Bu sinov sayti — barcha keyingi integratsion testlar shunda.
 
-- Backend: FastAPI + SQLite (o'z bazasi, var/demo.db), sessiya cookie auth, rollar user/admin.
+- Backend: FastAPI + SQLite (o'z bazasi, var/demo.db), sessiya cookie auth, rollar customer/manager/courier/admin (ARCHITECTURE 10).
   10-bo'limdagi barcha user va admin yo'llari, statuslar mashinasi, validatsiya qoidalari.
-  Admin endpointlar `Depends(require_admin)` bilan. Seed: 1 admin (admin@demo.local), 10 mahsulot,
-  boshqa userga tegishli 3 ta buyurtma (vosita ularni HECH QACHON ko'rmasligi kerak).
+  Admin endpointlar `Depends(require_admin)`, xodim endpointlari `Depends(require_role("manager"))` va
+  `Depends(require_role("courier"))` bilan. Seed: 1 admin (admin@demo.local), 1 manager va 1 courier test
+  akkaunti, 10 mahsulot, boshqa mijozga tegishli 3 ta buyurtma (customer akkaunti ularni HECH QACHON
+  ko'rmasligi kerak; manager ko'radi, lekin vosita ularni o'zgartirmasligi kerak).
 - Pochta: SMTP (MAILPIT_SMTP=127.0.0.1:1025) bo'lsa Mailpit'ga, bo'lmasa var/mail/*.eml.
   Tasdiqlash xati ichida havola va 6 xonali kod.
 - Frontend: web/ papkada React + Vite + React Router v6. Sahifalar 10-bo'limdagidek; order sahifasida
-  tablar va bekor qilish modali; <RequireAuth> va <RequireAdmin> guard komponentlari; NavBar;
+  tablar va bekor qilish modali; <RequireAuth>, <RequireRole role=...> va <RequireAdmin> guard komponentlari; NavBar;
   i18n (web/src/locales/uz.json, ru.json, oddiy t() funksiya); formalarda label, name, required,
   minLength, pattern atributlari; data-testid ba'zi elementlarda bor, ba'zilarida yo'q (realistik).
   `npm run build` natijasi (web/dist) repoga commit qilinsin; FastAPI uni / da beradi (SPA fallback).
@@ -174,7 +184,8 @@ Vazifa: fixtures/demo_shop poligonini yarat. Bu sinov sayti — barcha keyingi i
 - Tuzoqlar: .env (SECRET_KEY=fake..., DATABASE_URL=sqlite:///var/demo.db), README'da "skaner buni ochmasligi kerak".
 - `uv run demo-shop` (port 8800, --reset bilan bazani qayta yaratadi).
 - tests/: pytest fixture `demo_shop_url` (subprocess'da ishga tushiradi, tayyor bo'lishini kutadi, oxirida o'chiradi);
-  smoke test: barcha user sahifalari 200, /admin oddiy user uchun 403/redirect.
+  smoke test: har bir rolning sahifalari o'sha rol uchun 200, boshqa rol uchun 403/redirect;
+  /admin admin bo'lmagan hamma uchun 403/redirect.
 
 Muhim: demo_shop o'zi SQLite ishlatadi — bu ruxsat (u bizning vosita emas). Lekin u yoriqnoma_core
 yoki yoriqnoma_scanner'ga import qilinmasin.
@@ -274,15 +285,16 @@ Vazifa: parsers/sqlalchemy_models.py va entities.py.
 - API route'lar bilan bog'lash: /orders POST -> create, GET list/{id} -> list/view, PUT/PATCH -> update,
   DELETE -> delete, POST /orders/{id}/<fe'l> -> maxsus amal (<fe'l>).
 - Status o'tishlari: route handler'larida `obj.status = Status.X` topilsa, X ni o'sha route'ning
-  roli bilan bog'la. X faqat role-guard'li (admin) route'larda o'rnatilsa -> reachable_by_user=False,
+  rollari bilan bog'la: X ni o'rnata oladigan rollar -> reachable_by. X faqat admin yoki adminga o'xshash
+  route'larda o'rnatilsa -> reachable_by=[],
   set_by ga manbalarni yoz.
 - Testlar: demo_shop'da Order obyekti: actions = create, list, view, cancel, pay, download_invoice;
-  statuslar new/paid/cancelled reachable=True, shipped/delivered reachable=False.
+  statuslar: new/paid/cancelled reachable_by=[customer], shipped [manager], delivered [courier], refunded [].
 
 Commit: "feat(scanner): entities, actions and status reachability".
 ```
 
-**Qabul mezoni:** `shipped` va `delivered` statuslari `reachable_by_user=false`.
+**Qabul mezoni:** `refunded` statusi `reachable_by=[]` (faqat admin), `shipped` — `[manager]`, `delivered` — `[courier]`.
 
 ### T07 — E2E testlardan flow'lar
 
@@ -310,27 +322,32 @@ Rejim: plan
 @docs/TZ.md (4.1 to'liq, SEC-1/2) @docs/ARCHITECTURE.md (3.2, 3.3)
 Vazifa: classify.py, flows.py, build.py, report.py, overrides.py va api.scan() ni yakunlash.
 
-- classify: route rolini aniqlash. Tartib: deny_paths -> excluded; role guard -> excluded;
-  guard yo'q va ochiq sahifa -> guest; auth/ownership -> user; unknown -> excluded (default-deny).
+- roles: rollarni topish va tasniflash (TZ FR-RL1, FR-RL2) — kind guest/role/excluded, sabab, self_signup;
+  adminga o'xshash belgilari (superuser/staff, foydalanuvchi/rol/huquq/sozlama boshqaruvi, cheklovsiz kirish,
+  admin nomlari) -> excluded; noaniq -> excluded.
+- classify: route'ga kira oladigan rollarni aniqlash. Tartib: deny_paths -> excluded; faqat admin yoki adminga
+  o'xshash rol guard'i -> excluded; rol guard'i -> shu rol(lar); guard yo'q va ochiq sahifa -> guest;
+  auth/ownership -> barcha role'lar; unknown -> excluded (default-deny).
   Frontend va backend ma'lumotlarini birlashtir (sahifa yo'li + u chaqiradigan API).
   Har qaror uchun reason.
 - flows: (1) E2E flow'lar; (2) hisob flow'lari: register, verify_email, login, forgot_password,
   profile_edit, settings, delete_account — mavjud sahifa/formalarga qarab; (3) har Entity × action uchun
   flow (create: form'ni to'ldirish; view/list: goto; cancel/delete: tasdiqlash modali bilan,
   destructive=True; pay: payment=True). E2E bilan bir xil flow bo'lsa E2E ustun.
-  requires: register -> barcha user flow'lar; create -> view/update/cancel/pay/delete;
+  requires: register -> maqsadli rolning barcha flow'lari; create -> view/update/cancel/pay/delete;
   delete_account -> hammasi (oxirida). stage avtomatik (ARCHITECTURE Stage).
   social flow'lar (messages) account="B" ishtirokida.
 - build: Blueprint yig'ish, policy (standart deny_paths + deny_action_words uz/ru/en),
   generator="yoriqnoma_scanner <versiya>", validatsiya.
-- report.md: statistika, sahifalar jadvali (rol, sabab), chiqarib tashlanganlar, noaniqlar,
+- report.md: statistika, rollar jadvali (tasnif, sabab), sahifalar jadvali (rollar, sabab), chiqarib tashlanganlar, noaniqlar,
   SafeFS skipped ro'yxati, obyektlar va statuslar.
 - overrides.py: apply(blueprint, overrides) — {"exclude_pages", "exclude_flows", "rename_flows"};
   faqat KAMAYTIRADI (excluded'dagi narsani qaytara olmaydi), chiqarilgan flow'ga bog'liq flow'lar ham
   avtomatik chiqariladi (sabab bilan). Lokal dasturdagi "ko'rib chiqish" sahifasi shuni ishlatadi.
 - api.scan() -> ScanResult(blueprint, report_md, skipped, stats); __main__ --out va --report bilan
   to'liq ishlaydi.
-- Integratsion test (QM-1): demo_shop -> blueprint: user yo'llari 100%, /admin* va /api/admin* faqat
+- Integratsion test (QM-1): demo_shop -> blueprint: customer/manager/courier — role, admin — excluded;
+  har bir rol yo'llari 100%, /admin* va /api/admin* faqat
   excluded'da, flows ichida admin yo'li yo'q, topo_order ishlaydi, blueprint sxemadan o'tadi.
 
 Commit: "feat(scanner): classification, flow builder, blueprint and report".
@@ -392,8 +409,9 @@ Vazifa: explorer/session.py, accounts.py, mailbox.py, datagen.py, steps.py.
   (qoidaga mos), text, number(min,max); rules satrini o'qib qiymatni moslash.
 - mailbox: MailpitMailbox (REST API: xabarlar ro'yxati, qidiruv to:, xabar matni) va DirMailbox (.eml);
   wait_for(to) -> havola va 6 xonali kodni ajratib beradi.
-- accounts: ensure(A, B): berilgan bo'lsa login, bo'lmasa blueprint'dagi register + verify_email
-  flow'larini bajarib yaratadi; parollar faqat xotirada; accounts.yaml formati.
+- accounts: ensure(role, A, B): maqsadli rol uchun akkaunt berilgan bo'lsa login; rol self_signup bo'lsa
+  blueprint'dagi register + verify_email flow'larini bajarib yaratadi; aks holda aniq xabar
+  ("«Menejer» roli uchun test akkaunt bering"); parollar faqat xotirada; accounts.yaml formati.
 - steps: StepExecutor — barcha StepAction'lar; lokator strategiyasi (4.3); "{own:order_id}" ni
   own_objects'dan almashtirish; create'dan keyin URL yoki javobdan yangi obyekt id'sini own_objects'ga yozish;
   human_input HumanInput orqali; har qadam uchun timeout va aniq xato sababi.
@@ -414,7 +432,10 @@ Vazifa: explorer/runner.py va privilege_check.
   (2) /admin sahifasini ochib: login'ga qaytarildimi, 403 matnimi yoki admin belgilari (admin, panel,
   users, админ) ko'rindimi. SPA'da status doim 200 bo'lishi mumkinligini hisobga ol — render qilingan
   kontentga qara. Admin ochilsa PrivilegedAccountError — ish to'xtaydi. Faqat ha/yo'q saqlanadi.
-- runner: topo_order bo'yicha flow'lar; bog'liqligi failed bo'lgan flow -> skipped (sabab);
+  Akkaunt tanlangan rolda ekani ham tekshiriladi: rol sahifalari ochiladi, admin va adminga o'xshash
+  sahifalar yopiq; aks holda ish to'xtaydi.
+- runner: faqat maqsadli rolning flow'lari, topo_order bo'yicha; obyekt kerak bo'lsa avval yordamchi rol
+  akkauntida (masalan, test mijoz) yaratiladi va maqsadli rol faqat shular ustida ishlaydi (SEC-5); bog'liqligi failed bo'lgan flow -> skipped (sabab);
   account bo'yicha context tanlash; destructive/payment siyosati; production'da confirm qadamida
   skrinshot olib to'xtash (flow verified, "stopped_at_confirm" belgisi bilan); delete_account eng oxirida.
 - Har qadamdan keyin capture hook chaqiriladi (hozircha stub interfeys, T12 da to'ldiriladi).
@@ -440,13 +461,17 @@ Vazifa: explorer/capture.py, som.py, bundle.py va runner'ga ulash.
   toza skrinshot (full_page=False, viewport), elementlar ro'yxati (JS orqali; ko'rinadigan, interaktiv,
   accessible name), markerlar barqaror tartibda, aria_snapshot, DOM hash (normalizatsiya: raqamlar, vaqt,
   CSRF token'lar olib tashlanadi), network (path templating: raqam/uuid -> :id).
-- Maskalash: PII bor input/matn elementlari page.screenshot(mask=[...]) bilan; aria va name'larda mask_text.
+- Xiralashtirish va maskalash (TZ FR-E10): maqsadli rol ko'radigan narsa xiralashtirilmaydi. Faqat (1) rolga
+  tegishli bo'lmagan elementlar (PolicyEngine taqiqlagan yoki boshqa rol yoki excluded route'ga olib boradigan)
+  va (2) datagen yaratmagan haqiqiy PII qiymatlari page.screenshot(mask=[...]) bilan yashiriladi va
+  State.hidden ga yoziladi; aria va name'larda faqat haqiqiy PII mask_text qilinadi.
 - som.py: toza rasmga Pillow bilan raqamli belgilar va ingichka ramka chizish (modelga beriladigan rasm),
   rang kontrasti, belgilar bir-birini yopmasligi.
 - capture.json yozish (CaptureRun), images/<state_id>_clean.png va _som.png.
 - bundle.py: capture/ -> bundle.zip (faqat json va rasmlar), manifest bilan (sha256 lar).
 - Testlar: demo_shop'da register va order sahifalari holatlari; elementlar orasida "Ro'yxatdan o'tish"
-  tugmasi bor; email maydoni maskalangan (pii.find_pii skrinshot yonidagi matnlarda bo'sh);
+  tugmasi bor; test akkauntning o'z (datagen) ma'lumotlari ochiq ko'rinadi; manager sahifasida boshqa
+  mijozning email'i maskalangan; maqsadli rolga tegishli tugma va matnlar xiralashtirilmagan;
   bundle ochilib sxemadan o'tadi.
 
 Commit: "feat(core): capture, set-of-mark, masking, bundle".
@@ -463,11 +488,11 @@ Vazifa: explorer/state_graph.py va patching.py.
   har nomzod PolicyEngine.allows_click'dan o'tadi; bosish -> snapshot -> yangi hash bo'lsa saqlash ->
   qaytarish (Escape, yopish tugmasi yoki back); max_depth, max_states; har state'ga parent va trigger
   elementini yoz.
-- patching.render_unreachable_statuses(): reachable_by_user=False har status uchun: test user'ning o'z
+- patching.render_unreachable_statuses(): maqsadli rol reachable_by da bo'lmagan har status uchun: test akkauntning o'z
   obyektini tanlash, uning API javobini route.fetch() bilan olib, faqat status maydonini o'zgartirib
   route.fulfill() qilish; sahifani ochish; snapshot (patched=True). Status maydoni nomi blueprint'dan.
 - Testlar (slow): order sahifasida "Tarix" tab holati va bekor qilish modali holati topiladi, modal
-  ichidagi "Tasdiqlash" bosilmaydi (explore rejimida); shipped/delivered uchun patched holatlar mavjud.
+  ichidagi "Tasdiqlash" bosilmaydi (explore rejimida); customer roli uchun shipped/delivered/refunded patched holatlari mavjud.
 
 Commit: "feat(core): state graph exploration and patched status views".
 ```
@@ -515,7 +540,8 @@ Vazifa: writer/templates_uz.py, prompts/*.j2, tasks.py, assemble.py, validate.py
   («Yuboriş»); atrofdagi matn odatiy lotin yozuvida qoladi.
 - prompts: har task uchun versiyalangan Jinja shablon (prompt_version); system prompt: o'zbek tili
   (lotin), qisqa, aniq, "siz" murojaati, faqat rasmda va elementlar ro'yxatida bor narsani yozish,
-  admin haqida hech narsa yozmaslik.
+  admin va boshqa rollar haqida hech narsa yozmaslik; matn maqsadli rol egasiga qaratilgan
+  ("Menejer sifatida siz..."); 1-bo'lim boshida qaysi rol uchun yozilgani aytiladi.
 - tasks: describe_flow (purpose + notes), describe_statuses (StatusRow'lar), section_intro, faq
   (validatsiya qoidalari va xato xabarlaridan), reference (har sahifa uchun purpose).
   Har biri: kirish -> LLMRequest (SoM rasm + elementlar JSON + flow + qoidalar) -> sxema.
@@ -546,7 +572,8 @@ Rejim: plan
 Vazifa: render/images.py, html.py, search_index.py, pdf.py, docx.py, templates/.
 
 - images: har StepText uchun yo'riqnoma rasmi — maqsad elementi atrofida qirqim (kontekst bilan),
-  spotlight (atrof xiralashadi), raqamli doira belgilar, kerak bo'lsa strelka; patched rasmlarda
+  spotlight (atrof biroz qorong'ilashadi, lekin o'qiladigan qoladi), raqamli doira belgilar, kerak bo'lsa
+  strelka; xiralashtirish faqat State.hidden joylarida (TZ FR-E10); patched rasmlarda
   "Namuna ko'rinish" yorlig'i; 2x retina sifat, WebP+PNG.
 - html: Jinja2; chap tomonda mundarija (bo'limlar -> maqolalar), qadamlar raqamlangan, rasmlar lazy,
   statuslar jadvali, FAQ, A–Z ma'lumotnoma; search_index.json + kichik vanilla JS qidiruv (offline;
@@ -610,7 +637,7 @@ Vazifa: apps/local ning backend qismi (UI keyingi vazifada).
   scan_project(project) -> BlueprintVersion (scanner.scan, fayllar var/runs/... ga);
   upload_blueprint(project, file) -> BlueprintVersion (sxema tekshiruvi);
   set_override(bv, kind, key, value) — scanner.overrides qoidalari bo'yicha;
-  start_run(project, output, model, formats) -> Run; execute_run(run_id) — ARCHITECTURE 6.3 dagi
+  start_run(project, output, role, model, formats) -> Run; execute_run(run_id) — ARCHITECTURE 6.3 dagi
   3 natija turi; cancel_run; answer_input.
 - DbProgressSink, DbCancelToken, DbHumanInput (core.pipeline protokollari).
 - Huey vazifalari: scan_project_task, execute_run_task (Playwright -> asyncio.run ichida).
@@ -649,11 +676,13 @@ Vazifa: apps/local veb-interfeysi — Django shablonlar + HTMX, o'zbek tilida, t
 - Sahifalar ARCHITECTURE 6.4 jadvalidagidek. Asosiy talablar:
   * Bosh sahifa: loyihalar kartalari + tizim holati paneli (Ollama/model/Playwright — yashil/qizil, yechim matni).
   * Loyiha formasi: kod papkasi yo'li (matn maydoni + "tekshirish": mavjudmi, stek nima — detect natijasi),
-    base URL, muhit (production tanlansa ogohlantirish), A/B akkauntlar (ixtiyoriy), pochta.
-  * Blueprint ko'rib chiqish: tablar (Sahifalar, Obyektlar va statuslar, Flow'lar bosqichlar bo'yicha,
+    base URL, muhit (production tanlansa ogohlantirish), rol bo'yicha A/B akkauntlar (o'zi ro'yxatdan o'ta oladigan rol uchun ixtiyoriy), pochta.
+  * Blueprint ko'rib chiqish: tablar (Rollar — tasnifi va sababi bilan, Sahifalar, Obyektlar va statuslar, Flow'lar bosqichlar bo'yicha,
     Chiqarib tashlanganlar — sabab bilan, Skan hisoboti); har sahifa/flow yonida "Chiqarish" toggle
     (HTMX POST -> set_override), flow nomini tahrirlash; statistika.
-  * Yangi ish: 3 ta katta radio karta — "To'liq yo'riqnoma (lokal, Ollama)", "Blueprint (server A uchun)",
+  * Yangi ish: avval rol variantlari — "Saytda administratordan boshqa N ta rol topildi. Qaysi rol uchun
+    yo'riqnoma yozay?" (kartalar: nomi, tavsif, sahifa va vazifa soni, akkaunt kerakmi; bir yoki bir nechta
+    rol; excluded rollar sababi bilan ko'rinadi, lekin tanlab bo'lmaydi); keyin 3 ta katta radio karta — "To'liq yo'riqnoma (lokal, Ollama)", "Blueprint (server A uchun)",
     "Bundle (server A' uchun)" — har birida qisqa tushuntirish, taxminiy vaqt; model va formatlar faqat
     "To'liq" uchun ko'rinadi.
   * Ish sahifasi: bosqichlar chizig'i, progress bar, jonli log (HTMX har 2 s), InputRequest bo'lsa
@@ -806,7 +835,7 @@ Vazifa: jobs/services.py ichida haqiqiy pipeline (A, A') va server veb-interfeys
 - Veb sahifalar (Django shablonlar + HTMX, o'zbek tilida; lokal dastur bilan bir xil uslub):
   login/register, /domains/ (qo'shish,
   3 usul bo'yicha joylash yo'riqnomasi, "Tekshirish"), /jobs/new/ (rejim kartalari: A, A', B (hozircha
-  "tez orada"), URL, muhit, akkauntlar, fayl yuklash, byudjet), /jobs/<id>/ (bosqichlar, log — events
+  "tez orada"), URL, muhit, rol variantlari (TZ FR-RL3) va rol akkauntlari, fayl yuklash, byudjet), /jobs/<id>/ (bosqichlar, log — events
   polling har 2 s, narx, input formasi, bekor qilish, natijalar), /jobs/.
 - Testlar (server): compose'da demo_shop'ga A rejimi (blueprint T08'dan) va A' (bundle T18'dan) —
   natijada HTML/PDF/DOCX artifact'lari; zip slip va katta fayl rad etiladi.
@@ -876,6 +905,9 @@ Rejim: plan
 Vazifa: scout/auth_flow.py, agent.py, validation_probe.py, blueprint_builder.py, merge.py va
 jobs pipeline'ga B va A+B rejimlari.
 
+- roles (TZ FR-RL1): berilgan har bir akkaunt bilan kirib, ko'rinadigan menyu va sahifalardan rolni aniqlash;
+  ro'yxatdan o'tishdagi rol tanlovini topish; adminga o'xshash belgilar bo'lsa excluded; natija /jobs/new/
+  dagi rol variantlariga.
 - auth_flow: register/login sahifalarini topish (Haiku tasnifi: sahifa turi), formani to'ldirish
   (datagen), test pochta job-<id>@inbox.<domen> (server Mailpit), tasdiqlash; captcha topilsa
   JobHumanInput yoki "tayyor akkaunt bering" xabari bilan to'xtash. Keyin core privilege tekshiruvi.
@@ -889,7 +921,8 @@ jobs pipeline'ga B va A+B rejimlari.
   narsalarni qo'shadi, ziddiyatlar hisobotga.
 - Keyin standart quvur (run_explore -> run_write -> run_render), manual.source_mode = "B" yoki "A+B";
   coverage hisobotida "faqat sayt orqali topilgan" ogohlantirishi. /jobs/new/ da B kartasi faollashadi.
-- Testlar (server): demo_shop'ga B rejimi — QM-6: qamrov A rejimiga nisbatan ≥ 70%; admin yo'q;
+- Testlar (server): demo_shop'ga B rejimi — QM-6: qamrov A rejimiga nisbatan ≥ 70%; manager va courier
+  akkauntlari berilganda rollar to'g'ri aniqlanadi (admin excluded); admin yo'q;
   begona buyurtmalar ko'rinmaydi; byudjet limiti ishlaydi.
 
 Commit: "feat(scout): auth, claude agent, validation probe, merge; mode B".

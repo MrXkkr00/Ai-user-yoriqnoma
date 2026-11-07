@@ -1,6 +1,6 @@
 # AI_user_yoriqnoma
 
-Bu vosita sayt yoki tizimni o'rganadi va **oddiy foydalanuvchi** uchun matn va rasmli to'liq yo'riqnoma yaratadi. Ikkita **alohida** Django dasturidan iborat, repo ham shunga ko'ra ikki papkaga bo'lingan:
+Bu vosita sayt yoki tizimni o'rganadi va **administratordan boshqa har bir foydalanuvchi roli** (oddiy foydalanuvchi, menejer, sotuv menejeri va h.k.) uchun matn va rasmli to'liq yo'riqnoma yaratadi. Rol ish boshida tanlanadi: vosita saytdagi rollarni topib, variantlar ro'yxatini chiqaradi. Ikkita **alohida** Django dasturidan iborat, repo ham shunga ko'ra ikki papkaga bo'lingan:
 
 - **Lokal dastur** (`local/`). Foydalanuvchi kompyuterida ishlaydi. Kodni tahlil qiladi, saytni o'rganadi va Ollama orqali yo'riqnoma yozadi. Natija turi tanlanadi: to'liq yo'riqnoma yoki server uchun fayl (`blueprint.json` yoki `bundle.zip`).
 - **Server dastur** (`server/`). Onlayn serverda alohida ishlaydi va Claude API orqali yo'riqnoma yozadi. Rejimlari: A (blueprint), A' (bundle), B (faqat URL).
@@ -53,19 +53,20 @@ uv run pytest -m llm                               # lokalda Ollama, serverda Cl
 
 ## Buzilmaydigan qoidalar
 
-1. **Admin yo'q.** O'rganilayotgan saytning admin yo'llari va huquqlari hech qachon blueprint, capture yoki yo'riqnomaga kirmaydi. Noaniq holat taqiqlanadi (default-deny).
+1. **Admin yo'q.** Administrator va adminga o'xshash rollarning (saytni boshqaradigan: foydalanuvchilar, rollar, huquqlar, sozlamalar) yo'llari va huquqlari hech qachon blueprint, capture yoki yo'riqnomaga kirmaydi. Bunday rollar uchun yo'riqnoma yozilmaydi. Noaniq rol yoki holat taqiqlanadi (default-deny).
 2. **Skaner fayllarni faqat `SafeFS` orqali o'qiydi.** `.env*`, kalitlar, dump'lar, `*.db`, `*.sqlite`, `*.sql` o'qilmaydi.
 3. **O'rganilayotgan saytning bazasiga hech qachon ulanilmaydi.**
    - `packages/scanner` va `packages/core` da hech qanday DB drayveri yoki ORM yo'q. Buni har bir dasturdagi `tests/test_no_db_drivers.py` tekshiradi.
    - Django dasturlarining **o'z** bazasi bor: lokalda SQLite, serverda PostgreSQL. Ular faqat dasturning o'z ma'lumotlari uchun ishlatiladi.
-4. **Xavfli amallar cheklangan.** O'chirish va bekor qilish faqat test user o'zi yaratgan obyektlar ustida bajariladi. Production'da faqat tasdiqlash oynasigacha boriladi. To'lov faqat sandbox rejimda.
+4. **Xavfli amallar cheklangan.** O'chirish, bekor qilish va status o'zgartirish faqat test akkauntlar o'zi yaratgan obyektlar ustida bajariladi; menejer kabi rollar boshqalarning yozuvlarini ko'rsa ham, ularni o'zgartirmaydi. Production'da faqat tasdiqlash oynasigacha boriladi. To'lov faqat sandbox rejimda.
 5. **Captcha avtomatik yechilmaydi.**
 6. **Har bir tashqi URL `yoriqnoma_core.safety.url_guard` dan o'tadi.** Serverda `allow_private=False` majburiy.
 7. **LLM chaqiruvlari faqat `LLMProvider` interfeysi orqali.** Testlarda `FakeProvider` ishlatiladi.
-8. **Claude'ga faqat maskalangan rasm va matn yuboriladi.**
+8. **Claude'ga faqat maskalangan rasm va matn yuboriladi** (haqiqiy odamlarning shaxsiy ma'lumotlari yashirilgan, 12-qoida).
 9. **Lokal dastur faqat `127.0.0.1` da tinglaydi.** U lokal papkalarni o'qiydi, shuning uchun tarmoqqa ochilmaydi.
 10. **Lokal va server bir-biriga ulanmaydi.** Lokal dastur serverga hech narsa yubormaydi, server ham lokalga murojaat qilmaydi. `blueprint.json` yoki `bundle.zip` ni odam serverning veb-formasida yuklaydi. Ikki dastur bir-birining kodini import qilmaydi.
 11. **Umumiy kutubxonalar ikki nusxada.** `schemas` va `core` `local/packages` va `server/packages` da aynan bir xil turadi. Birini o'zgartirsangiz, papkani ikkinchisiga ham ko'chiring. Buni ikkala dasturdagi `tests/test_shared_copies.py` tekshiradi. `scanner` faqat lokalda.
+12. **Yo'riqnoma bitta maqsadli rol uchun, ko'rinadigan narsa xiralashtirilmaydi.** Barcha skrinshot va flow'lar shu rolning test akkaunti bilan olinadi. Rol ko'ra oladigan va qila oladigan hamma narsa rasmda aniq qoladi. Rolga tegishli bo'lmagan narsa (boshqa rollar, admin qismlari) xiralashtiriladi va matnga kirmaydi. Istisno: haqiqiy odamlarning shaxsiy ma'lumotlari (email, telefon, karta, ism) — faqat qiymatning o'zi yashiriladi; vosita yaratgan test ma'lumotlari yashirilmaydi.
 
 ## Konvensiyalar
 
