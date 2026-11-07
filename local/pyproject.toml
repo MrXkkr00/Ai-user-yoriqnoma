@@ -30,12 +30,13 @@ build-backend = "hatchling.build"
 packages = ["yoriqnoma_local", "projects", "runs", "settings_app", "evaluation"]
 
 [tool.uv.workspace]
-members = ["packages/schemas", "packages/scanner", "packages/core"]
+members = ["packages/schemas", "packages/scanner", "packages/core", "fixtures/demo_shop"]
 
 [tool.uv.sources]
 yoriqnoma-schemas = { workspace = true }
 yoriqnoma-scanner = { workspace = true }
 yoriqnoma-core = { workspace = true }
+demo-shop = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -46,6 +47,9 @@ dev = [
     "mypy>=1.13",
     "django-stubs[compatible-mypy]>=5.2,<5.3",
     "pre-commit>=4.0",
+    "httpx>=0.27",
+    # The test site; never imported by scanner or core.
+    "demo-shop",
 ]
 
 # --- ruff ---------------------------------------------------------------------------
@@ -74,9 +78,9 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 explicit_package_bases = true
-mypy_path = ["packages/schemas/src", "packages/scanner/src", "packages/core/src"]
+mypy_path = ["packages/schemas/src", "packages/scanner/src", "packages/core/src", "fixtures/demo_shop/src"]
 files = ["."]
-exclude = ['^\.venv/', '^var/', '(^|/)migrations/']
+exclude = ['^\.venv/', '^var/', '(^|/)migrations/', 'node_modules/', '^fixtures/demo_shop/e2e/']
 plugins = ["mypy_django_plugin.main"]
 
 [[tool.mypy.overrides]]

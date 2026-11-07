@@ -1,0 +1,162 @@
+{
+  "brand": "Demo Shop",
+  "nav": {
+    "home": "Bosh sahifa",
+    "catalog": "Katalog",
+    "dashboard": "Kabinet",
+    "orders": "Buyurtmalarim",
+    "messages": "Xabarlar",
+    "profile": "Profil",
+    "settings": "Sozlamalar",
+    "staffOrders": "Barcha buyurtmalar",
+    "courier": "Yetkazishlar",
+    "admin": "Admin panel",
+    "login": "Kirish",
+    "register": "Ro'yxatdan o'tish",
+    "logout": "Chiqish"
+  },
+  "home": {
+    "title": "Demo Shop'ga xush kelibsiz",
+    "lead": "Uy uchun kerakli buyumlar — tez yetkazib beramiz.",
+    "cta": "Katalogni ko'rish"
+  },
+  "catalog": {
+    "title": "Katalog",
+    "price": "Narxi",
+    "details": "Batafsil",
+    "reviews": "Mijozlar sharhlari",
+    "noReviews": "Hali sharh yo'q",
+    "writeReview": "Sharh yozish",
+    "rating": "Baho",
+    "reviewText": "Sharh matni",
+    "sendReview": "Sharhni yuborish",
+    "loginToReview": "Sharh yozish uchun tizimga kiring",
+    "order": "Buyurtma berish"
+  },
+  "auth": {
+    "registerTitle": "Ro'yxatdan o'tish",
+    "fullName": "To'liq ism",
+    "email": "Email",
+    "phone": "Telefon raqami",
+    "password": "Parol",
+    "submitRegister": "Ro'yxatdan o'tish",
+    "haveAccount": "Hisobingiz bormi?",
+    "loginTitle": "Tizimga kirish",
+    "submitLogin": "Kirish",
+    "forgot": "Parolni unutdingizmi?",
+    "noAccount": "Hisobingiz yo'qmi?",
+    "verifyTitle": "Emailni tasdiqlash",
+    "verifyLead": "Emailingizga 6 xonali kod yuborildi.",
+    "code": "Tasdiqlash kodi",
+    "submitVerify": "Tasdiqlash",
+    "verified": "Email tasdiqlandi. Endi tizimga kiring.",
+    "forgotTitle": "Parolni tiklash",
+    "forgotLead": "Emailingizni kiriting, tiklash kodini yuboramiz.",
+    "submitForgot": "Kod yuborish",
+    "forgotSent": "Agar bunday hisob bo'lsa, xat yuborildi."
+  },
+  "dashboard": {
+    "title": "Kabinet",
+    "hello": "Salom",
+    "ordersCount": "Buyurtmalar soni",
+    "role": "Rolingiz"
+  },
+  "order": {
+    "listTitle": "Buyurtmalarim",
+    "new": "Yangi buyurtma",
+    "empty": "Hali buyurtma yo'q",
+    "number": "Buyurtma",
+    "product": "Mahsulot",
+    "quantity": "Miqdor",
+    "address": "Yetkazish manzili",
+    "phone": "Telefon raqami",
+    "total": "Jami",
+    "status": "Status",
+    "customer": "Mijoz",
+    "submitNew": "Buyurtma berish",
+    "open": "Ochish",
+    "tabDetails": "Tafsilotlar",
+    "tabHistory": "Tarix",
+    "pay": "To'lash",
+    "payTitle": "Sandbox to'lov",
+    "payLead": "Bu sinov to'lovi: haqiqiy pul yechilmaydi.",
+    "payConfirm": "To'lovni tasdiqlash",
+    "cancel": "Bekor qilish",
+    "cancelTitle": "Buyurtmani bekor qilasizmi?",
+    "cancelLead": "Bekor qilingan buyurtmani qayta tiklab bo'lmaydi.",
+    "cancelConfirm": "Ha, bekor qilish",
+    "close": "Yopish",
+    "invoice": "Chekni yuklab olish",
+    "attachment": "Yetkazish varaqasi",
+    "ship": "Jo'natildi deb belgilash",
+    "deliver": "Yetkazildi deb belgilash"
+  },
+  "status": {
+    "new": "Yangi",
+    "paid": "To'langan",
+    "shipped": "Jo'natilgan",
+    "delivered": "Yetkazilgan",
+    "cancelled": "Bekor qilingan",
+    "refunded": "Pul qaytarilgan"
+  },
+  "messages": {
+    "title": "Xabarlar",
+    "to": "Qabul qiluvchi emaili",
+    "text": "Xabar matni",
+    "send": "Xabar yuborish",
+    "empty": "Hali xabar yo'q",
+    "you": "Siz"
+  },
+  "profile": {
+    "title": "Profil",
+    "save": "Saqlash",
+    "saved": "Saqlandi"
+  },
+  "settings": {
+    "title": "Sozlamalar",
+    "passwordTitle": "Parolni o'zgartirish",
+    "currentPassword": "Joriy parol",
+    "newPassword": "Yangi parol",
+    "changePassword": "Parolni yangilash",
+    "notifyTitle": "Bildirishnomalar",
+    "notifyEmail": "Email orqali xabar olish",
+    "saveNotify": "Bildirishnomalarni saqlash",
+    "languageTitle": "Til",
+    "language": "Interfeys tili",
+    "saveLanguage": "Tilni saqlash",
+    "deleteLink": "Hisobni o'chirish",
+    "saved": "Saqlandi"
+  },
+  "delete": {
+    "title": "Hisobni o'chirish",
+    "lead": "Hisob va barcha buyurtmalaringiz butunlay o'chiriladi.",
+    "password": "Parolingiz",
+    "submit": "Hisobni o'chirish",
+    "done": "Hisob o'chirildi"
+  },
+  "staff": {
+    "title": "Barcha buyurtmalar",
+    "detail": "Buyurtma tafsiloti"
+  },
+  "courier": {
+    "title": "Yetkazishlar",
+    "empty": "Sizga biriktirilgan buyurtma yo'q"
+  },
+  "admin": {
+    "title": "Admin panel",
+    "users": "Foydalanuvchilar",
+    "roles": "Rollar",
+    "refund": "Pulni qaytarish"
+  },
+  "footer": {
+    "contacts": "Aloqa",
+    "address": "Toshkent sh., Amir Temur ko'chasi 1",
+    "rights": "Barcha huquqlar himoyalangan"
+  },
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "error": "Xatolik yuz berdi",
+    "back": "Orqaga",
+    "forbidden": "Bu sahifaga ruxsatingiz yo'q"
+  }
+}
