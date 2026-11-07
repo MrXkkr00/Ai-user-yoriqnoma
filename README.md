@@ -23,6 +23,12 @@ Paketlar toza Python va Django'ga bog'liq emas. Django faqat `apps/*` ichida.
 - Ollama — lokal dastur yo'riqnoma yozishi uchun.
 - Docker — server dastur uchun.
 
+## Tez ishga tushirish (Windows)
+
+Loyiha papkasidagi `startup.bat` faylini ikki marta bosing. U `uv` ni o'zi topadi (PATH'da
+bo'lmasa ham), kutubxonalarni o'rnatadi yoki yangilaydi va lokal dasturni ochadi:
+`http://127.0.0.1:8765`. To'xtatish uchun oynada `Ctrl+C` bosing yoki oynani yoping.
+
 ## Buyruqlar
 
 ```bash
