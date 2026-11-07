@@ -343,14 +343,21 @@ Vazifa: yoriqnoma_core.safety va explorer/firewall.py.
   allow_private=True faqat lokal dastur uchun (lokal sayt 127.0.0.1 bo'lishi mumkin) — server uni HECH QACHON ishlatmaydi.
 - safety/pii.py: email, +998 telefon, karta raqami (Luhn), ism (form label "Ism"/"F.I.Sh" yonidagi qiymat)
   uchun regex/qoidalar; mask_text(); find_pii() (natija tekshiruvi uchun).
+- text_uz.py (yoriqnoma_core/text_uz.py): normalize_uz(s) — o'zbek lotin yozuvini bitta ko'rinishga
+  keltiradi: kichik harf; apostrof variantlari (' ‘ ’ ` ʻ ʼ) bitta belgiga; yangi alifbo harflari eski
+  ko'rinishga: ö -> o', ğ -> g', ş -> sh, ç -> ch. Ba'zi saytlar (masalan, kun.uz) yangi alifboda
+  yozilgan: «Öçiriş» = «O'chirish», «Yuboriş» = «Yuborish». Bu funksiya PolicyEngine (T09),
+  validate (T15) va HTML qidiruvi (T16) uchun yagona manba.
 - safety/policy_engine.py: ARCHITECTURE 4.3 dagi PolicyEngine. allows_click: deny_action_words
-  (uz/ru/en, kichik-katta harf, apostrof variantlari o' o‘ o`) — lekin RunContext "own object + staging"
+  (uz/ru/en; ikkala tomon ham normalize_uz orqali solishtiriladi) — lekin RunContext "own object + staging"
   bo'lsa destructive ruxsat; production'da confirm=True qadamda to'xtash.
 - explorer/firewall.py: Playwright context.route("**/*") handler: deny_paths -> abort; boshqa domen:
   resource_type in {stylesheet, script, font, image, media} va GET -> ruxsat, qolgani abort;
   DELETE/PUT/PATCH yo'lidagi id own_objects'da bo'lmasa -> abort. Har abort BlockedRequest sifatida logga.
 - Testlar: url_guard uchun 20+ holat (localhost, 127.1, [::1], 169.254.169.254, 10.x, decimal IP,
-  ommaviy domen ruxsat); policy jadval testlari; firewall demo_shop'da: /api/admin so'rovi abort bo'ladi.
+  ommaviy domen ruxsat); normalize_uz jadval testi (o'chirish, oʻchirish, O‘CHIRISH, öçiriş — bir xil);
+  policy jadval testlari, shu jumladan yangi alifboli «Öçiriş» va «Tölaş» tugmalari bloklanadi;
+  firewall demo_shop'da: /api/admin so'rovi abort bo'ladi.
 
 Commit: "feat(core): url guard, pii, policy engine, firewall".
 ```
@@ -489,6 +496,8 @@ Vazifa: writer/templates_uz.py, prompts/*.j2, tasks.py, assemble.py, validate.py
 - templates_uz: har StepAction uchun o'zbekcha gap shablonlari; maydon turi bo'yicha maslahatlar
   ("telefon raqamingizni +998 90 123 45 67 ko'rinishida kiriting", parol qoidalari rules'dan);
   marker raqamini gapga qo'shish ("①"); grammatik to'g'ri qo'shimchalar («Saqlash» tugmasini).
+  Tugma va maydon nomi «...» ichida saytdagidek aynan yoziladi, sayt yangi alifboda bo'lsa ham
+  («Yuboriş»); atrofdagi matn odatiy lotin yozuvida qoladi.
 - prompts: har task uchun versiyalangan Jinja shablon (prompt_version); system prompt: o'zbek tili
   (lotin), qisqa, aniq, "siz" murojaati, faqat rasmda va elementlar ro'yxatida bor narsani yozish,
   admin haqida hech narsa yozmaslik.
@@ -496,13 +505,19 @@ Vazifa: writer/templates_uz.py, prompts/*.j2, tasks.py, assemble.py, validate.py
   (validatsiya qoidalari va xato xabarlaridan), reference (har sahifa uchun purpose).
   Har biri: kirish -> LLMRequest (SoM rasm + elementlar JSON + flow + qoidalar) -> sxema.
 - assemble: 9 bo'lim (TZ FR-W4), stage bo'yicha tartib, failed flow'lar "Tekshirilmagan" ilovasida,
-  rasm tanlash (har qadamga mos state).
+  rasm tanlash (har qadamga mos state). 9 bo'limning hammasi har doim bo'ladi (QM-3). Flow'i yo'q
+  bo'lim olib tashlanmaydi: unda shablondan qisqa "Bu saytda bunday imkoniyat topilmadi" matni turadi
+  (LLM chaqirilmaydi) va coverage'da sababi yoziladi. Masalan, hisobsiz yangilik saytida 3, 4, 5 va
+  7-bo'limlar shunday bo'ladi.
 - validate: markerlar mavjud, LLM matnidagi «...» ichidagi nomlar elementlar nomlariga mos
-  (fuzzy, o'/o‘ normalizatsiya), PII yo'q; xato -> qayta so'rash -> needs_review.
+  (fuzzy, T09 dagi normalize_uz bilan: eski va yangi lotin alifbosi, «Yuborish» = «Yuboriş»),
+  PII yo'q; xato -> qayta so'rash -> needs_review.
 - coverage: TZ FR-W6; percent va items.
 - pipeline.write(run_dir, provider) -> manual.json.
 - Testlar: FakeProvider bilan demo_shop capture'idan (T12/T13 fixture) to'liq manual; 9 bo'lim;
-  QM-3 ning marker va PII qismlari; @llm test — gemma4:26b bilan 3 ta flow.
+  QM-3 ning marker va PII qismlari; yangi alifboli elementlar («Yuboriş», «Özbekça») bilan validate
+  xato bermaydi; faqat mehmon flow'lari bor capture'da (hisobsiz sayt) ham 9 bo'lim chiqadi,
+  bo'sh bo'limlarda "topilmadi" matni va coverage sababi bor; @llm test — gemma4:26b bilan 3 ta flow.
 
 Commit: "feat(core): writer pipeline with uzbek templates, validation, coverage".
 ```
@@ -519,14 +534,16 @@ Vazifa: render/images.py, html.py, search_index.py, pdf.py, docx.py, templates/.
   spotlight (atrof xiralashadi), raqamli doira belgilar, kerak bo'lsa strelka; patched rasmlarda
   "Namuna ko'rinish" yorlig'i; 2x retina sifat, WebP+PNG.
 - html: Jinja2; chap tomonda mundarija (bo'limlar -> maqolalar), qadamlar raqamlangan, rasmlar lazy,
-  statuslar jadvali, FAQ, A–Z ma'lumotnoma; search_index.json + kichik vanilla JS qidiruv (offline,
-  o'/o‘ normalizatsiya); toza, o'qishli tipografiya; chop etish uchun print CSS.
+  statuslar jadvali, FAQ, A–Z ma'lumotnoma; search_index.json + kichik vanilla JS qidiruv (offline;
+  T09 dagi normalize_uz jadvalining JS nusxasi: apostrof variantlari va ö/ğ/ş/ç, ya'ni "yuborish"
+  so'rovi «Yuboriş» ni topadi); toza, o'qishli tipografiya; chop etish uchun print CSS.
 - pdf: Playwright page.pdf(A4, sahifa raqamlari, sarlavha/pastki qism) — HTML'dan.
 - docx: python-docx — Heading 1/2/3, raqamlangan qadamlar, rasmlar (kenglik 15 sm) va izohlari,
   TOC maydoni, jadval uslubi.
 - coverage_report.html.
 - Testlar: FakeProvider manual'idan dist/ yaratiladi; HTML'da barcha bo'limlar; PDF > 0 sahifa;
-  DOCX ochiladi va sarlavhalar soni to'g'ri; rasmlar mavjud.
+  DOCX ochiladi va sarlavhalar soni to'g'ri; rasmlar mavjud; normalize_uz jadval testi Playwright'da
+  JS nusxasiga ham beriladi va Python bilan bir xil natija chiqadi.
 
 Commit: "feat(core): renderer html, pdf, docx with annotated images".
 ```
