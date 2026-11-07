@@ -4,9 +4,16 @@ version = "0.1.0"
 description = "Static code analysis of the studied site: SafeFS, parsers, scan() -> Blueprint."
 requires-python = ">=3.12"
 # No Django, no DB drivers or ORMs: enforced by tests/test_no_db_drivers.py.
+# Python code is parsed with the stdlib ast; JavaScript/TypeScript with tree-sitter.
 dependencies = [
     "yoriqnoma-schemas",
+    "tree-sitter>=0.23",
+    "tree-sitter-javascript>=0.23",
+    "tree-sitter-typescript>=0.23",
 ]
+
+[project.scripts]
+yoriqnoma-scan = "yoriqnoma_scanner.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
