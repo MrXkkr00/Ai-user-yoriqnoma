@@ -6,6 +6,7 @@
   ``/<collection>/<id>/<verb>``) only when the id is one of the test accounts' own objects.
 * ``allows_click``: the explorer's own clicks never hit destructive, payment or logout
   words, unless a flow step on an own object on staging allows it.
+* ``passive`` (TZ SEC-9, server on an unverified domain): only reading requests go out.
 """
 
 from __future__ import annotations
@@ -41,9 +42,10 @@ def path_of(url: str) -> str:
 
 
 class PolicyEngine:
-    def __init__(self, policy: Policy, base_url: str) -> None:
+    def __init__(self, policy: Policy, base_url: str, *, passive: bool = False) -> None:
         self.policy = policy
         self.base_url = base_url
+        self.passive = passive
 
     def allows_path(self, path: str) -> bool:
         clean = path.split("?")[0].rstrip("/") or "/"
@@ -70,6 +72,8 @@ class PolicyEngine:
             return False, "deny_paths"
         if method in {"GET", "HEAD", "OPTIONS"}:
             return True, "o'qish"
+        if self.passive:
+            return False, "passiv rejim: domen tasdiqlanmagan, faqat o'qish"
         segments = [s for s in path.split("/") if s]
         for i, seg in enumerate(segments):
             if not ID_SEGMENT.match(seg):

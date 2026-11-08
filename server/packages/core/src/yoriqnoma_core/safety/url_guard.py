@@ -8,9 +8,11 @@ studied site may run on 127.0.0.1); the server never passes it.
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import re
 import socket
+import time
 from collections.abc import Callable
 from urllib.parse import urlsplit
 
@@ -115,3 +117,49 @@ def same_origin(url: str, base_url: str) -> bool:
 
 def _default_port(scheme: str) -> int:
     return 443 if scheme == "https" else 80
+
+
+class HostGuard:
+    """Per-request SSRF check for the browser (TZ SEC-10).
+
+    Every request the page makes (the site itself, redirects, images from other domains,
+    websockets) is checked: its host is resolved and every answer must be allowed.
+    Answers are cached for ``ttl_s`` seconds per host; ``data:``, ``blob:`` and
+    ``about:`` URLs never touch the network and pass. Resolution runs in a thread so
+    the page's event loop is not blocked.
+    """
+
+    INLINE = frozenset({"data", "blob", "about"})
+    SOCKETS = {"ws": "http", "wss": "https"}
+
+    def __init__(
+        self, *, allow_private: bool, resolver: Resolver | None = None, ttl_s: float = 60.0
+    ) -> None:
+        self.allow_private = allow_private
+        self.resolver = resolver
+        self.ttl_s = ttl_s
+        self._cache: dict[str, tuple[float, str | None]] = {}
+
+    async def check(self, url: str) -> str | None:
+        """None if the request may go out, otherwise the reason it is blocked."""
+        parts = urlsplit(url)
+        scheme = parts.scheme.lower()
+        if scheme in self.INLINE:
+            return None
+        scheme = self.SOCKETS.get(scheme, scheme)
+        host = (parts.hostname or "").lower()
+        key = f"{scheme}://{host}"
+        cached = self._cache.get(key)
+        now = time.monotonic()
+        if cached is not None and now - cached[0] < self.ttl_s:
+            return cached[1]
+        probe = f"{scheme}://{parts.netloc.rsplit('@', 1)[-1]}/"
+        try:
+            await asyncio.to_thread(
+                check_url, probe, allow_private=self.allow_private, resolver=self.resolver
+            )
+            reason: str | None = None
+        except UrlBlocked as exc:
+            reason = str(exc)
+        self._cache[key] = (now, reason)
+        return reason

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from yoriqnoma_core.safety.pii import (
@@ -11,7 +13,7 @@ from yoriqnoma_core.safety.pii import (
     mask_text,
 )
 from yoriqnoma_core.safety.policy_engine import ClickContext, PolicyEngine, RequestContext
-from yoriqnoma_core.safety.url_guard import UrlBlocked, check_url
+from yoriqnoma_core.safety.url_guard import HostGuard, UrlBlocked, check_url
 from yoriqnoma_core.text_uz import contains_word, normalize_uz
 from yoriqnoma_schemas import Policy
 
@@ -174,3 +176,42 @@ def test_policy_click_own_object_on_staging(engine: PolicyEngine) -> None:
     assert engine.allows_click("Tarix", ClickContext())[0]
     prod = PolicyEngine(Policy(target_role="customer", environment="production"), "http://x/")
     assert not prod.allows_click("Bekor qilish", ClickContext(own_object=True, flow_step=True))[0]
+
+
+def test_passive_engine_only_reads() -> None:
+    passive = PolicyEngine(Policy(target_role="customer"), "http://127.0.0.1:8800/", passive=True)
+    ctx = RequestContext(own_ids={"7"})
+
+    assert passive.allows_request("GET", "http://127.0.0.1:8800/catalog", "document", ctx)[0]
+    allowed, rule = passive.allows_request("POST", "http://127.0.0.1:8800/api/orders", "fetch", ctx)
+    assert not allowed and "passiv" in rule
+
+
+def test_host_guard_checks_every_host_and_caches() -> None:
+    calls: list[str] = []
+    answers = {"site.example": ["93.184.216.34"], "inner.example": ["93.184.216.34", "10.0.0.5"]}
+
+    def resolver(host: str) -> list[str]:
+        calls.append(host)
+        return answers[host]
+
+    guard = HostGuard(allow_private=False, resolver=resolver)
+
+    async def go() -> list[str | None]:
+        return [
+            await guard.check("https://site.example/a"),
+            await guard.check("https://site.example/b.png"),  # cached
+            await guard.check("https://inner.example/x"),  # one private answer: blocked
+            await guard.check("http://169.254.169.254/latest/meta-data/"),
+            await guard.check("wss://127.0.0.1:9000/socket"),
+            await guard.check("data:image/png;base64,AAAA"),
+        ]
+
+    site, cached, inner, metadata, socket, inline = asyncio.run(go())
+    assert site is None and cached is None and inline is None
+    assert inner and "10.0.0.5" in inner
+    assert metadata and socket
+    assert calls == ["site.example", "inner.example"]
+    local = HostGuard(allow_private=True, resolver=resolver)
+    assert asyncio.run(local.check("http://127.0.0.1:8800/")) is None
+    assert asyncio.run(local.check("http://169.254.169.254/")) is not None

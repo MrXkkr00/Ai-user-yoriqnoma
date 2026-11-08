@@ -49,7 +49,7 @@ from yoriqnoma_core.explorer.steps import (
     describe_step,
 )
 from yoriqnoma_core.safety.policy_engine import ClickContext, PolicyEngine
-from yoriqnoma_core.safety.url_guard import check_url, same_origin
+from yoriqnoma_core.safety.url_guard import HostGuard, check_url, same_origin
 from yoriqnoma_schemas import (
     BlockedRequest,
     Blueprint,
@@ -64,6 +64,16 @@ from yoriqnoma_schemas import (
 INTERACTIVE = {"click", "fill", "select", "check", "upload", "verify_email"}
 PAGE_CHANGING = {"goto", "click", "verify_email"}
 ACCOUNT_ACTIONS = {"register", "login"}
+# steps a passive run may take (TZ SEC-9): reading and following links, nothing typed
+PASSIVE_ACTIONS = {"goto", "click", "expect_url", "expect_text", "expect_visible", "wait_for"}
+
+
+def passive_safe(flow: Flow) -> bool:
+    """A guest flow that only reads: no form, no confirmation, no payment."""
+    return flow.role == "guest" and all(
+        s.action in PASSIVE_ACTIONS and not (s.confirm or s.destructive or s.payment)
+        for s in flow.steps
+    )
 
 
 class RunAborted(Exception):
@@ -102,7 +112,8 @@ class Runner:
             update={"target_role": opts.role, "environment": opts.environment}
         )
         self.policy = policy
-        self.engine = PolicyEngine(policy, opts.base_url)
+        self.engine = PolicyEngine(policy, opts.base_url, passive=opts.passive)
+        self.passive = opts.passive
         self.datagen = DataGen(
             opts.seed,
             self.run_id,
@@ -134,8 +145,12 @@ class Runner:
             for e in blueprint.entities
         }
         self.firewall_log: list[BlockedRequest] = []
+        guard = HostGuard(allow_private=opts.allow_private)  # shared DNS cache (SEC-10)
         self.session = BrowserSession(
-            opts, lambda: Firewall(self.engine, self.ledger, collections, log=self.firewall_log)
+            opts,
+            lambda: Firewall(
+                self.engine, self.ledger, collections, log=self.firewall_log, guard=guard
+            ),
         )
         self.results: dict[str, FlowResult] = {}
         self.object_status: dict[str, dict[str, str]] = {}
@@ -209,13 +224,24 @@ class Runner:
 
     async def run(self) -> CaptureRun:
         target = self.bp.flows_for_role(self.role)
+        if self.passive:
+            skipped = [f.id for f in target if not passive_safe(f)]
+            target = [f for f in target if passive_safe(f)]
+            if skipped:
+                self.notes.append(
+                    "passiv rejim (domen tasdiqlanmagan): "
+                    f"{len(skipped)} ta flow bajarilmadi: {', '.join(skipped[:20])}"
+                )
         self.target_ids = {f.id for f in target}
         order = self.bp.requirement_closure(sorted(self.target_ids))
+        if self.passive:
+            order = [f for f in order if passive_safe(f)]
         self._load_progress()
-        try:
-            self.accounts.identity(self.role, "A")
-        except AccountMissing as exc:
-            raise RunAborted(str(exc)) from exc
+        if not self.passive:
+            try:
+                self.accounts.identity(self.role, "A")
+            except AccountMissing as exc:
+                raise RunAborted(str(exc)) from exc
         self.progress.stage("explore", len(order))
         await self.session.start()
         # logout and account deletion end the session: they run after everything else
@@ -224,7 +250,7 @@ class Runner:
         try:
             await self._run_all(main)
             self._check_cancel()
-            if self.opts.patching:
+            if self.opts.patching and not self.passive:
                 await self._patched_statuses()
             self._check_cancel()
             if self.opts.state_graph:
@@ -607,20 +633,22 @@ class Runner:
     # --- state graph (FR-E7) --------------------------------------------------------
 
     async def _state_graph(self) -> None:
-        key = f"{self.role}:A"
+        account = "guest" if self.passive else "A"
+        key = "guest" if self.passive else f"{self.role}:A"
         limit = self.opts.max_states or self.policy.max_states
         seen = {s.hash for s in self.capturer.states}
         urls: list[tuple[str, str]] = []
         for state in self.capturer.states:
-            if state.account != "A" or state.patched or state.flow_id is None:
+            if state.account != account or state.patched or state.flow_id is None:
                 continue
             tpl = path_template(urlsplit(state.url).path)
             if tpl not in [t for t, _ in urls]:
                 urls.append((tpl, state.url))
-        try:
-            await self._ensure_login(self.role, "A")
-        except (StepFailed, RunAborted):
-            return
+        if not self.passive:
+            try:
+                await self._ensure_login(self.role, "A")
+            except (StepFailed, RunAborted):
+                return
         acc = await self.session.account(key)
         page = acc.page
         own = {i for ids in self.ledger.own_ids.values() for i in ids}

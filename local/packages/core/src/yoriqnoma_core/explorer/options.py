@@ -29,6 +29,8 @@ class ExploreOptions(BaseModel):
     mailbox_target: str = ""
     mail_domain: str = "yoriqnoma.test"
     allow_private: bool = False  # True only in the local app (site may be on 127.0.0.1)
+    # server on an unverified domain (TZ SEC-9): guest pages only, no sign-up, no forms
+    passive: bool = False
     headless: bool = True
     viewport: tuple[int, int] = (1280, 800)
     device_scale_factor: float = 1.0  # 2.0: sharp (retina) manual images

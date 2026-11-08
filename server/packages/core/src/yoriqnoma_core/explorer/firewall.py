@@ -1,8 +1,10 @@
 """Network firewall and API-answer rewriting for one browser context (TZ SEC-4, FR-E10).
 
-Every request of the page passes ``PolicyEngine.allows_request``; blocked requests are
-aborted and logged. Same-origin JSON answers are rewritten by the privacy ledger (other
-people's data -> fakes) and by status patches (FR-E8) before the page sees them.
+Every request of the page passes the SSRF host check (``HostGuard``, TZ SEC-10: every
+redirect and every resource, each host's DNS answers) and ``PolicyEngine.allows_request``;
+blocked requests are aborted and logged. Same-origin JSON answers are rewritten by the
+privacy ledger (other people's data -> fakes) and by status patches (FR-E8) before the
+page sees them.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from playwright.async_api import Request, Route
 
 from yoriqnoma_core.explorer.pseudonymize import PrivacyLedger
 from yoriqnoma_core.safety.policy_engine import PolicyEngine, RequestContext
-from yoriqnoma_core.safety.url_guard import same_origin
+from yoriqnoma_core.safety.url_guard import HostGuard, same_origin
 from yoriqnoma_schemas import BlockedRequest
 
 
@@ -39,15 +41,20 @@ class Firewall:
     patches: list[StatusPatch] = field(default_factory=list)
     probe: bool = False
     on_block: Callable[[BlockedRequest], None] | None = None
+    guard: HostGuard | None = None
 
     def own_ids(self) -> set[str]:
         return {i for ids in self.ledger.own_ids.values() for i in ids}
 
     async def handle(self, route: Route, request: Request) -> None:
         ctx = RequestContext(own_ids=self.own_ids(), collections=self.collections, probe=self.probe)
-        allowed, rule = self.engine.allows_request(
-            request.method, request.url, request.resource_type, ctx
-        )
+        blocked_host = await self.guard.check(request.url) if self.guard else None
+        if blocked_host is not None:
+            allowed, rule = False, f"ssrf: {blocked_host}"
+        else:
+            allowed, rule = self.engine.allows_request(
+                request.method, request.url, request.resource_type, ctx
+            )
         if not allowed:
             parts = urlsplit(request.url)
             blocked = BlockedRequest(
