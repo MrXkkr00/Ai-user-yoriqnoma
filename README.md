@@ -93,6 +93,18 @@ Dastur ma'lumotlari `local/var/` da turadi (baza, Huey navbati, `secret.key`, `p
 `runs/`); bu papka git'ga tushmaydi. LLM javoblari keshlanadi (`var/cache/llm`), shuning uchun
 qayta yozish tez bo'ladi.
 
+### Skaner qaysi loyihalarni o'qiydi
+
+| Stek | Nimalar o'qiladi | Sinov loyihasi |
+|---|---|---|
+| FastAPI + React (Vite, React Router) | route'lar, `Depends` guard'lari, pydantic va JSX formalari, SQLAlchemy modellari, i18n JSON, Playwright E2E | `fixtures/demo_shop` |
+| Flask | `Flask()` va `Blueprint(url_prefix=)` zanjiri, `@bp.route`/`@bp.get`, Flask-Login, Flask-Security rollari, `before_request` tekshiruvlari, `abort(403)`, WTForms, Jinja shablonlari (`url_for`, `_()`), Flask-SQLAlchemy modellari, Flask-Babel `.po` | test ichidagi namunalar |
+| Django (+ Django REST framework) | `urls.py` (`include`, `app_name`, `re_path`, DRF router), dekorator va mixin guard'lari, `user_passes_test`, guruhlar, `LoginRequiredMiddleware`, generic view'lar, `forms.py`/`ModelForm`, serializer'lar, modellar (`TextChoices`, egasi), shablonlar (`{% url %}`, `{% trans %}`, `{{ form }}`), `.po` tarjimalar | `fixtures/demo_django` |
+
+`demo_django` ni sinash: `cd fixtures/demo_django`, keyin
+`uv run --project ../.. python manage.py migrate`, `... manage.py seed`,
+`... manage.py runserver 127.0.0.1:8810` (operator akkaunti: `operator` / `Operator-pass-1`).
+
 ## Server dastur
 
 ```bash

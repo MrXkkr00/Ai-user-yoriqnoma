@@ -25,7 +25,7 @@ from yoriqnoma_core.safety.pii import (
     is_site_email,
     normalize_value,
 )
-from yoriqnoma_schemas import Entity
+from yoriqnoma_schemas import Blueprint, Entity
 
 TEXT_KEYS = {"text", "body", "comment", "content", "message", "review", "review_text", "note"}
 NEUTRAL_AVATAR = (
@@ -35,6 +35,31 @@ NEUTRAL_AVATAR = (
 )
 PUBLIC_ZONES = {"org", "editorial"}
 REPLACE_ZONES = {"user_content", "other"}
+
+
+def ugc_text_headers(bp: Blueprint) -> set[str]:
+    """Labels of the free-text fields people fill in when they create user content.
+
+    Server-rendered tables show these values in columns with the same header («Mavzu»):
+    in someone else's row they are user content and are replaced (TZ FR-E10).
+    """
+    signup = {r.id for r in bp.roles if r.self_signup}
+    ugc = {e.name for e in bp.entities if set(e.created_by) & signup}
+    starts = {
+        s.path.rstrip("/")
+        for f in bp.flows
+        if f.action == "create" and f.entity in ugc
+        for s in f.steps[:1]
+        if s.action == "goto" and s.path
+    }
+    labels: set[str] = set()
+    for form in bp.forms:
+        if form.page_path.rstrip("/") not in starts:
+            continue
+        for fld in form.fields:
+            if fld.type in {"text", "textarea"} and fld.label and not is_pii_field(fld.name):
+                labels.add(fld.label.strip().rstrip(":").lower())
+    return labels
 
 
 def kind_for_key(key: str) -> str:
@@ -69,6 +94,8 @@ class PrivacyLedger:
     public_values: set[str] = field(default_factory=set)
     own_ids: dict[str, set[str]] = field(default_factory=dict)
     editorial_is_ugc: bool = False
+    # table headers of text fields that users fill in for user content («Mavzu», «Matn»)
+    ugc_headers: set[str] = field(default_factory=set)
     pending: dict[str, int] = field(default_factory=dict)  # network counters since last state
 
     def ignore(self) -> set[str]:
@@ -114,6 +141,10 @@ class PrivacyLedger:
     def _ugc(self, entity: str | None) -> bool:
         ent = self.entities.get(entity or "")
         return ent is not None and bool(set(ent.created_by) & self.self_signup_roles)
+
+    def is_ugc(self, entity: str | None) -> bool:
+        """Objects that self-registered users create (tickets, comments): user content."""
+        return self._ugc(entity)
 
     def transform_json(self, data: Any, path: str) -> Any:
         """Rewrite foreign records in an API answer; learn the test accounts' own values."""
@@ -281,6 +312,14 @@ class PrivacyLedger:
             ):
                 decision.add("user_content:substituted")
                 return text.replace(stripped, self.datagen.substitute("text", stripped))
+        if structural == "body" and zone in REPLACE_ZONES:
+            # a text column of someone else's record (ticket subject, message): user content
+            if stripped in ignore or (
+                block_key and (block_key in ignore or normalize_value("name", block_key) in own)
+            ):
+                return None
+            decision.add("user_content:substituted")
+            return text.replace(stripped, self.datagen.substitute("text", stripped))
         new_text = text
         matches = find_pii(text, ignore)
         if structural == "name" and not matches and zone in REPLACE_ZONES:

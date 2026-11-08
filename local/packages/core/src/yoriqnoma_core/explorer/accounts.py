@@ -39,7 +39,14 @@ class AccountManager:
         given = self.opts.accounts.get(role, {}).get(alias)
         if given is not None:
             ident = Identity(
-                role, alias, given.login, given.password.get_secret_value(), "", "", provided=True
+                role,
+                alias,
+                given.login,
+                given.password.get_secret_value(),
+                "",
+                "",
+                provided=True,
+                username=given.login,
             )
             self.datagen.generated.add(given.login)
         elif self.self_signup(role):

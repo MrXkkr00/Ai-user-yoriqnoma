@@ -65,6 +65,9 @@ class PyIndex:
                 module.functions[node.name] = node
             elif isinstance(node, ast.ClassDef):
                 module.classes[node.name] = node
+                for inner in node.body:  # nested classes: Order.Status, Meta...
+                    if isinstance(inner, ast.ClassDef) and inner.name != "Meta":
+                        module.classes.setdefault(inner.name, inner)
         for item in ast.walk(module.tree):
             if isinstance(item, ast.Assign):
                 for target in item.targets:
@@ -167,9 +170,12 @@ class PyIndex:
 
     def is_enum(self, module: PyModule, name: str) -> tuple[PyModule, ast.ClassDef] | None:
         found = self.resolve_class(module, name)
-        if found and self.class_bases(*found) & {"Enum", "StrEnum", "IntEnum"}:
+        if found and self.class_bases(*found) & ENUM_BASES:
             return found
         return None
+
+
+ENUM_BASES = {"Enum", "StrEnum", "IntEnum", "TextChoices", "IntegerChoices", "Choices"}
 
 
 def dotted_name(node: ast.AST | None) -> str:
@@ -199,8 +205,10 @@ def enum_members(cls: ast.ClassDef) -> list[str]:
             target = node.targets[0]
             if isinstance(target, ast.Name) and not target.id.startswith("_"):
                 value = node.value
-                if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                    values.append(value.value)
+                if isinstance(value, ast.Tuple) and value.elts:  # TextChoices: NEW = "new", "Yangi"
+                    value = value.elts[0]
+                if isinstance(value, ast.Constant) and isinstance(value.value, str | int):
+                    values.append(str(value.value))
                 else:
                     values.append(target.id)
     return values

@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% load i18n %}
+{% block content %}
+<h1>{% trans "My tickets" %}</h1>
+<a href="{% url 'helpdesk:ticket_create' %}">{% trans "New ticket" %}</a>
+<table>
+  <thead><tr><th>Mavzu</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for t in ticket_list %}
+    <tr><td>{{ t.subject }}</td><td>{{ t.get_status_display }}</td>
+      <td><a href="{% url 'helpdesk:ticket_detail' t.pk %}">{% trans "Open" %}</a></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

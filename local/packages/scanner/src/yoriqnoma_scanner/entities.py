@@ -86,15 +86,28 @@ def _entity_for_path(path: str, candidates: dict[str, EntityCandidate]) -> tuple
     return None
 
 
+READ_ACTIONS = {"list", "view"}
+CREATE_WORDS = {"new", "create", "add"}
+UPDATE_WORDS = {"edit", "update", "change"}
+DELETE_WORDS = {"delete", "remove", "destroy"}
+
+
 def action_of(route: RouteCandidate, method: str, rest: list[str]) -> str | None:
+    """REST and server-rendered (``/orders/new/``, ``/orders/:id/edit/``) conventions."""
     if not rest:
         return {"POST": "create", "GET": "list"}.get(method)
+    if len(rest) == 1 and rest[0] in CREATE_WORDS:
+        return "create" if method == "POST" else None
     if len(rest) == 1 and rest[0].startswith(":"):
         return {"GET": "view", "PUT": "update", "PATCH": "update", "DELETE": "delete"}.get(method)
     if len(rest) == 2 and rest[0].startswith(":") and not rest[1].startswith(":"):
         verb = rest[1].replace("-", "_")
         if method == "GET":
             return f"download_{verb}" if route.downloads else None
+        if verb in UPDATE_WORDS:
+            return "update"
+        if verb in DELETE_WORDS:
+            return "delete"
         return verb
     return None
 
@@ -115,13 +128,18 @@ def build_entities(
             for v in cand.statuses
         }
     for route, info in api_routes:
-        found = _entity_for_path(route.path, cands)
+        hint = route.entity_hint if route.entity_hint and route.entity_hint[0] in cands else None
+        found = (hint[0], -1) if hint else _entity_for_path(route.path, cands)
         if found is None:
             continue
         name, idx = found
         rest = segments(route.path)[idx + 1 :]
         for method in route.methods:
-            action = action_of(route, method, rest)
+            action = (
+                hint[1]
+                if hint and (method != "GET" or hint[1] in READ_ACTIONS)
+                else (None if hint else action_of(route, method, rest))
+            )
             if action is None:
                 continue
             for value in (v for f, v in route.status_sets if f == cands[name].status_field):

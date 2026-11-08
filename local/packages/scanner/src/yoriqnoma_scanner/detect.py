@@ -1,4 +1,8 @@
-"""Detect the studied project's stack (TZ FR-S2). MVP: FastAPI + React (Vite, React Router)."""
+"""Detect the studied project's stack (TZ FR-S2).
+
+Backends: FastAPI, Django (+ REST framework), Flask, Express, Laravel. Frontends: React
+(React Router), Vue (Vue Router), Next.js. Server-side templates are collected too.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,8 @@ from pathlib import Path
 
 from yoriqnoma_scanner.fs_guard import SafeFS
 
-JS_SUFFIXES = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".vue")
+JS_SUFFIXES = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue")
+TEMPLATE_SUFFIXES = (".html", ".htm", ".jinja", ".jinja2", ".j2", ".twig")
 
 
 @dataclass
@@ -22,6 +27,9 @@ class ProjectInfo:
     locales: list[Path] = field(default_factory=list)
     python_files: list[Path] = field(default_factory=list)
     js_files: list[Path] = field(default_factory=list)
+    template_files: list[Path] = field(default_factory=list)  # server-side templates
+    php_files: list[Path] = field(default_factory=list)
+    po_files: list[Path] = field(default_factory=list)  # gettext catalogues
 
 
 def _deps_of_package_json(text: str) -> set[str]:
@@ -67,6 +75,24 @@ def detect(fs: SafeFS) -> ProjectInfo:
                 info.stacks.add("playwright-ts")
             if "vue" in deps:
                 info.stacks.add("vue")
+                info.frontend_dirs.append(path.parent)
+            if "vue-router" in deps:
+                info.stacks.add("vue-router")
+            if "next" in deps:
+                info.stacks.add("next")
+                info.frontend_dirs.append(path.parent)
+            if "express" in deps:
+                info.stacks.add("express")
+                info.backend_dirs.append(path.parent)
+        elif name == "composer.json":
+            if "laravel/framework" in (fs.read_text(path) or ""):
+                info.stacks.add("laravel")
+        elif name.endswith(".php"):
+            info.php_files.append(path)
+        elif suffix in TEMPLATE_SUFFIXES:
+            info.template_files.append(path)
+        elif suffix == ".po":
+            info.po_files.append(path)
         elif suffix == ".py":
             info.python_files.append(path)
             parts = {p.lower() for p in Path(rel).parts}
@@ -89,13 +115,20 @@ def detect(fs: SafeFS) -> ProjectInfo:
             info.locales.append(path)
     if re.search(r"\bfastapi\b", py_deps):
         info.stacks.add("fastapi")
-    if re.search(r"\bdjango\b", py_deps):
+    manage_py = any(
+        p.name == "manage.py" and "django" in (fs.read_text(p) or "") for p in info.python_files
+    )
+    if re.search(r"\bdjango\b", py_deps) or manage_py:
         info.stacks.add("django")
+    if re.search(r"\bdjangorestframework\b", py_deps):
+        info.stacks.add("django-rest-framework")
+    if re.search(r"(?<![\w-])flask\b", py_deps):
+        info.stacks.add("flask")
     if re.search(r"\bsqlalchemy\b|\bsqlmodel\b", py_deps):
         info.stacks.add("sqlalchemy")
     e2e = set(info.e2e_files)
-    if "fastapi" in info.stacks:
-        info.backend_dirs = sorted({p.parent for p in info.python_files if p not in e2e})
+    if info.stacks & {"fastapi", "django", "flask"}:
+        info.backend_dirs += sorted({p.parent for p in info.python_files if p not in e2e})
     info.python_files = [p for p in info.python_files if p not in e2e]
     info.js_files = [p for p in info.js_files if p not in e2e]
     return info

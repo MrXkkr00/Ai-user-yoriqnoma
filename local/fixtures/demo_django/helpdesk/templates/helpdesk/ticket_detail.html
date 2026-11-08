@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% load i18n %}
+{% block content %}
+<h1>{{ ticket.subject }}</h1>
+<p>{{ ticket.get_status_display }}</p>
+<p>{{ ticket.body }}</p>
+{% for r in ticket.replies.all %}<div class="reply"><b>{{ r.author.get_full_name }}</b>: {{ r.text }}</div>{% endfor %}
+{% if ticket.status == "answered" %}
+<form method="post" action="{% url 'helpdesk:ticket_close' ticket.pk %}">
+  {% csrf_token %}
+  <button type="submit">{% trans "Close ticket" %}</button>
+</form>
+{% endif %}
+<a href="{% url 'helpdesk:ticket_list' %}">{% trans "Back" %}</a>
+{% endblock %}

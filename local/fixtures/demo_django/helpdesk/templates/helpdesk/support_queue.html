@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% load i18n %}
+{% block content %}
+<h1>{% trans "Support queue" %}</h1>
+<table>
+  <thead><tr><th>Mijoz</th><th>Telefon</th><th>Mavzu</th><th></th></tr></thead>
+  <tbody>
+  {% for t in tickets %}
+    <tr><td>{{ t.owner.get_full_name }}</td><td>{{ t.contact_phone }}</td><td>{{ t.subject }}</td>
+      <td><a href="{% url 'helpdesk:support_reply' t.pk %}">{% trans "Reply" %}</a></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

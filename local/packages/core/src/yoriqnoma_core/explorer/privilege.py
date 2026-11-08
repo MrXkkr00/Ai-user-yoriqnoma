@@ -11,6 +11,7 @@ Only yes/no is kept; page contents are never stored.
 from __future__ import annotations
 
 import re
+from urllib.parse import urlsplit
 
 from playwright.async_api import BrowserContext
 from playwright.async_api import Error as PlaywrightError
@@ -33,6 +34,13 @@ def _concrete(path: str) -> str:
     return re.sub(r":[^/]+", "1", path)
 
 
+def _path(url: str) -> str:
+    return "/" + urlsplit(url).path.strip("/")
+
+
+HAS_PASSWORD = "() => !!document.querySelector('input[type=password]')"
+
+
 async def privilege_check(
     context: BrowserContext, firewall: Firewall, bp: Blueprint, role: str, base_url: str
 ) -> None:
@@ -43,8 +51,10 @@ async def privilege_check(
         for route in bp.excluded:
             if route.kind != "api" or "GET" not in route.methods:
                 continue
-            resp = await page.request.get(base + _concrete(route.path), fail_on_status_code=False)
-            if resp.status < 400:
+            target = _concrete(route.path)
+            resp = await page.request.get(base + target, fail_on_status_code=False)
+            # A redirect to the login page (server-rendered sites) is a refusal too.
+            if resp.status < 400 and _path(resp.url) == _path(base + target):
                 raise PrivilegedAccountError(
                     f"akkauntga admin API ochiq: {route.path} ({resp.status})"
                 )
@@ -56,6 +66,10 @@ async def privilege_check(
                 await page.wait_for_load_state("networkidle", timeout=6000)
             except PlaywrightError:
                 continue
+            if firewall.engine.allows_path(_path(page.url)):
+                continue  # sent away from the admin part (login page, home): refused
+            if await page.evaluate(HAS_PASSWORD):
+                continue  # the admin part's own login form: refused
             hrefs: list[str] = await page.evaluate(
                 "() => [...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href'))"
             )

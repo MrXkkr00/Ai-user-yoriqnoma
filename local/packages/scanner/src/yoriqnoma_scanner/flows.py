@@ -51,7 +51,13 @@ def data_for_field(field_: FormField) -> str:
         return "fake:email"
     if ftype == "tel" or "phone" in name or "tel" == name:
         return "fake:phone_uz"
-    if name in {"full_name", "name", "fio", "fullname", "first_name", "last_name"}:
+    if name in {"username", "login", "user_name"}:
+        return "fake:username"
+    if name in {"first_name", "firstname", "ism"}:
+        return "fake:first_name"
+    if name in {"last_name", "lastname", "familiya", "surname"}:
+        return "fake:last_name"
+    if name in {"full_name", "name", "fio", "fullname"}:
         return "fake:full_name"
     if "address" in name or "manzil" in name:
         return "fake:address"
@@ -192,7 +198,9 @@ class FlowBuilder:
     def _title(self, entity: str, action: str, binding: ActionBinding | None) -> str:
         noun, plural = entity_words(entity)
         if action == "create" and binding is not None and binding.trigger:
-            return binding.trigger
+            if binding.trigger.lower() not in GENERIC_SUBMITS:
+                return binding.trigger
+            return f"{noun.capitalize()} yaratish"
         if action == "list":
             return f"{plural.capitalize()} ro'yxatini ko'rish"
         if action == "view":
@@ -200,6 +208,10 @@ class FlowBuilder:
         if binding is not None and action.startswith("download_"):
             return binding.trigger
         label = (binding.opener or binding.trigger) if binding else action
+        first = label.split(" ")[0].lower()
+        if first.startswith(noun.lower()) or (" " in label and first.endswith("ni")):
+            # "Murojaatni yopish", "Javobni yuborish": the label already names its object
+            return label[:1].upper() + label[1:]
         return f"{noun.capitalize()}ni {lower_first(label)}"
 
     # --- account flows ------------------------------------------------------------

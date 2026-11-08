@@ -66,7 +66,7 @@ class SQLAlchemyModelsParser:
     name = "sqlalchemy"
 
     def applies(self, project: ProjectInfo) -> bool:
-        return "sqlalchemy" in project.stacks or "fastapi" in project.stacks
+        return bool({"sqlalchemy", "fastapi", "flask"} & project.stacks)
 
     def parse(self, project: ProjectInfo, fs: SafeFS) -> ParseResult:
         index = PyIndex(fs, project.python_files)
@@ -93,9 +93,13 @@ class SQLAlchemyModelsParser:
                 and isinstance(node.value.value, str)
             ):
                 table = node.value.value
-        if table is None and not is_sqlmodel_table:
+        # Flask-SQLAlchemy: ``class Order(db.Model)`` gets its table name from the class name
+        is_flask_model = "Model" in bases and any(
+            self._column(node)[0] is not None for node in cls.body
+        )
+        if table is None and not (is_sqlmodel_table or is_flask_model):
             return None
-        table = table or cname.lower() + "s"
+        table = table or re.sub(r"(?<!^)(?=[A-Z])", "_", cname).lower() + "s"
         if table in TECH_TABLES:
             return None
         entity = EntityCandidate(

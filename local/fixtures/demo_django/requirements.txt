@@ -1,0 +1,2 @@
+# demo_django is only read by the scanner (T29); it is never installed or run by the tests.
+django>=5.2,<5.3

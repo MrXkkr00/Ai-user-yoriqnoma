@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Foydalanuvchilar</h1>
+<table>{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.role }}</td></tr>{% endfor %}</table>
+{% endblock %}

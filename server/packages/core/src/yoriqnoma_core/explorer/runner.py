@@ -39,7 +39,7 @@ from yoriqnoma_core.explorer.options import (
     ProgressSink,
 )
 from yoriqnoma_core.explorer.privilege import PrivilegedAccountError, privilege_check
-from yoriqnoma_core.explorer.pseudonymize import PrivacyLedger
+from yoriqnoma_core.explorer.pseudonymize import PrivacyLedger, ugc_text_headers
 from yoriqnoma_core.explorer.session import AccountContext, BrowserSession, path_template
 from yoriqnoma_core.explorer.steps import (
     StepContext,
@@ -112,6 +112,7 @@ class Runner:
             self_signup_roles={r.id for r in blueprint.roles if r.self_signup},
             org_domains=list(opts.org_domains),
             editorial_is_ugc=False,
+            ugc_headers=ugc_text_headers(blueprint),
         )
         self.mailbox: Mailbox | None = (
             make_mailbox(opts.mailbox_kind, opts.mailbox_target) if opts.mailbox_target else None
@@ -695,8 +696,27 @@ class Runner:
                         continue
                     if any(re.fullmatch(p, link["href"]) for p in self.capturer.forbidden_patterns):
                         continue
+                    entity = self.ledger.entity_for_path(urlsplit(link["href"]).path)
                     try:
+                        acc.responses.clear()
                         await page.goto(self.opts.base_url.rstrip("/") + link["href"])
+                        await self.capturer.settle(page)  # SPA data arrives after "load"
+                        from_json = any(
+                            "json" in ctype
+                            for method, _u, _s, ctype in acc.responses
+                            if method == "GET"
+                        )
+                        if self.ledger.is_ugc(entity) and not from_json:
+                            # Server-rendered text someone else wrote cannot be told apart
+                            # from the page's own text: default-deny, the page is not kept.
+                            note = (
+                                f"{path_template(urlsplit(link['href']).path)}: boshqa "
+                                "foydalanuvchi yozgan matn server sahifasida ajratilmaydi — "
+                                "bu yozuv sahifasi olinmadi (FR-E10)"
+                            )
+                            if note not in self.notes:
+                                self.notes.append(note)
+                            continue
                         acc.network.clear()
                         state = await self.capturer.snapshot(
                             page,

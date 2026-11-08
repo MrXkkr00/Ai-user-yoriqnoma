@@ -9,8 +9,10 @@ from yoriqnoma_scanner.build import build_blueprint
 from yoriqnoma_scanner.detect import ProjectInfo, detect
 from yoriqnoma_scanner.fs_guard import SafeFS, Skipped
 from yoriqnoma_scanner.parsers.base import Parser, ParseResult
+from yoriqnoma_scanner.parsers.django_routes import DjangoParser
 from yoriqnoma_scanner.parsers.e2e import E2EParser
 from yoriqnoma_scanner.parsers.fastapi_routes import FastAPIParser
+from yoriqnoma_scanner.parsers.flask_routes import FlaskParser
 from yoriqnoma_scanner.parsers.i18n import I18nParser
 from yoriqnoma_scanner.parsers.jsx_forms import JsxFormsParser
 from yoriqnoma_scanner.parsers.pydantic_forms import PydanticFormsParser
@@ -19,7 +21,7 @@ from yoriqnoma_scanner.parsers.sqlalchemy_models import SQLAlchemyModelsParser
 from yoriqnoma_scanner.report import render_report
 from yoriqnoma_schemas import Blueprint
 
-SUPPORTED = {"fastapi", "react"}
+SUPPORTED = {"fastapi", "react", "django", "flask"}
 
 
 class UnsupportedStack(ValueError):
@@ -53,7 +55,7 @@ def scan(
         info.stacks |= set(stack.split(","))
     if not SUPPORTED & info.stacks:
         raise UnsupportedStack(
-            "Qo'llab-quvvatlanadigan stek topilmadi (MVP: FastAPI + React). "
+            "Qo'llab-quvvatlanadigan stek topilmadi (FastAPI, Django, Flask, React). "
             f"Topilgani: {', '.join(sorted(info.stacks)) or 'hech narsa'}"
         )
     parsed = ParseResult()
@@ -62,6 +64,8 @@ def scan(
         parsed.merge(i18n.parse(info, fs))
     parsers: list[Parser] = [
         FastAPIParser(),
+        DjangoParser(language),
+        FlaskParser(language),
         PydanticFormsParser(),
         SQLAlchemyModelsParser(),
         ReactRouterParser(parsed.i18n),

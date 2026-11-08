@@ -101,7 +101,10 @@ def value_for(data: str, ctx: StepContext, rules: str | None, label: str) -> str
                 "email": ident.email,
                 "password": ident.password,
                 "full_name": ident.full_name,
+                "first_name": ident.first_name,
+                "last_name": ident.last_name,
                 "phone_uz": ident.phone,
+                "username": ident.username or ident.email,
             }
             if rest in mapping and mapping[rest]:
                 if rest == "phone_uz" and rules and "regex" in rules:

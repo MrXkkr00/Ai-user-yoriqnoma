@@ -14,7 +14,15 @@ from dataclasses import dataclass, field
 from yoriqnoma_scanner.detect import ProjectInfo
 from yoriqnoma_scanner.fs_guard import SafeFS
 from yoriqnoma_scanner.parsers.base import GuardInfo, ParseResult, RouteCandidate
-from yoriqnoma_scanner.pyindex import PyIndex, PyModule, call_name, dotted_name, kwarg
+from yoriqnoma_scanner.pyindex import (
+    ENUM_BASES,
+    PyIndex,
+    PyModule,
+    call_name,
+    dotted_name,
+    enum_members,
+    kwarg,
+)
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 ADMIN_WORDS = ("admin", "superuser", "superadmin", "is_staff", "staff_member", "root")
@@ -468,7 +476,7 @@ class FastAPIParser:
             for cname, cls in module.classes.items():
                 if "role" not in cname.lower():
                     continue
-                if not index.class_bases(module, cls) & {"Enum", "StrEnum", "IntEnum"}:
+                if not index.class_bases(module, cls) & ENUM_BASES:
                     continue
                 for member in _enum_member_values(cls):
                     result.role_values.setdefault(member, module.src(cls))
@@ -522,10 +530,12 @@ def _enum_value(index: PyIndex, module: PyModule, enum_name: str, attr: str) -> 
                 isinstance(node, ast.Assign)
                 and isinstance(node.targets[0], ast.Name)
                 and node.targets[0].id == attr
-                and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
             ):
-                return node.value.value
+                value = node.value
+                if isinstance(value, ast.Tuple) and value.elts:  # TextChoices member
+                    value = value.elts[0]
+                if isinstance(value, ast.Constant) and isinstance(value.value, str | int):
+                    return str(value.value)
     return attr
 
 
@@ -541,14 +551,7 @@ def _enum_values(index: PyIndex, module: PyModule, node: ast.expr) -> list[str]:
 
 
 def _enum_member_values(cls: ast.ClassDef) -> list[str]:
-    out: list[str] = []
-    for node in cls.body:
-        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-                out.append(node.value.value)
-            elif not node.targets[0].id.startswith("_"):
-                out.append(node.targets[0].id)
-    return out
+    return enum_members(cls)
 
 
 def _role_comparisons(

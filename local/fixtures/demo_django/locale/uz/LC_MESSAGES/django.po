@@ -1,0 +1,58 @@
+msgid ""
+msgstr ""
+"Language: uz\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Home"
+msgstr "Bosh sahifa"
+
+msgid "My tickets"
+msgstr "Murojaatlarim"
+
+msgid "Profile"
+msgstr "Profil"
+
+msgid "Support queue"
+msgstr "Murojaatlar navbati"
+
+msgid "Log out"
+msgstr "Chiqish"
+
+msgid "Log in"
+msgstr "Kirish"
+
+msgid "Sign up"
+msgstr "Ro'yxatdan o'tish"
+
+msgid "Username"
+msgstr "Login"
+
+msgid "Password"
+msgstr "Parol"
+
+msgid "Forgot password?"
+msgstr "Parolni unutdingizmi?"
+
+msgid "New ticket"
+msgstr "Yangi murojaat"
+
+msgid "Send"
+msgstr "Yuborish"
+
+msgid "Open"
+msgstr "Ochish"
+
+msgid "Close ticket"
+msgstr "Murojaatni yopish"
+
+msgid "Back"
+msgstr "Orqaga"
+
+msgid "Save"
+msgstr "Saqlash"
+
+msgid "Reply"
+msgstr "Javob berish"
+
+msgid "Send reply"
+msgstr "Javobni yuborish"

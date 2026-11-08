@@ -42,6 +42,77 @@ def pick_language(available: list[str], wanted: str = "uz") -> str | None:
     return available[0] if available else None
 
 
+_PO_ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\"}
+
+
+def _po_unquote(line: str) -> str:
+    body = line.strip()
+    if len(body) >= 2 and body[0] == '"' and body[-1] == '"':
+        body = body[1:-1]
+    out: list[str] = []
+    i = 0
+    while i < len(body):
+        ch = body[i]
+        if ch == "\\" and i + 1 < len(body):
+            out.append(_PO_ESCAPES.get(body[i + 1], body[i + 1]))
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def read_po(text: str) -> dict[str, str]:
+    """A gettext catalogue -> {msgid: msgstr}; untranslated and fuzzy entries are skipped."""
+    catalogue: dict[str, str] = {}
+    for block in text.replace("\r\n", "\n").split("\n\n"):
+        fuzzy = False
+        fields: dict[str, str] = {}
+        current: str | None = None
+        for raw in block.split("\n"):
+            line = raw.strip()
+            if line.startswith("#,") and "fuzzy" in line:
+                fuzzy = True
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith('"') and current is not None:
+                fields[current] += _po_unquote(line)
+                continue
+            key, _, rest = line.partition(" ")
+            current = key
+            fields[key] = _po_unquote(rest)
+        msgid = fields.get("msgid", "")
+        msgstr = fields.get("msgstr", fields.get("msgstr[0]", ""))
+        if msgid and msgstr and not fuzzy:
+            catalogue[msgid] = msgstr
+    return catalogue
+
+
+def po_language(path: Path) -> str:
+    """``locale/uz/LC_MESSAGES/django.po`` -> "uz"; ``uz.po`` -> "uz"."""
+    parts = [p.lower() for p in path.parts]
+    if len(parts) >= 3 and parts[-2] == "lc_messages":
+        return parts[-3].replace("_", "-")
+    return path.stem.lower().replace("_", "-")
+
+
+def load_po_catalogue(
+    fs: SafeFS, files: list[Path], wanted: str, notes: list[str]
+) -> dict[str, str]:
+    """Translations of the wanted language (or the best other one) from all .po files."""
+    by_lang: dict[str, dict[str, str]] = {}
+    for path in files:
+        text = fs.read_text(path)
+        if text is not None:
+            by_lang.setdefault(po_language(path), {}).update(read_po(text))
+    lang = pick_language(sorted(by_lang), wanted)
+    if lang is None:
+        return {}
+    if lang != wanted:
+        notes.append(f"gettext: «{wanted}» tarjimasi topilmadi, «{lang}» ishlatildi")
+    return by_lang[lang]
+
+
 class I18nParser:
     name = "i18n"
 

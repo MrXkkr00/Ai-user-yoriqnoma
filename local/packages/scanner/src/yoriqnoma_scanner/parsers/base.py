@@ -35,6 +35,7 @@ class RouteCandidate:
     status_requires: list[str] = field(default_factory=list)  # precondition values
     downloads: bool = False  # api route returns a file
     creates_user_role: str | None = None  # registration handler: role given to new users
+    entity_hint: tuple[str, str] | None = None  # (entity, action) when the framework says so
 
 
 @dataclass

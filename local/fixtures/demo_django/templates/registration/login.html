@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% load i18n %}
+{% block content %}
+<h1>{% trans "Log in" %}</h1>
+<form method="post" action="{% url 'login' %}">
+  {% csrf_token %}
+  <label for="id_username">{% trans "Username" %}</label>
+  <input type="text" name="username" id="id_username" required maxlength="150">
+  <label for="id_password">{% trans "Password" %}</label>
+  <input type="password" name="password" id="id_password" required>
+  <button type="submit">{% trans "Log in" %}</button>
+</form>
+<a href="{% url 'password_reset' %}">{% trans "Forgot password?" %}</a>
+{% endblock %}

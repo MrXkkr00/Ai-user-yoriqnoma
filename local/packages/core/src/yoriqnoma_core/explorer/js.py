@@ -86,7 +86,7 @@ COLLECT_ELEMENTS = r"""
 # Text nodes, form values and images with their zone (TZ FR-E10). Nodes get an index
 # so Python can send back replacements; nothing leaves the page except this list.
 PRIVACY_SCAN = r"""
-({nameHeaders, editorialIsUgc}) => {
+({nameHeaders, editorialIsUgc, ugcHeaders}) => {
   window.__yq = window.__yq || {nodes: [], inputs: []};
   const S = window.__yq;
   S.nodes = []; S.inputs = [];
@@ -138,8 +138,9 @@ PRIVACY_SCAN = r"""
         const idx = [...n.parentElement.children].indexOf(n);
         const head = table && table.querySelector('thead tr, tr');
         const th = head ? head.children[idx] : null;
-        const label = th ? (th.innerText || '').trim().toLowerCase() : '';
+        const label = th ? (th.innerText || '').trim().replace(/:$/, '').toLowerCase() : '';
         if (label && nameHeaders.includes(label)) return 'name';
+        if (label && (ugcHeaders || []).includes(label)) return 'body';
       }
       if (n.classList && (n.classList.contains('avatar'))) return 'avatar';
     }

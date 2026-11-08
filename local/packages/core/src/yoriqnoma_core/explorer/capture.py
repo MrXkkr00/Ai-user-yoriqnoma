@@ -93,7 +93,11 @@ class Capturer:
     ) -> State:
         await self.settle(page)
         names = sorted(NAME_HEADERS)
-        args = {"nameHeaders": names, "editorialIsUgc": self.ledger.editorial_is_ugc}
+        args = {
+            "nameHeaders": names,
+            "editorialIsUgc": self.ledger.editorial_is_ugc,
+            "ugcHeaders": sorted(self.ledger.ugc_headers),
+        }
         scan: dict[str, Any] = await page.evaluate(js.PRIVACY_SCAN, args)
         # input hints («+998901234567» as a format example) are the site's own UI text
         self.ledger.public_values.update(str(p) for p in scan.get("placeholders", []) if p)

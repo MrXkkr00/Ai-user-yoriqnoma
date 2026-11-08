@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% load i18n %}
+{% block content %}
+<h1>{{ ticket.subject }}</h1>
+<p>{{ ticket.body }}</p>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">{% trans "Send reply" %}</button>
+</form>
+{% endblock %}

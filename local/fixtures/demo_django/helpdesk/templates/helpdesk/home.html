@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% load i18n %}
+{% block content %}
+<h1>Yordam markazi</h1>
+<p>Savolingiz bo'lsa, murojaat yuboring — operatorlarimiz javob beradi.</p>
+<a href="{% url 'helpdesk:ticket_create' %}">{% trans "New ticket" %}</a>
+{% endblock %}

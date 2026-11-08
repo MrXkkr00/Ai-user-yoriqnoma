@@ -8,6 +8,7 @@ import pytest
 from yoriqnoma_scanner.api import ScanResult, scan
 
 DEMO_SHOP = Path(__file__).resolve().parents[3] / "fixtures" / "demo_shop"
+DEMO_DJANGO = Path(__file__).resolve().parents[3] / "fixtures" / "demo_django"
 BASE_URL = "http://127.0.0.1:8800"
 
 
@@ -16,6 +17,20 @@ def demo_scan() -> ScanResult:
     if not DEMO_SHOP.is_dir():
         pytest.skip("fixtures/demo_shop is not in this checkout")
     return scan(DEMO_SHOP, BASE_URL, project="demo_shop")
+
+
+@pytest.fixture(scope="session")
+def django_scan() -> ScanResult:
+    if not DEMO_DJANGO.is_dir():
+        pytest.skip("fixtures/demo_django is not in this checkout")
+    return scan(DEMO_DJANGO, "http://127.0.0.1:8810", project="demo_django")
+
+
+@pytest.fixture
+def demo_django_dir() -> Path:
+    if not DEMO_DJANGO.is_dir():
+        pytest.skip("fixtures/demo_django is not in this checkout")
+    return DEMO_DJANGO
 
 
 def write(root: Path, files: dict[str, str]) -> Path:

@@ -86,7 +86,7 @@ warn_unreachable = true
 explicit_package_bases = true
 mypy_path = ["packages/schemas/src", "packages/scanner/src", "packages/core/src", "fixtures/demo_shop/src"]
 files = ["."]
-exclude = ['^\.venv/', '^var/', '(^|/)migrations/', 'node_modules/', '^fixtures/demo_shop/e2e/']
+exclude = ['^\.venv/', '^var/', '(^|/)migrations/', 'node_modules/', '^fixtures/demo_shop/e2e/', '^fixtures/demo_django/']
 plugins = ["mypy_django_plugin.main"]
 
 [[tool.mypy.overrides]]

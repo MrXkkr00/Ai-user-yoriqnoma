@@ -139,6 +139,16 @@ class Identity:
     full_name: str
     phone: str
     provided: bool = False  # given by the site owner (not generated)
+    username: str = ""  # login name for sites that sign in by username (Django...)
+
+    @property
+    def first_name(self) -> str:
+        return self.full_name.split(" ")[0] if self.full_name else ""
+
+    @property
+    def last_name(self) -> str:
+        parts = self.full_name.split(" ")
+        return parts[-1] if len(parts) > 1 else ""
 
 
 def _translit(text: str) -> str:
@@ -217,8 +227,11 @@ class DataGen:
         short = hashlib.sha256(f"{self.run_id}|{role}|{alias}".encode()).hexdigest()[:6]
         email = f"{_translit(role)}.{alias.lower()}.{short}@{mail_domain}"
         password = "Yq-" + "".join(rng.choice(string.ascii_letters) for _ in range(7)) + "7a!"
-        ident = Identity(role, alias, email, password, person.full_name, person.phone)
-        for value in (email, password, person.full_name, person.phone):
+        username = f"{_translit(role)}_{alias.lower()}_{short}"
+        ident = Identity(
+            role, alias, email, password, person.full_name, person.phone, username=username
+        )
+        for value in (email, password, person.full_name, person.phone, username):
             self._keep(value)
         return ident
 
@@ -230,6 +243,12 @@ class DataGen:
         text: str
         if kind == "full_name":
             text = person.full_name
+        elif kind == "first_name":
+            text = person.first
+        elif kind == "last_name":
+            text = person.last
+        elif kind == "username":
+            text = f"{_translit(person.first)}_{rng.randint(100, 999)}"
         elif kind == "email":
             text = person.email
         elif kind == "phone_uz":

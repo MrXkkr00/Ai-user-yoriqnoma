@@ -182,6 +182,83 @@ def test_dom_decisions_by_zone() -> None:
     assert decision.counts["org:kept"] == 2 and decision.counts["editorial:kept"] == 1
 
 
+def test_dom_text_column_of_someone_elses_record_is_replaced() -> None:
+    """Server-rendered queue: «Mavzu» cells of other customers' tickets are user content."""
+    led = ledger()
+    own_subject = led.datagen.value("text", None, "Mavzu")
+    scan = {
+        "nodes": [
+            _node(0, "Dilnoza Karimova", "other", block=1, structural="name"),
+            _node(1, "Internet ishlamayapti", "other", block=1, structural="body"),
+            _node(2, own_subject, "other", block=2, structural="body"),
+        ],
+        "inputs": [],
+        "images": [],
+    }
+
+    decision = led.decide_dom(scan)
+    changed = {d["i"]: d["text"] for d in decision.nodes}
+
+    assert set(changed) == {0, 1}  # our own row stays as it is
+    assert "Internet" not in changed[1]
+    assert decision.counts["user_content:substituted"] == 1
+
+
+def test_ugc_text_headers_come_from_the_create_form() -> None:
+    from yoriqnoma_core.explorer.pseudonymize import ugc_text_headers
+    from yoriqnoma_schemas import Blueprint, Flow, Form, FormField, Policy, RoleInfo, Step, Target
+
+    bp = Blueprint(
+        schema_version="1.0",
+        project="p",
+        base_url="http://127.0.0.1:8810",  # type: ignore[arg-type]
+        source="code",
+        generated_at="2026-11-08T00:00:00Z",  # type: ignore[arg-type]
+        generator="t",
+        policy=Policy(target_role="customer", deny_paths=["/admin*"]),
+        roles=[
+            RoleInfo(id="guest", label="Mehmon", kind="guest", reason="r", source="s"),
+            RoleInfo(
+                id="customer",
+                label="Mijoz",
+                kind="role",
+                reason="r",
+                source="s",
+                self_signup=True,
+            ),
+        ],
+        pages=[],
+        forms=[
+            Form(
+                id="f",
+                page_path="/tickets/new/",
+                fields=[
+                    FormField(name="subject", label="Mavzu", type="text"),
+                    FormField(name="contact_phone", label="Telefon", type="text"),
+                    FormField(name="priority", label="Muhimlik", type="select"),
+                ],
+                submit=Target(role="button", name="Yuborish"),
+                api="POST /tickets/new/",
+            )
+        ],
+        entities=[Entity(name="ticket", source="s", actions=["create"], created_by=["customer"])],
+        flows=[
+            Flow(
+                id="customer.ticket.create",
+                title="t",
+                stage="core",
+                role="customer",
+                entity="ticket",
+                action="create",
+                source="s",
+                steps=[Step(action="goto", path="/tickets/new/")],
+            )
+        ],
+    )
+
+    assert ugc_text_headers(bp) == {"mavzu"}
+
+
 def test_bundle_has_only_allowed_files_and_rejects_zip_slip(tmp_path: Path) -> None:
     run = tmp_path / "run"
     (run / "capture" / "images").mkdir(parents=True)
