@@ -447,3 +447,15 @@ def test_final_review_applies_only_clean_corrections(tmp_path: Path) -> None:
     assert manual.models[-1] == "reviewer"
     saved = load_json(run / "manual.json", Manual)
     assert saved.sections[0].articles[0].purpose == register.purpose
+
+
+def test_coverage_report_warns_for_mode_b(tmp_path: Path) -> None:
+    """T27: a manual from mode B says it covers only what the site itself showed."""
+    from yoriqnoma_core.render import render_coverage
+
+    example = Path(__file__).resolve().parents[4] / "docs" / "schemas" / "examples"
+    manual = Manual.model_validate_json((example / "manual.example.json").read_text("utf-8"))
+    (tmp_path / "html").mkdir()
+    for mode, warned in (("local", False), ("A", False), ("B", True), ("A+B", True)):
+        page = render_coverage(manual.model_copy(update={"source_mode": mode}), tmp_path)
+        assert ("faqat sayt orqali topilgan" in page.read_text("utf-8")) is warned, mode

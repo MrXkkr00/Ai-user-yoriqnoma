@@ -159,13 +159,23 @@ def render_coverage(manual: Manual, out_dir: Path) -> Path:
         for i in sorted(manual.coverage.items, key=lambda x: (x.covered, x.kind, x.key))
     )
     percent = "".join(f"<li>{k}: <b>{v}%</b></li>" for k, v in manual.coverage.percent.items())
+    note = ""
+    if manual.source_mode in {"B", "A+B"}:
+        # mode B learns the site without its code (TZ 8, FR-SV5)
+        note = (
+            "<p class='note'><b>Diqqat:</b> bu yo'riqnoma "
+            + ("qisman " if manual.source_mode == "A+B" else "")
+            + "faqat sayt orqali topilgan imkoniyatlar asosida yozildi (kodsiz razvedka). "
+            "Mehmonga va berilgan akkauntlarga ko'rinmaydigan funksiyalar qamralmagan "
+            "bo'lishi mumkin.</p>"
+        )
     page = (
         "<!doctype html><html lang='uz'><meta charset='utf-8'>"
         f"<title>Qamrov hisoboti — {html_lib.escape(manual.project)}</title>"
         "<style>body{font:15px/1.5 system-ui,sans-serif;margin:2rem;max-width:980px}"
         "table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:4px 8px}"
-        ".no{background:#fff1f0}</style>"
-        f"<h1>Qamrov hisoboti: {html_lib.escape(manual.role_label)}</h1><ul>{percent}</ul>"
+        ".no{background:#fff1f0}.note{background:#fff8e1;padding:.5rem .75rem}</style>"
+        f"<h1>Qamrov hisoboti: {html_lib.escape(manual.role_label)}</h1>{note}<ul>{percent}</ul>"
         "<table><tr><th>Turi</th><th>Kalit</th><th>Qamralgan</th><th>Sabab</th></tr>"
         f"{rows}</table><p><a href='html/index.html'>Yo'riqnomaga qaytish</a></p></html>"
     )
