@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Domenlar{% endblock %}
+{% block content %}
+<h1>Domenlar</h1>
+<p class="muted">Server faqat siz qo'shgan domenlardagi saytlarni o'rganadi. Tasdiqlanmagan domenda faqat
+  passiv rejim ishlaydi: ochiq sahifalar ko'riladi, ro'yxatdan o'tilmaydi va forma yuborilmaydi.</p>
+<form method="post" class="inline-form card">{% csrf_token %}
+  <label>Domen <input name="host" placeholder="shop.example.uz" required></label>
+  <button type="submit">Qo'shish</button>
+</form>
+{% for d in domains %}
+<div class="card">
+  <div class="row">
+    <h2>{{ d.host }}</h2>
+    {% if d.verified %}<span class="badge s-done">Tasdiqlangan · {{ d.get_method_display }}</span>
+    {% else %}<span class="badge s-waiting_input">Tasdiqlanmagan</span>{% endif %}
+  </div>
+  {% if not d.verified %}
+  <p>Quyidagi uch usuldan birini bajaring, keyin «Tekshirish» tugmasini bosing:</p>
+  <ol>
+    <li><b>Fayl:</b> <code>{{ d.wellknown_url }}</code> manzilida ichida faqat
+      <code class="token">{{ d.token }}</code> yozilgan matn fayl.</li>
+    <li><b>Meta teg:</b> bosh sahifaning <code>&lt;head&gt;</code> qismida
+      <code class="token">{{ d.meta_tag }}</code></li>
+    <li><b>DNS:</b> <code>{{ d.host }}</code> uchun TXT yozuv: <code class="token">{{ d.dns_record }}</code></li>
+  </ol>
+  {% endif %}
+  <div class="actions">
+    <form method="post" action="{% url 'domains:verify' d.pk %}">{% csrf_token %}<button type="submit">Tekshirish</button></form>
+    <form method="post" action="{% url 'domains:delete' d.pk %}">{% csrf_token %}<button class="secondary" type="submit">O'chirish</button></form>
+  </div>
+</div>
+{% empty %}
+<p class="muted">Hali domen yo'q.</p>
+{% endfor %}
+{% endblock %}

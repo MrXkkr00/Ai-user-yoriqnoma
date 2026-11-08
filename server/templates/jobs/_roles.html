@@ -1,0 +1,19 @@
+{% if error %}<p class="error">{{ error }}</p>{% else %}
+<p><b>Saytda administratordan boshqa {{ count }} ta rol topildi. Qaysi rol uchun yo'riqnoma yozay?</b>
+  <span class="small muted">({{ project }}, {{ base_url }}; har rol uchun alohida ish)</span></p>
+<div class="grid">
+  {% for c in cards %}
+  <label class="role-card option {% if not c.selectable %}disabled{% endif %}">
+    <input type="checkbox" name="role" value="{{ c.id }}" {% if not c.selectable %}disabled{% endif %}>
+    <b>{{ c.label }}</b> <span class="muted small">({{ c.id }})</span><br>
+    {% if c.selectable %}
+      <span class="small">{{ c.description }}</span><br>
+      <span class="small muted">{{ c.pages }} sahifa · {{ c.tasks }} vazifa ·
+        {% if c.self_signup %}vosita o'zi ro'yxatdan o'tadi{% else %}akkaunt kerak{% endif %}</span>
+    {% else %}
+      <span class="small excluded">tanlab bo'lmaydi</span> <span class="small muted">— {{ c.reason }}</span>
+    {% endif %}
+  </label>
+  {% endfor %}
+</div>
+{% endif %}

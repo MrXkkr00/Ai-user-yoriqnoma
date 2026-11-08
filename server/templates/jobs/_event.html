@@ -1,0 +1,6 @@
+{% if e.kind == "log" %}<li class="lvl-{{ e.payload.level }}"><span class="muted small">{{ e.at|date:"H:i:s" }}</span> {{ e.payload.message }}</li>
+{% elif e.kind == "status" %}<li><span class="muted small">{{ e.at|date:"H:i:s" }}</span> <b>holat: {{ e.payload.status }}</b>{% if e.payload.error %} — <span class="error">{{ e.payload.error }}</span>{% endif %}</li>
+{% elif e.kind == "need_input" %}<li class="lvl-warning"><span class="muted small">{{ e.at|date:"H:i:s" }}</span> javob kerak: {{ e.payload.message }}</li>
+{% elif e.kind == "artifact" %}<li><span class="muted small">{{ e.at|date:"H:i:s" }}</span> natija: {{ e.payload.name }}</li>
+{% elif e.kind == "cost" %}<li class="small muted"><span>{{ e.at|date:"H:i:s" }}</span> {{ e.payload.task }} · {{ e.payload.model }} · ${{ e.payload.cost_usd|floatformat:4 }}</li>
+{% endif %}

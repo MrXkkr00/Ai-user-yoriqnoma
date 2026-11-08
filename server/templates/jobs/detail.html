@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Ish {{ job.pk }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'jobs:list' %}">← Ishlar</a></p>
+<h1>Ish {{ job.pk }}: {{ job.get_mode_display }} — «{{ job.role_label|default:job.role }}»</h1>
+<p class="small muted">{{ job.url }} · {{ job.get_environment_display }}{% if job.passive %} · <span class="warn">passiv rejim (domen tasdiqlanmagan)</span>{% endif %}</p>
+{% include "jobs/_status.html" %}
+<div class="card">
+  <h2>Jurnal</h2>
+  <ol class="log" id="log">{% for e in events %}{% include "jobs/_event.html" %}{% endfor %}</ol>
+  {% include "jobs/_poller.html" with last=last_event %}
+</div>
+{% endblock %}

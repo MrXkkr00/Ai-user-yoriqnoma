@@ -1,0 +1,1 @@
+<div id="poller" {% if oob %}hx-swap-oob="true"{% endif %}{% if not job.finished %} hx-get="{% url 'jobs:events' job.pk %}?after={{ last }}" hx-trigger="every 2s" hx-target="#log" hx-swap="beforeend"{% endif %}></div>

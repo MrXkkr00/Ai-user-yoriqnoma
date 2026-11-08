@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Yangi ish{% endblock %}
+{% block content %}
+<h1>Yangi ish</h1>
+{% if error %}<div class="messages"><div class="msg error">{{ error }}</div></div>{% endif %}
+<form method="post" enctype="multipart/form-data" class="form">{% csrf_token %}
+  <div class="card">
+    <h2>1. Rejim</h2>
+    <div class="mode-cards">
+      <label class="option"><input type="radio" name="mode" value="A" {% if data.mode == "A" or not data.mode %}checked{% endif %}>
+        <b>A — blueprint + URL</b><br><span class="small muted">Lokal dastur yaratgan blueprint.json. Server saytga o'zi kiradi.</span></label>
+      <label class="option"><input type="radio" name="mode" value="A_PRIME" {% if data.mode == "A_PRIME" %}checked{% endif %}>
+        <b>A' — bundle</b><br><span class="small muted">Sayt ichki tarmoqda: lokal dastur yaratgan bundle.zip. Server faqat yozadi.</span></label>
+      <label class="option"><input type="radio" name="mode" value="B" {% if data.mode == "B" %}checked{% endif %}>
+        <b>B — faqat URL</b><br><span class="small muted">Kod yo'q: server saytni o'zi o'rganadi (razvedka).</span></label>
+      <label class="option"><input type="radio" name="mode" value="A_PLUS_B" {% if data.mode == "A_PLUS_B" %}checked{% endif %}>
+        <b>A+B</b><br><span class="small muted">Blueprint asosiy, razvedka bo'sh joylarni to'ldiradi.</span></label>
+    </div>
+  </div>
+
+  <div class="card only-url">
+    <h2>2. Sayt</h2>
+    <div class="field"><label for="url">Sayt manzili (URL)</label>
+      <input id="url" name="url" type="url" value="{{ data.url }}" placeholder="https://staging.shop.example.uz/">
+      <p class="small muted">Domen «Domenlar» ro'yxatingizda bo'lishi kerak{% if not domains %} — <a href="{% url 'domains:list' %}">qo'shish</a>{% endif %}.
+        A rejimida bo'sh qolsa, blueprint'dagi manzil olinadi.</p></div>
+    <div class="field"><label for="environment">Muhit</label>
+      <select id="environment" name="environment">
+        <option value="staging">Staging (sinov)</option>
+        <option value="production" {% if data.environment == "production" %}selected{% endif %}>Production — faqat tasdiqlash oynasigacha boriladi</option>
+      </select></div>
+  </div>
+
+  <div class="card only-a">
+    <h2>3. blueprint.json va rol</h2>
+    <div class="field"><label for="blueprint">Lokal dastur yaratgan blueprint.json</label>
+      <input id="blueprint" name="blueprint" type="file" accept=".json,application/json"
+        hx-post="{% url 'jobs:roles' %}" hx-trigger="change" hx-encoding="multipart/form-data"
+        hx-target="#roles" hx-include="this"></div>
+    <div id="roles"><p class="small muted">Faylni tanlang: saytda topilgan rollar shu yerda chiqadi.</p></div>
+  </div>
+
+  <div class="card only-aprime">
+    <h2>3. bundle.zip</h2>
+    <div class="field"><label for="bundle">Lokal dastur yaratgan bundle.zip</label>
+      <input id="bundle" name="bundle" type="file" accept=".zip,application/zip"></div>
+    <p class="small muted">Rol bundle ichidan olinadi. Fayl tekshiriladi: hajm, xavfli yo'llar, fayl turlari, manifest.</p>
+  </div>
+
+  <div class="card only-b">
+    <h2>3. Rol</h2>
+    <p class="small muted">Kod yo'q, shuning uchun rolni o'zingiz ayting. Administrator va adminga o'xshash rollar uchun yo'riqnoma yozilmaydi.</p>
+    <div class="field"><label for="role_b">Rol nomi (lotin, masalan: customer, manager)</label>
+      <input id="role_b" name="role_b" value="{{ data.role_b }}"></div>
+    <div class="field"><label for="role_label">Yo'riqnomadagi nomi (masalan: Mijoz)</label>
+      <input id="role_label" name="role_label" value="{{ data.role_label }}"></div>
+  </div>
+
+  <div class="card only-url">
+    <h2>4. Rol akkauntlari</h2>
+    <p class="note small">Test akkauntning o'z ma'lumotlari yo'riqnomada o'zgarmasdan ko'rinadi —
+      unga haqiqiy odamning ma'lumotlarini yozmang. Parollar shifrlanadi va ish tugagach o'chiriladi.</p>
+    <p class="small muted">O'zi ro'yxatdan o'ta oladigan rol uchun bo'sh qoldirish mumkin: vosita o'zi ro'yxatdan o'tadi.</p>
+    <div class="inline-form">
+      <label>A login <input name="login_A" autocomplete="off"></label>
+      <label>A parol <input name="password_A" type="password" autocomplete="new-password"></label>
+    </div>
+    <div class="inline-form">
+      <label>B login <input name="login_B" autocomplete="off"></label>
+      <label>B parol <input name="password_B" type="password" autocomplete="new-password"></label>
+    </div>
+    <details><summary class="small">Yordamchi rol (masalan, menejer uchun buyurtma yaratadigan test mijoz)</summary>
+      <div class="inline-form">
+        <label>Rol <input name="helper_role" placeholder="customer"></label>
+        <label>Login <input name="helper_login" autocomplete="off"></label>
+        <label>Parol <input name="helper_password" type="password" autocomplete="new-password"></label>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>5. Natija va byudjet</h2>
+    <div class="field">
+      {% for key, label in formats %}
+      <label class="inline"><input type="checkbox" name="formats" value="{{ key }}" {% if key in default_formats %}checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </div>
+    <div class="field"><label for="budget_usd">Ish byudjeti, $ (Claude xarajati)</label>
+      <input id="budget_usd" name="budget_usd" type="number" step="0.5" min="0.5" value="{{ data.budget_usd|default:'3' }}"></div>
+  </div>
+  <button type="submit">Ishni boshlash</button>
+</form>
+{% endblock %}

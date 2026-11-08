@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Ishlar{% endblock %}
+{% block content %}
+<div class="row"><h1>Ishlar</h1><a class="button" href="{% url 'jobs:new' %}">Yangi ish</a></div>
+<div class="card budget small">
+  <span>Bugun: <b>${{ spent.user_day|floatformat:2 }}</b> / ${{ limits.user_day|floatformat:2 }}</span>
+  <span>Shu oy: <b>${{ spent.user_month|floatformat:2 }}</b> / ${{ limits.user_month|floatformat:2 }}</span>
+</div>
+<table>
+  <tr><th>#</th><th>Rejim</th><th>Rol</th><th>Sayt</th><th>Holat</th><th>Narx</th><th>Sana</th></tr>
+  {% for j in jobs %}
+  <tr>
+    <td><a href="{% url 'jobs:detail' j.pk %}">{{ j.pk }}</a></td>
+    <td>{{ j.get_mode_display }}</td>
+    <td>{{ j.role_label|default:j.role }}</td>
+    <td class="small">{{ j.url }}{% if j.passive %} <span class="warn">(passiv)</span>{% endif %}</td>
+    <td><span class="badge s-{{ j.status }}">{{ j.get_status_display }}</span></td>
+    <td>${{ j.cost_usd|floatformat:2 }}</td>
+    <td class="small muted">{{ j.created_at|date:"d.m.Y H:i" }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="7" class="muted">Hali ish yo'q. Avval domen qo'shing, keyin «Yangi ish».</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
