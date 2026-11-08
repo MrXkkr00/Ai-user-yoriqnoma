@@ -1,0 +1,7 @@
+# demo_shop image (server e2e profile): code and the built React app only.
+var/
+.env
+web/node_modules/
+web/src/
+e2e/
+**/__pycache__/

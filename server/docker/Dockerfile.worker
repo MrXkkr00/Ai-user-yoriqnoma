@@ -1,0 +1,32 @@
+# Worker: Celery + Playwright (Chromium) + core + scout (ARCHITECTURE §7.1).
+# The official Playwright image already has the browser and its system libraries; its
+# version matches the playwright package in uv.lock. Runs as the image's non-root user.
+# The Claude key is NOT baked in: compose gives docker/worker.env to this service only.
+FROM mcr.microsoft.com/playwright/python:v1.64.1-noble
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    YORIQNOMA_ROLE=worker
+
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+COPY packages ./packages
+RUN uv sync --frozen --no-dev --no-install-project
+
+# .dockerignore keeps env files, keys, var/ and .venv out of the build context.
+COPY . .
+RUN uv sync --frozen --no-dev \
+    && mkdir -p /app/var && chown -R pwuser /app/var /opt/venv
+
+USER pwuser
+
+# One job per child process (a fresh Python and browser for every job), late acks,
+# one task prefetched at a time; concurrency comes from YORIQNOMA_MAX_CONCURRENT_JOBS.
+CMD ["sh", "-c", "celery -A yoriqnoma_server worker -l info --concurrency=${YORIQNOMA_MAX_CONCURRENT_JOBS:-2} --prefetch-multiplier=1 --max-tasks-per-child=1"]

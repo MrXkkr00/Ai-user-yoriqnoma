@@ -1,0 +1,38 @@
+# Web: Django + DRF behind gunicorn (ARCHITECTURE §7.1). No Claude key here, ever:
+# the key is only in docker/worker.env, given to the worker service alone (TZ SEC-12).
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+COPY packages ./packages
+RUN uv sync --frozen --no-dev --no-install-project
+
+# .dockerignore keeps env files, keys, var/ and .venv out of the build context.
+COPY . .
+RUN uv sync --frozen --no-dev
+
+# Static files are collected at build time with throw-away values (never real secrets).
+RUN DJANGO_SETTINGS_MODULE=yoriqnoma_server.settings.prod \
+    DJANGO_SECRET_KEY=build-only DJANGO_ALLOWED_HOSTS=localhost \
+    DATABASE_URL=sqlite:////tmp/build.sqlite3 \
+    S3_ENDPOINT_URL=http://minio:9000 S3_BUCKET=build S3_ACCESS_KEY=build S3_SECRET_KEY=build \
+    YORIQNOMA_FERNET_KEY=build YORIQNOMA_PSEUDONYM_KEY=build-only-not-a-key \
+    DJANGO_STATIC_ROOT=/app/staticfiles \
+    python manage.py collectstatic --noinput
+
+RUN useradd --create-home --uid 10001 app && chown -R app /app
+USER app
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/accounts/login/', timeout=4)"
+ENTRYPOINT ["sh", "docker/web-entrypoint.sh"]

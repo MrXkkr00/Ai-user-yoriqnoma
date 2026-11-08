@@ -64,6 +64,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--port", type=int, default=8800)
     parser.add_argument("--reset", action="store_true", help="delete and re-seed the database")
     parser.add_argument("--var-dir", type=Path, default=None)
+    # 0.0.0.0 only inside the server's e2e test container (docker compose --profile test)
+    parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args(argv)
     if args.var_dir:
         os.environ["DEMO_SHOP_VAR"] = str(args.var_dir)
@@ -71,8 +73,8 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     import uvicorn
 
-    print(f"Demo Shop: http://127.0.0.1:{args.port}/  (pochta: {config.mail_dir()})")
-    uvicorn.run(create_app(), host="127.0.0.1", port=args.port, log_level="warning")
+    print(f"Demo Shop: http://{args.host}:{args.port}/  (pochta: {config.mail_dir()})")
+    uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

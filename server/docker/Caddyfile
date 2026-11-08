@@ -1,0 +1,26 @@
+# TLS (Let's Encrypt) and reverse proxy (ARCHITECTURE §7.1).
+# YORIQNOMA_PUBLIC_HOST comes from docker/.env, e.g. yoriqnoma.example.uz.
+
+{$YORIQNOMA_PUBLIC_HOST} {
+	encode zstd gzip
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+		header Cache-Control "public, max-age=86400"
+	}
+	handle {
+		reverse_proxy web:8000
+	}
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+	}
+	request_body {
+		max_size 520MB
+	}
+}
+
+# Short-lived signed download links of results (S3_PUBLIC_ENDPOINT_URL=https://files.<host>).
+files.{$YORIQNOMA_PUBLIC_HOST} {
+	reverse_proxy minio:9000
+}

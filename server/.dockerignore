@@ -1,0 +1,17 @@
+# Never send secrets, local data or caches into an image (TZ SEC-12).
+.venv/
+var/
+staticfiles/
+**/__pycache__/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.pytest_cache/
+.env
+.env.*
+*.env
+docker/.env
+docker/worker.env
+*.key
+*.pem
+!docker/*.example
+!docker/.env.example

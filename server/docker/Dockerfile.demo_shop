@@ -1,0 +1,12 @@
+# The test site (local/fixtures/demo_shop) for the e2e profile only:
+#   docker compose -f docker/compose.yml -f docker/compose.test.yml --profile test up
+# Build context: local/fixtures/demo_shop (its React build is committed).
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DEMO_SHOP_VAR=/data
+WORKDIR /site
+COPY . .
+RUN pip install --no-cache-dir . && useradd --create-home --uid 10002 site \
+    && mkdir -p /data && chown site /data
+USER site
+EXPOSE 8800
+CMD ["demo-shop", "--host", "0.0.0.0", "--port", "8800", "--reset"]

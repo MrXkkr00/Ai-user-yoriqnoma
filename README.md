@@ -28,10 +28,12 @@ local/                    lokal dastur (alohida uv loyihasi)
 server/                   server dastur (alohida uv loyihasi)
   packages/schemas        lokaldagi nusxa
   packages/core           lokaldagi nusxa
-  yoriqnoma_server/       Django loyiha: settings/{base,dev,prod,test}, celery
+  yoriqnoma_server/       Django loyiha: settings/{base,dev,prod,test,e2e}, celery
   accounts/ domains/ jobs/ scout/ security/ api/    Django ilovalar
-  tests/
-docs/                     TZ, arxitektura, vazifalar
+  templates/ static/      HTMX sahifalar
+  docker/                 Dockerfile'lar, compose.yml, Caddyfile, env shablonlari
+  tests/                  umumiy testlar, e2e/ (docker compose)
+docs/                     TZ, arxitektura, vazifalar, DEPLOY.md
 ```
 
 `schemas` va `core` ikkala dasturda aynan bir xil nusxada turadi, shuning uchun har bir
@@ -124,14 +126,36 @@ qayta yozish tez bo'ladi.
 
 ## Server dastur
 
+Onlayn server: foydalanuvchilar ro'yxatdan o'tadi, o'z domenlarini qo'shib tasdiqlaydi va ish
+yaratadi. Yo'riqnomani Claude yozadi. Rejimlar:
+
+| Rejim | Kirish | Nima bo'ladi |
+|---|---|---|
+| A | lokal dastur yaratgan `blueprint.json` + URL | server saytga o'zi kiradi, o'rganadi, yozadi |
+| A' | lokal dastur yaratgan `bundle.zip` | sayt ichki tarmoqda: server faqat yozadi va tayyorlaydi |
+| B | faqat URL | razvedka: sayt o'zi o'rganiladi (sahifalar, JS route'lar, formalar, kirish, Claude agenti) |
+| A+B | `blueprint.json` + URL | blueprint asosiy, razvedka faqat yangi narsalarni qo'shadi |
+
 ```bash
 cd server
 uv sync
-docker compose -f docker/compose.yml up
+cp docker/.env.example docker/.env               # to'ldiring, chmod 600
+cp docker/worker.env.example docker/worker.env   # faqat ANTHROPIC_API_KEY
+docker compose -f docker/compose.yml up -d --build
 ```
 
-Claude API kaliti va boshqa sirlar faqat serverning o'zidagi env fayllarda turadi
-(`docker/.env`, `docker/worker.env`) va git'ga tushmaydi. Batafsil: ARCHITECTURE §8.
+- Sahifalar: `/accounts/register/`, `/domains/` (tasdiqlash: fayl, meta teg yoki DNS TXT),
+  `/jobs/new/`, `/jobs/<id>/` (jonli jarayon). REST API: `/api/` (faqat sessiya bilan).
+  Operatorlar: `/ops/`.
+- Tasdiqlanmagan domenda faqat passiv rejim: ochiq sahifalar, ro'yxatdan o'tish va forma yo'q.
+- Har bir foydalanuvchi uchun kunlik va oylik, butun server uchun oylik xarajat limiti bor.
+- Claude API kaliti va boshqa sirlar faqat serverning o'zidagi env fayllarda turadi
+  (`docker/.env`, `docker/worker.env`) va git'ga tushmaydi. Kalit faqat worker konteyneriga beriladi.
+- O'rnatish, tarmoq cheklovlari, zaxira nusxa va kalitni almashtirish: [docs/DEPLOY.md](docs/DEPLOY.md).
+
+Dasturchi uchun (Docker'siz): `uv run python manage.py migrate && uv run python manage.py runserver`
+(dev sozlamalari, SQLite, fayllar `server/var/` da). Sekin testlar demo_shop'ni lokal dastur
+muhitidan alohida jarayon sifatida ishga tushiradi: `uv run pytest -m slow`.
 
 ## Tekshiruvlar
 
@@ -150,5 +174,6 @@ Git hook'lari (ixtiyoriy): `uv run --directory local pre-commit install`.
 
 ## Uchinchi tomon fayllari
 
-- `local/static/vendor/htmx.min.js` — [htmx](https://htmx.org) 2.0.11, 0BSD litsenziyasi.
-  Lokal dastur internetsiz ishlashi uchun CDN o'rniga shu nusxa ishlatiladi.
+- `local/static/vendor/htmx.min.js` va `server/static/vendor/htmx.min.js` — [htmx](https://htmx.org)
+  2.0.11, 0BSD litsenziyasi. CDN o'rniga shu nusxa ishlatiladi (lokal dastur internetsiz ishlaydi,
+  server CSP tashqi skriptlarga ruxsat bermaydi).
