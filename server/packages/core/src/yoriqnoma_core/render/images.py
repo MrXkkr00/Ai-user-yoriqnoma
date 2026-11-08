@@ -26,6 +26,7 @@ class RenderedImage:
     webp: Path
     width: int
     height: int
+    scale: float = 1.0  # image pixels per CSS pixel (2.0 for retina captures)
 
 
 def _union(boxes: list[BBox]) -> BBox:
@@ -112,4 +113,4 @@ def render_step_image(
     webp = out_base.with_suffix(".webp")
     img.save(png, optimize=True)
     img.save(webp, quality=82)
-    return RenderedImage(png, webp, img.width, img.height)
+    return RenderedImage(png, webp, img.width, img.height, scale)

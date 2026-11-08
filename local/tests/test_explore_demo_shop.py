@@ -40,6 +40,18 @@ pytestmark = pytest.mark.slow
 
 
 @pytest.fixture(scope="module")
+def demo_shop_url(fresh_demo_shop: tuple[str, Path]) -> str:
+    """This module's own demo_shop: the seed only, no orders made by other test modules
+    (the manager must find the seed customer's order with the delivery slip)."""
+    return fresh_demo_shop[0]
+
+
+@pytest.fixture(scope="module")
+def demo_shop_var(fresh_demo_shop: tuple[str, Path]) -> Path:
+    return fresh_demo_shop[1]
+
+
+@pytest.fixture(scope="module")
 def blueprint(demo_shop_url: str) -> Blueprint:
     return scan(DEMO_SHOP, demo_shop_url, project="demo_shop").blueprint
 

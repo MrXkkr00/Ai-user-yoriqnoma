@@ -27,7 +27,15 @@ from yoriqnoma_core.pipeline import (
 )
 from yoriqnoma_core.writer.providers import FakeProvider, OllamaProvider
 from yoriqnoma_core.writer.providers.base import LLMProvider
-from yoriqnoma_schemas import Blueprint, load_json
+from yoriqnoma_schemas import Blueprint, CaptureRun, load_json
+
+
+def previous_scope(previous: Path | None) -> str:
+    """An update run keeps the fakes of the run it updates (T30)."""
+    if previous is None or not (previous / "capture" / "capture.json").is_file():
+        return ""
+    old = load_json(previous / "capture" / "capture.json", CaptureRun)
+    return old.pseudonym_scope or old.run_id
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -46,6 +54,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--formats", default="html,pdf,docx")
     run.add_argument("--allow-private", action="store_true", help="site on 127.0.0.1 (local)")
     run.add_argument("--headed", action="store_true")
+    run.add_argument("--previous", type=Path, help="earlier run folder: changelog.md")
+    run.add_argument("--scale", type=float, default=1.0, help="2 = sharp (retina) images")
     args = parser.parse_args(argv)
 
     bp = load_json(args.blueprint, Blueprint)
@@ -70,6 +80,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         headless=not args.headed,
         pseudonym_key=SecretBytes(secrets.token_bytes(32)),
         run_id=args.out.name,
+        device_scale_factor=args.scale,
+        pseudonym_scope=previous_scope(args.previous),
     )
     provider: LLMProvider = (
         FakeProvider()
@@ -82,7 +94,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"capture: {len(capture.states)} holat, {len(capture.flows)} flow")
     manual = asyncio.run(
         run_write(
-            args.out, provider, progress, cancel, cache_dir=args.out.parent / ".cache" / "llm"
+            args.out,
+            provider,
+            progress,
+            cancel,
+            cache_dir=args.out.parent / ".cache" / "llm",
+            previous=args.previous,
         )
     )
     print(

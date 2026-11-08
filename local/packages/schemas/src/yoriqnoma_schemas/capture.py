@@ -7,7 +7,15 @@ from typing import Literal, Self
 
 from pydantic import Field, HttpUrl, model_validator
 
-from yoriqnoma_schemas.common import BBox, Environment, RoleId, StrictModel, Target
+from yoriqnoma_schemas.common import (
+    SCHEMA_VERSION,
+    BBox,
+    Environment,
+    RoleId,
+    SchemaVersion,
+    StrictModel,
+    Target,
+)
 
 AccountAlias = Literal["A", "B", "guest"]
 ElementKind = Literal["button", "link", "input", "select", "tab", "menu", "other"]
@@ -21,6 +29,7 @@ class Element(StrictModel):
     selector: Target
     kind: ElementKind
     enabled: bool = True
+    css: str | None = None  # CSS path on the page (guided tours, schema 1.1)
 
 
 class NetCall(StrictModel):
@@ -78,7 +87,7 @@ class BlockedRequest(StrictModel):
 
 
 class CaptureRun(StrictModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: SchemaVersion = SCHEMA_VERSION
     run_id: str
     blueprint_hash: str
     role: RoleId  # the target role
@@ -96,6 +105,8 @@ class CaptureRun(StrictModel):
     public_values: list[str] = Field(default_factory=list)  # kept org / published values
     privilege_ok: bool | None = None  # SEC-6 probe result: yes / no only
     notes: list[str] = Field(default_factory=list)
+    # scope of the fakes (a run id, not a secret); update runs reuse it (schema 1.1)
+    pseudonym_scope: str | None = None
 
     @model_validator(mode="after")
     def _state_refs(self) -> Self:

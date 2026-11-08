@@ -27,6 +27,7 @@ from yoriqnoma_core.explorer.options import (
 from yoriqnoma_core.explorer.runner import RunAborted, run_explorer
 from yoriqnoma_core.render import RenderResult, build
 from yoriqnoma_core.writer import estimate_calls, write_manual
+from yoriqnoma_core.writer.changes import write_changelog
 from yoriqnoma_core.writer.providers.base import LLMProvider
 from yoriqnoma_schemas import Blueprint, CaptureRun, Manual, save_json
 
@@ -72,7 +73,12 @@ async def run_write(
     cancel: CancelToken,
     cache_dir: Path | None = None,
     source_mode: str = "local",
+    previous: Path | None = None,
 ) -> Manual:
+    """Write manual.json; with ``previous`` (an earlier run folder) also changelog.md (T30).
+
+    Unchanged screens give the same prompts, so their texts come from the cache.
+    """
     progress.stage("write", estimate_calls(run_dir))
 
     def before_call(task: str) -> None:
@@ -90,6 +96,12 @@ async def run_write(
     )
     for error in stats.errors[:5]:
         progress.log("warning", error)
+    if previous is not None:
+        changelog = write_changelog(previous, run_dir)
+        if changelog is None:
+            progress.log("warning", f"oldingi natija ({previous.name}) to'liq emas: changelog yo'q")
+        else:
+            progress.log("info", f"o'zgarishlar ro'yxati: {changelog.name}")
     return manual
 
 

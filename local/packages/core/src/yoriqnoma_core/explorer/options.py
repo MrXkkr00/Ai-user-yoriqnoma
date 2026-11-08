@@ -31,11 +31,13 @@ class ExploreOptions(BaseModel):
     allow_private: bool = False  # True only in the local app (site may be on 127.0.0.1)
     headless: bool = True
     viewport: tuple[int, int] = (1280, 800)
+    device_scale_factor: float = 1.0  # 2.0: sharp (retina) manual images
     max_page_height: int = 2400
     locale: str = "uz-UZ"
     timezone: str = "Asia/Tashkent"
     seed: str = "yoriqnoma"
     run_id: str = ""
+    pseudonym_scope: str = ""  # update runs reuse the first run's scope (T30)
     pseudonym_key: SecretBytes  # HMAC key for stable fakes; never written anywhere
     step_timeout_ms: int = 8000
     org_domains: list[str] = Field(default_factory=list)  # extra domains of the organization

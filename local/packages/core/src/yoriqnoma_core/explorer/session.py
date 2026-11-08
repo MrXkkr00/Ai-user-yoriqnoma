@@ -72,7 +72,7 @@ class BrowserSession:
             timezone_id=self.opts.timezone,
             accept_downloads=True,
             base_url=self.opts.base_url,
-            device_scale_factor=1,
+            device_scale_factor=self.opts.device_scale_factor,
         )
         context.set_default_timeout(self.opts.step_timeout_ms)
         firewall: Firewall = self._make_firewall()  # type: ignore[operator]

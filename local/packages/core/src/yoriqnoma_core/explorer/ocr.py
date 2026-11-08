@@ -9,12 +9,26 @@ from __future__ import annotations
 
 import hashlib
 import io
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from PIL import Image
 
 from yoriqnoma_core.safety.pii import find_pii
+
+PUBLIC_ZONES = {"org", "editorial"}
+# A capital letter right after a small one inside a word ("MBaHOB", "KapuMoB"): what the
+# Latin OCR model makes of Cyrillic. Real Cyrillic, if the model returns it, counts too.
+_MIXED = re.compile(r"[A-Za-z]*[a-z][A-Z][A-Za-z]*")
+_CYRILLIC = re.compile(r"[\u0400-\u04ff]")
+
+
+def unreadable(text: str) -> bool:
+    """OCR text that may hide a name the PII rules cannot see (default-deny)."""
+    if _CYRILLIC.search(text):
+        return True
+    return any(len(t) >= 4 and _MIXED.fullmatch(t) for t in re.findall(r"[A-Za-z]+", text))
 
 
 @dataclass
@@ -85,17 +99,20 @@ def check_images(
         zone = str(img.get("zone", "other"))
         for line in engine.read(crop):
             lines_read += 1
-            for m in find_pii(line.text, ignore):
-                x0, y0, x1, y1 = line.box
-                doc = (
-                    x + x0 / scale - 4,
-                    y + y0 / scale - 4,
-                    x + x1 / scale + 4,
-                    y + y1 / scale + 4,
-                )
-                public = zone in {"org", "editorial"} or (
-                    m.kind == "email" and is_org_email(m.value)
-                )
+            x0, y0, x1, y1 = line.box
+            doc = (
+                x + x0 / scale - 4,
+                y + y0 / scale - 4,
+                x + x1 / scale + 4,
+                y + y1 / scale + 4,
+            )
+            matches = find_pii(line.text, ignore)
+            if not matches and zone not in PUBLIC_ZONES and unreadable(line.text):
+                # Cyrillic read with a Latin model ("Иванов" -> "MBaHOB"): may be a name
+                hits.append(OcrHit("o'qib bo'lmaydigan matn", zone, "blurred", doc))
+                continue
+            for m in matches:
+                public = zone in PUBLIC_ZONES or (m.kind == "email" and is_org_email(m.value))
                 hits.append(
                     OcrHit(
                         m.kind,

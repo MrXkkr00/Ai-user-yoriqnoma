@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from yoriqnoma_schemas.common import RoleId, Stage, StrictModel
+from yoriqnoma_schemas.common import SCHEMA_VERSION, RoleId, SchemaVersion, Stage, StrictModel
 
 SectionStage = Stage | Literal["reference", "faq", "unverified"]
 SourceMode = Literal["A", "A'", "B", "A+B", "local"]
@@ -73,7 +73,7 @@ class Coverage(StrictModel):
 
 
 class Manual(StrictModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: SchemaVersion = SCHEMA_VERSION
     project: str
     language: str = "uz"
     role: RoleId

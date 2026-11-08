@@ -251,7 +251,9 @@ ROW_LINKS = r"""
   for (const a of document.querySelectorAll('table a[href], li a[href], .card a[href]')) {
     const href = a.getAttribute('href') || '';
     if (!href.startsWith('/') || href.startsWith('/api/')) continue;
-    out.push({href, name: (a.innerText || '').trim().slice(0, 60)});
+    const row = a.closest('tr, li, .card');
+    out.push({href, name: (a.innerText || '').trim().slice(0, 60),
+              row: row ? (row.innerText || '').slice(0, 400) : ''});
   }
   return out;
 }

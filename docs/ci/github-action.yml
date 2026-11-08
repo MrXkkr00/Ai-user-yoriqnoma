@@ -1,0 +1,99 @@
+# Namuna: staging'ga deploy'dan keyin yo'riqnomani avtomatik yangilash (TASKS T30).
+#
+# Bu faylni o'z loyihangizning .github/workflows/ papkasiga ko'chiring va moslang.
+# Lokal dastur Ollama bilan ishlaydi, shuning uchun bu ish GPU va Ollama o'rnatilgan
+# self-hosted runner'da bajariladi (GitHub'ning oddiy runner'larida GPU yo'q).
+# Server A rejimi kerak bo'lsa, blueprint.json ni server sahifasida odam o'zi yuklaydi
+# (lokal va server bir-biriga ulanmaydi), shuning uchun bu yerda faqat lokal yo'l bor.
+#
+# Kerakli sirlar (Settings -> Secrets and variables -> Actions):
+#   STAGING_URL          - masalan https://staging.example.uz (production emas!)
+#   MANAGER_LOGIN        - maqsadli rolning test akkaunti (haqiqiy odam ma'lumoti emas)
+#   MANAGER_PASSWORD
+# Test akkauntlarga haqiqiy odamning ma'lumotlarini yozmang: ular yo'riqnomada ko'rinadi.
+
+name: Yo'riqnomani yangilash
+
+on:
+  workflow_run:
+    workflows: ["Deploy staging"]   # sizning deploy workflow'ingiz nomi
+    types: [completed]
+  workflow_dispatch: {}
+
+jobs:
+  manual:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, gpu, ollama]
+    timeout-minutes: 120
+    env:
+      PYTHONUTF8: "1"
+      YORIQNOMA_VAR_DIR: ${{ runner.temp }}/yoriqnoma-var   # har safar toza papka
+    steps:
+      - name: Sayt kodi
+        uses: actions/checkout@v4
+        with:
+          path: site
+
+      - name: AI_user_yoriqnoma (lokal dastur)
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/ai-user-yoriqnoma   # o'zingizning nusxangiz
+          path: yoriqnoma
+
+      - name: uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: O'rnatish
+        working-directory: yoriqnoma/local
+        run: |
+          uv sync
+          uv run playwright install chromium
+
+      # Keshda faqat baza, natijalar va LLM keshi turadi. Kalitlar (secret.key, pseudonym.key)
+      # keshga tushmaydi: har ishga tushishda yangisi yaratiladi.
+      - name: Oldingi natija (yangilash va o'zgarishlar ro'yxati uchun)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ runner.temp }}/yoriqnoma-var/local.sqlite3
+            ${{ runner.temp }}/yoriqnoma-var/runs
+            ${{ runner.temp }}/yoriqnoma-var/cache
+          key: yoriqnoma-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: yoriqnoma-${{ github.ref_name }}-
+
+      - name: Skan va yo'riqnoma
+        working-directory: yoriqnoma/local
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+          MANAGER_LOGIN: ${{ secrets.MANAGER_LOGIN }}
+          MANAGER_PASSWORD: ${{ secrets.MANAGER_PASSWORD }}
+        run: |
+          uv run python manage.py migrate --noinput
+          # birinchi marta loyiha yaratiladi, keyingi safarlar mavjud loyiha qayta skanerlanadi
+          uv run python manage.py scan --project site || \
+            uv run python manage.py scan --path "$GITHUB_WORKSPACE/site" \
+              --base-url "$STAGING_URL" --name site
+          uv run python manage.py account --project site --role manager --alias A \
+            --login "$MANAGER_LOGIN" --password "$MANAGER_PASSWORD"
+          PREVIOUS=$(uv run python manage.py shell -c \
+            "from runs.models import Run; r = Run.objects.filter(project__slug='site', role='manager', output='full', status='done').order_by('-pk').first(); print(r.pk if r else '')")
+          uv run python manage.py run --project site --output full --role manager \
+            --formats html,pdf,docx,tour ${PREVIOUS:+--previous $PREVIOUS}
+
+      - name: Natijani saqlash
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/yoriqnoma-var/local.sqlite3
+            ${{ runner.temp }}/yoriqnoma-var/runs
+            ${{ runner.temp }}/yoriqnoma-var/cache
+          key: yoriqnoma-${{ github.ref_name }}-${{ github.run_id }}
+
+      - name: Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoriqnoma-manager
+          path: |
+            ${{ runner.temp }}/yoriqnoma-var/runs/site/*/dist/
+          retention-days: 30

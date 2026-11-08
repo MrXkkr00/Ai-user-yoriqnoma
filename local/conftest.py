@@ -9,6 +9,7 @@ import sys
 import time
 import urllib.request
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -47,16 +48,11 @@ def wait_until_ready(url: str, timeout: float = 30.0) -> None:
     raise RuntimeError(f"demo_shop did not start at {url}")
 
 
-@pytest.fixture(scope="session")
-def demo_shop_var(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return tmp_path_factory.mktemp("demo_shop_var")
-
-
-@pytest.fixture(scope="session")
-def demo_shop_url(demo_shop_var: Path) -> Iterator[str]:
-    """Start demo_shop with a fresh database in a temp folder; stop it at the end."""
+@contextmanager
+def running_demo_shop(var: Path) -> Iterator[str]:
+    """demo_shop with a fresh database in ``var``; stopped when the block ends."""
     port = _free_port()
-    env = {**os.environ, "DEMO_SHOP_VAR": str(demo_shop_var)}
+    env = {**os.environ, "DEMO_SHOP_VAR": str(var)}
     env.pop("MAILPIT_SMTP", None)  # mail goes to <var>/mail/*.eml (DirMailbox)
     proc = subprocess.Popen(
         [sys.executable, "-m", "demo_shop", "--port", str(port), "--reset"],
@@ -74,3 +70,24 @@ def demo_shop_url(demo_shop_var: Path) -> Iterator[str]:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+
+
+@pytest.fixture(scope="session")
+def demo_shop_var(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("demo_shop_var")
+
+
+@pytest.fixture(scope="session")
+def demo_shop_url(demo_shop_var: Path) -> Iterator[str]:
+    """One demo_shop for the session (tests that only add their own data)."""
+    with running_demo_shop(demo_shop_var) as url:
+        yield url
+
+
+@pytest.fixture(scope="module")
+def fresh_demo_shop(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[str, Path]]:
+    """A demo_shop of its own for one test module: only the seed data, nothing from
+    other tests (the explorer tests count what the seed holds)."""
+    var = tmp_path_factory.mktemp("demo_shop_fresh")
+    with running_demo_shop(var) as url:
+        yield url, var

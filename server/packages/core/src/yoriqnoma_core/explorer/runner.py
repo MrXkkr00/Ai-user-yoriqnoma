@@ -103,7 +103,12 @@ class Runner:
         )
         self.policy = policy
         self.engine = PolicyEngine(policy, opts.base_url)
-        self.datagen = DataGen(opts.seed, self.run_id, opts.pseudonym_key.get_secret_value())
+        self.datagen = DataGen(
+            opts.seed,
+            self.run_id,
+            opts.pseudonym_key.get_secret_value(),
+            scope=opts.pseudonym_scope,
+        )
         self.accounts = AccountManager(blueprint, opts, self.datagen)
         self.ledger = PrivacyLedger(
             datagen=self.datagen,
@@ -266,6 +271,7 @@ class Runner:
             public_values=sorted(self.ledger.public_values),
             privilege_ok=True if f"{self.role}:A" in self.privilege_checked else None,
             notes=self.notes,
+            pseudonym_scope=self.datagen.scope,
         )
         save_json(self.run_dir / "capture" / "capture.json", capture)
         self._save_progress()
@@ -690,6 +696,10 @@ class Runner:
                     links: list[dict[str, str]] = await page.evaluate(js.ROW_LINKS)
                 except PlaywrightError:
                     links = []
+                # Records of other people first: a row that shows a value our own test
+                # accounts made (their names, emails) is the tool's leftover, not a real one.
+                made = {v for v in self.datagen.own_values if len(v) >= 5}
+                links.sort(key=lambda lk: any(v in lk.get("row", "") for v in made))
                 for link in links:
                     ids = re.findall(r"/(\d+)(?:/|$)", link["href"])
                     if not ids or ids[-1] in own or not self.engine.allows_path(link["href"]):

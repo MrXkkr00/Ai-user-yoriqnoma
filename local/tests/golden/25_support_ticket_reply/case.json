@@ -1,0 +1,61 @@
+{
+  "title": "Javobni yuborish",
+  "role": "support",
+  "url": "/support/tickets/3/reply/",
+  "steps": [
+    "Kerakli yozuvni ro'yxatdan tanlab, uning sahifasini oching.",
+    "«Javob» maydoniga matnni (kamida 2 ta belgi) kiriting ⑥.",
+    "«Javobni yuborish» tugmasini bosing ⑦.",
+    "Natija rasmda ko'rsatilgan."
+  ],
+  "elements": [
+    {
+      "marker": 1,
+      "role": "link",
+      "name": "Bosh sahifa"
+    },
+    {
+      "marker": 2,
+      "role": "link",
+      "name": "Murojaatlarim"
+    },
+    {
+      "marker": 3,
+      "role": "link",
+      "name": "Profil"
+    },
+    {
+      "marker": 4,
+      "role": "link",
+      "name": "Murojaatlar navbati"
+    },
+    {
+      "marker": 5,
+      "role": "button",
+      "name": "Chiqish"
+    },
+    {
+      "marker": 6,
+      "role": "textbox",
+      "name": "Javob:"
+    },
+    {
+      "marker": 7,
+      "role": "button",
+      "name": "Javobni yuborish"
+    }
+  ],
+  "expected": {
+    "keywords": [
+      "javob",
+      "yuborish"
+    ],
+    "forbidden": [
+      "admin",
+      "administrator",
+      "Dilnoza",
+      "Karimova",
+      "Internet ishlamayapti"
+    ]
+  }
+}

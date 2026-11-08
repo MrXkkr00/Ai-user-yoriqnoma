@@ -199,13 +199,17 @@ def _format_phone_like(fake: str, real: str) -> str:
 
 
 class DataGen:
-    def __init__(self, seed: str, run_id: str, pseudonym_key: bytes) -> None:
+    def __init__(self, seed: str, run_id: str, pseudonym_key: bytes, scope: str = "") -> None:
         if len(pseudonym_key) < 16:
             raise ValueError("pseudonym_key kamida 16 bayt bo'lishi kerak")
         self.seed = seed
         self.run_id = run_id
+        # fakes for other people's data: same within a scope (a run, or a run and its
+        # updates), different across unrelated runs (TZ FR-E10)
+        self.scope = scope or run_id
         self._key = pseudonym_key
-        self.generated: set[str] = set()
+        self.generated: set[str] = set()  # everything made: own data and fakes
+        self.own_values: set[str] = set()  # only what our test accounts typed or are
         self._counter = 0
 
     def __repr__(self) -> str:  # never show the key
@@ -232,7 +236,7 @@ class DataGen:
             role, alias, email, password, person.full_name, person.phone, username=username
         )
         for value in (email, password, person.full_name, person.phone, username):
-            self._keep(value)
+            self.own_values.add(self._keep(value))
         return ident
 
     def value(self, kind: str, rules: str | None = None, context: str = "") -> str:
@@ -263,7 +267,9 @@ class DataGen:
             text = f"2026-12-{rng.randint(1, 28):02d}"
         else:
             text = rng.choice(SENTENCES)
-        return self._keep(self._fit(text, rules))
+        value = self._keep(self._fit(text, rules))
+        self.own_values.add(value)
+        return value
 
     @staticmethod
     def _fit(text: str, rules: str | None) -> str:
@@ -287,7 +293,7 @@ class DataGen:
     # --- stable fakes for foreign values ------------------------------------------
 
     def _hmac_rng(self, *parts: str) -> random.Random:
-        mac = hmac.new(self._key, "|".join([self.run_id, *parts]).encode(), hashlib.sha256)
+        mac = hmac.new(self._key, "|".join([self.scope, *parts]).encode(), hashlib.sha256)
         return random.Random(int.from_bytes(mac.digest()[:8], "big"))
 
     def fake_person(self, record_key: str) -> Person:

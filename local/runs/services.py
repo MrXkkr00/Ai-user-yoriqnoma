@@ -39,10 +39,11 @@ from yoriqnoma_core.pipeline import (
 from yoriqnoma_core.writer.providers import OllamaProvider
 from yoriqnoma_core.writer.providers.base import ProviderError
 from yoriqnoma_local.keys import decrypt, encrypt, pseudonym_key
-from yoriqnoma_schemas import save_json
+from yoriqnoma_schemas import CaptureRun, load_json, save_json
 
 T = TypeVar("T")
-FORMATS = ("html", "pdf", "docx")
+FORMATS = ("html", "pdf", "docx", "tour", "gif")
+DEFAULT_FORMATS = ("html", "pdf", "docx")
 
 
 class RunError(ValueError):
@@ -60,6 +61,7 @@ def start_run(
     model: str = "",
     formats: list[str] | None = None,
     enqueue: bool = True,
+    previous: Run | None = None,
 ) -> Run:
     """Create a run (one per role) and queue it. ``blueprint`` output finishes at once."""
     version = project.current_blueprint()
@@ -79,8 +81,9 @@ def start_run(
         role=role if output != "blueprint" else "",
         output=output,
         model=model or AppSettings.load().ollama_model,
-        formats=[f for f in (formats or list(FORMATS)) if f in FORMATS] or ["html"],
+        formats=[f for f in (formats or list(DEFAULT_FORMATS)) if f in FORMATS] or ["html"],
         run_dir=str(run_dir),
+        previous=previous,
     )
     if output == "blueprint":
         save_json(run_dir / "blueprint.json", bp)
@@ -265,9 +268,29 @@ def explore_options(run: Run, mailbox_target: str | None = None) -> ExploreOptio
         mailbox_target=mailbox_target or project.mailbox_target,
         allow_private=True,  # the local app may study a site on 127.0.0.1 (TZ SEC-10)
         headless=True,
+        device_scale_factor=2.0,  # sharp images in the manual (2x)
         pseudonym_key=SecretBytes(pseudonym_key()),
         run_id=Path(run.run_dir).name,
+        pseudonym_scope=previous_scope(run),
     )
+
+
+def previous_scope(run: Run) -> str:
+    """An update keeps the fakes of the run it updates, so unchanged screens match."""
+    if run.previous is None:
+        return ""
+    path = Path(run.previous.run_dir) / "capture" / "capture.json"
+    if not path.is_file():
+        return ""
+    old = load_json(path, CaptureRun)
+    return old.pseudonym_scope or old.run_id
+
+
+def update_run(run: Run) -> Run:
+    """A new full run of the same role that compares itself with ``run`` (T30)."""
+    if run.output != "full" or run.status != "done":
+        raise RunError("Faqat tayyor «To'liq yo'riqnoma» natijasini yangilash mumkin")
+    return start_run(run.project, "full", run.role, run.model, list(run.formats), previous=run)
 
 
 def provider_for(run: Run) -> OllamaProvider:
@@ -327,6 +350,7 @@ def execute_run(run_id: int) -> Run:
                     progress,
                     cancel,
                     cache_dir=Path(settings.VAR_DIR) / "cache" / "llm",
+                    previous=Path(run.previous.run_dir) if run.previous else None,
                 )
             )
             stats["coverage"] = manual.coverage.percent.get("total", 0)
@@ -378,11 +402,17 @@ def run_files(run: Run) -> list[dict[str, Any]]:
         ("dist/manual.pdf", "PDF"),
         ("dist/manual.docx", "DOCX"),
         ("dist/coverage_report.html", "Qamrov hisoboti"),
+        ("dist/changelog.md", "O'zgarishlar ro'yxati (oldingi natijaga nisbatan)"),
+        ("dist/tour/tour.js", "Interaktiv tur: tour.js (Driver.js)"),
+        ("dist/tour/tours.json", "Interaktiv tur: tours.json"),
+        ("dist/tour/README.md", "Interaktiv tur: qo'llanma"),
         ("blueprint.json", "blueprint.json"),
         ("bundle.zip", "bundle.zip"),
         ("scan_report.md", "Skan hisoboti"),
         ("manual.json", "manual.json"),
     ]
+    gifs = sorted((base / "dist" / "gif").glob("*.gif"))
+    names += [(f"dist/gif/{g.name}", f"GIF: {g.stem}") for g in gifs]
     out = []
     for rel, label in names:
         path = base / rel

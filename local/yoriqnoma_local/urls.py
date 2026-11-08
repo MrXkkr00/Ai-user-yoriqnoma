@@ -40,6 +40,7 @@ urlpatterns = [
     path("runs/<int:pk>/status/", run_views.run_status, name="run-status"),
     path("runs/<int:pk>/cancel/", run_views.run_cancel, name="run-cancel"),
     path("runs/<int:pk>/resume/", run_views.run_resume, name="run-resume"),
+    path("runs/<int:pk>/update/", run_views.run_update, name="run-update"),
     path("runs/<int:pk>/input/<int:req_id>/", run_views.run_input, name="run-input"),
     path("runs/<int:pk>/files/<path:name>", run_views.run_file, name="run-file"),
     path("runs/<int:pk>/open-folder/", run_views.run_open_folder, name="run-open-folder"),

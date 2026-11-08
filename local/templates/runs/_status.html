@@ -2,7 +2,8 @@
   <div class="card">
     <p><span class="badge s-{{ run.status }}">{{ run.get_status_display }}</span>
       {% if run.stage %} · bosqich: <strong>{{ run.get_stage_display }}</strong>{% endif %}
-      {% if run.model and run.output == "full" %} · model: {{ run.model }}{% endif %}</p>
+      {% if run.model and run.output == "full" %} · model: {{ run.model }}{% endif %}
+      {% if run.previous %} · yangilash: <a href="{% url 'run-detail' run.previous.pk %}">#{{ run.previous.pk }}</a> asosida{% endif %}</p>
     <ol class="stages">
       {% for key, label in stages %}<li class="{% if run.stage == key %}current{% endif %}">{{ label }}</li>{% endfor %}
     </ol>
@@ -39,6 +40,12 @@
       <p class="note">Bu faylni server sahifasidagi «Yangi ish» formasida yuklang. Lokal dastur serverga o'zi ulanmaydi.</p>
     {% endif %}
     <form method="post" action="{% url 'run-open-folder' run.pk %}">{% csrf_token %}<button class="secondary" type="submit">Papkani ochish</button></form>
+    {% if run.output == "full" %}
+    <form method="post" action="{% url 'run-update' run.pk %}">{% csrf_token %}
+      <button type="submit">Oldingi natija asosida yangilash</button>
+      <span class="small muted">Sayt qayta o'rganiladi; o'zgarmagan ekranlar matni keshdan olinadi va o'zgarishlar ro'yxati tuziladi.</span>
+    </form>
+    {% endif %}
   </div>
   {% endif %}
 

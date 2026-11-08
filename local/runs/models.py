@@ -40,6 +40,10 @@ class Run(models.Model):
     stats = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True)
     cancel_requested = models.BooleanField(default=False)
+    # update of an earlier result (T30): changelog against it, same fakes
+    previous = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="updates"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)

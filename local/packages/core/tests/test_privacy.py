@@ -182,6 +182,31 @@ def test_dom_decisions_by_zone() -> None:
     assert decision.counts["org:kept"] == 2 and decision.counts["editorial:kept"] == 1
 
 
+def test_ocr_unreadable_cyrillic_is_blurred_in_foreign_zones() -> None:
+    """«Иванов Сергей» read by the Latin OCR model as "MBaHOB CepreN": default-deny."""
+    from PIL import Image
+
+    from yoriqnoma_core.explorer.ocr import OcrEngine, OcrLine, check_images, unreadable
+
+    assert unreadable("MBaHOB CepreN") and unreadable("Иванов")
+    assert not unreadable("Yetkazish varaqasi") and not unreadable("iOS 17") and not unreadable("")
+
+    class FakeEngine(OcrEngine):
+        def read(self, image: Image.Image) -> list[OcrLine]:
+            return [
+                OcrLine("MBaHOB CepreN", (0, 0, 80, 10), 0.9),
+                OcrLine("Yetkazish varaqasi", (0, 20, 80, 30), 0.9),
+            ]
+
+    shot = Image.new("RGB", (400, 300), "white")
+    boxes = [{"x": 10, "y": 10, "w": 100, "h": 60, "zone": z} for z in ("other", "editorial")]
+    hits, lines = check_images(FakeEngine(), shot, boxes, 1.0, set(), lambda _e: False)
+
+    assert lines == 4
+    assert [(h.zone, h.decision) for h in hits] == [("other", "blurred")]
+    assert hits[0].kind == "o'qib bo'lmaydigan matn" and hits[0].value is None
+
+
 def test_dom_text_column_of_someone_elses_record_is_replaced() -> None:
     """Server-rendered queue: «Mavzu» cells of other customers' tickets are user content."""
     led = ledger()

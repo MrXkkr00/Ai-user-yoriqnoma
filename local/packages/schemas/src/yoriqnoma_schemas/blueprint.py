@@ -11,9 +11,11 @@ from typing import Literal, Self
 from pydantic import Field, HttpUrl, model_validator
 
 from yoriqnoma_schemas.common import (
+    SCHEMA_VERSION,
     Access,
     RoleId,
     RoleKind,
+    SchemaVersion,
     Source,
     Stage,
     StrictModel,
@@ -98,8 +100,10 @@ class Step(StrictModel):
     action: StepAction
     target: Target | None = None
     path: str | None = None  # goto/expect_url; may contain "{own:order_id}"
-    # "fake:full_name" | "fake:email" | "fake:phone_uz" | "fake:password" | "fake:text" |
-    # "fake:number" | "literal:..." | "own:<entity>_id" | "file:<name>"
+    # "fake:full_name" | "fake:first_name" | "fake:last_name" | "fake:username" |
+    # "fake:email" | "fake:phone_uz" | "fake:password" | "fake:text" | "fake:number" |
+    # "fake:option" | "fake:address" | "fake:date" | "peer:email" | "literal:..." |
+    # "own:<entity>_id" | "file:<name>"
     data: str | None = None
     text: str | None = None
     rules: str | None = None
@@ -138,7 +142,7 @@ class Flow(StrictModel):
 
 
 class Blueprint(StrictModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: SchemaVersion = SCHEMA_VERSION
     project: str
     base_url: HttpUrl
     source: Source

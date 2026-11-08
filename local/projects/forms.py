@@ -82,7 +82,13 @@ class NewRunForm(forms.Form):
         label="Formatlar",
         required=False,
         widget=forms.CheckboxSelectMultiple,
-        choices=[("html", "HTML"), ("pdf", "PDF"), ("docx", "DOCX")],
+        choices=[
+            ("html", "HTML"),
+            ("pdf", "PDF"),
+            ("docx", "DOCX"),
+            ("tour", "Interaktiv tur (Driver.js)"),
+            ("gif", "GIF (har vazifa uchun)"),
+        ],
         initial=["html", "pdf", "docx"],
     )
 

@@ -93,6 +93,18 @@ Dastur ma'lumotlari `local/var/` da turadi (baza, Huey navbati, `secret.key`, `p
 `runs/`); bu papka git'ga tushmaydi. LLM javoblari keshlanadi (`var/cache/llm`), shuning uchun
 qayta yozish tez bo'ladi.
 
+### Yangilash, interaktiv tur va GIF
+
+- **Oldingi natija asosida yangilash.** Tayyor «To'liq yo'riqnoma» ish sahifasidagi tugma (yoki
+  `manage.py run ... --previous <ish raqami>`) saytni qayta o'rganadi va `dist/changelog.md` tuzadi:
+  yangi, olib tashlangan va ekrani o'zgargan vazifalar, yangi sahifalar. Begona ma'lumot o'rniga
+  oldingi ishdagi to'qima qiymatlar qo'yiladi, shuning uchun o'zgarmagan ekranlar matni keshdan olinadi.
+- **Formatlar:** HTML, PDF, DOCX dan tashqari `tour` (Driver.js uchun `dist/tour/`: `tour.js`,
+  `tours.json`, qo'llanma) va `gif` (har vazifa uchun `dist/gif/*.gif`).
+- Rasmlar 2x (retina) sifatda olinadi.
+- CI namunasi: [`docs/ci/github-action.yml`](docs/ci/github-action.yml) — staging'ga deploy'dan keyin
+  yo'riqnomani yangilab, artifact sifatida saqlaydi (GPU va Ollama bor self-hosted runner kerak).
+
 ### Skaner qaysi loyihalarni o'qiydi
 
 | Stek | Nimalar o'qiladi | Sinov loyihasi |

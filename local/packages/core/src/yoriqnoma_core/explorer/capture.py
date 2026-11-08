@@ -265,6 +265,7 @@ class Capturer:
                     selector=target,
                     kind=item.get("kind", "other"),
                     enabled=bool(item.get("enabled", True)),
+                    css=str(item.get("css") or "") or None,
                 )
             )
             if len(out) >= MAX_ELEMENTS:

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import shutil
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,11 +14,13 @@ from markupsafe import escape
 from PIL import Image, ImageDraw
 from pydantic import HttpUrl
 
+from yoriqnoma_core.explorer.datagen import DataGen
 from yoriqnoma_core.render import build
 from yoriqnoma_core.text_uz import normalize_uz
 from yoriqnoma_core.writer import write_manual
 from yoriqnoma_core.writer.assemble import element_marker
 from yoriqnoma_core.writer.cache import LLMCache, cached_generate
+from yoriqnoma_core.writer.changes import compare, write_changelog
 from yoriqnoma_core.writer.providers import FakeProvider, LLMRequest
 from yoriqnoma_core.writer.templates_uz import step_sentence
 from yoriqnoma_core.writer.validate import check_text, known_set, name_matches
@@ -32,6 +36,7 @@ from yoriqnoma_schemas import (
     State,
     Step,
     Target,
+    load_json,
     save_json,
 )
 from yoriqnoma_schemas.manual import Manual
@@ -309,3 +314,93 @@ def test_manual_example_still_valid() -> None:
     )
     if path.exists():
         Manual.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+# --- T30: tours, GIF, changelog, stable fakes -----------------------------------
+
+T30_KEY = b"k" * 32
+
+
+def _with_css(run: Path) -> None:
+    capture_path = run / "capture" / "capture.json"
+    cap = load_json(capture_path, CaptureRun)
+    for state in cap.states:
+        state.elements = [
+            e.model_copy(update={"css": "#email" if e.marker == 1 else "form > button"})
+            for e in state.elements
+        ]
+        state.url = "http://127.0.0.1:8800/register/42"  # a record of the test account
+    save_json(capture_path, cap)
+
+
+def test_tour_and_gif_exports(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    _with_css(run)
+    asyncio.run(write_manual(run, FakeProvider()))
+
+    result = build(run, {"html", "tour", "gif"})
+
+    tours = json.loads(result.files["tour"].read_text(encoding="utf-8"))
+    steps = tours["customer.register"]["steps"]
+    assert steps[1]["path"] == "/register/:id" and steps[1]["element"] == "#email"
+    assert steps[2]["element"] == "form > button"
+    assert "«Yuboriş»" in steps[2]["popover"]["description"]
+    assert "②" not in steps[2]["popover"]["description"]  # image markers are not in tours
+    loader = (result.out_dir / "tour" / "tour.js").read_text(encoding="utf-8")
+    assert "YoriqnomaTour" in loader and "customer.register" in loader
+    steps_flow = "customer.register"
+    gif = result.out_dir / "gif" / f"{steps_flow}.gif"
+    manual = load_json(run / "manual.json", Manual)
+    article = next(a for s in manual.sections for a in s.articles if a.flow_id == steps_flow)
+    with Image.open(gif) as img:
+        frames = int(getattr(img, "n_frames", 1))
+        assert frames == sum(1 for st in article.steps if st.image) and img.width == 960
+    assert "pdf" not in result.files  # only what was asked
+
+
+def test_changelog_against_previous_run(tmp_path: Path) -> None:
+    old = make_run(tmp_path / "a")
+    asyncio.run(write_manual(old, FakeProvider()))
+    same = tmp_path / "b" / "run"
+    shutil.copytree(old, same)
+    assert compare(old, same).empty
+
+    new = tmp_path / "c" / "run"
+    shutil.copytree(old, new)
+    cap = load_json(new / "capture" / "capture.json", CaptureRun)
+    extra = Element(
+        marker=3,
+        role="link",
+        name="Parolni unutdingizmi?",
+        bbox=cap.states[0].elements[0].bbox,
+        selector=Target(role="link", name="Parolni unutdingizmi?"),
+        kind="link",
+    )
+    first: State = cap.states[0]
+    cap.states[0] = first.model_copy(update={"elements": [*first.elements, extra]})
+    cap.flows.append(FlowResult(flow_id="guest.page.about", status="verified", state_ids=[]))
+    save_json(new / "capture" / "capture.json", cap)
+
+    changes = compare(old, new)
+    assert changes.changed_screens == ["customer.register"]
+    assert changes.added_flows == ["guest.page.about"]
+    assert changes.unchanged == 1
+    path = write_changelog(old, new)
+    assert path is not None
+    text = path.read_text(encoding="utf-8")
+    assert "Ekrani o'zgargan vazifalar" in text and "Yangi vazifalar" in text
+    assert "Ro'yxatdan o'tish" in text
+
+
+def test_fakes_stay_the_same_within_a_scope() -> None:
+    first = DataGen("s", "run-1", T30_KEY)
+    update = DataGen("s", "run-2", T30_KEY, scope="run-1")
+    other = DataGen("s", "run-3", T30_KEY)
+
+    real = "Dilnoza Karimova"
+    assert first.substitute("name", real) == update.substitute("name", real)
+    assert first.substitute("name", real) != other.substitute("name", real)
+    assert (
+        update.identity("customer", "A", "x.test").email
+        != first.identity("customer", "A", "x.test").email
+    )  # each run still signs up its own fresh test accounts

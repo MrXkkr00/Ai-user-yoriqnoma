@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from projects.services import effective_blueprint, role_options
 from runs.management.commands._common import project_by_slug
+from runs.models import Run
 from runs.services import RunError, execute_run, run_files, start_run
 
 
@@ -20,7 +21,10 @@ class Command(BaseCommand):
             "--list-roles", action="store_true", help="rol variantlarini ko'rsatish"
         )
         parser.add_argument("--model", default="")
-        parser.add_argument("--formats", default="html,pdf,docx")
+        parser.add_argument("--formats", default="html,pdf,docx", help="+ tour, gif")
+        parser.add_argument(
+            "--previous", type=int, help="yangilanadigan ish raqami: changelog.md tuziladi"
+        )
 
     def handle(self, *args: Any, **opts: Any) -> None:
         project = project_by_slug(opts["project"])
@@ -52,6 +56,9 @@ class Command(BaseCommand):
                     opts["model"],
                     opts["formats"].split(","),
                     enqueue=False,
+                    previous=Run.objects.filter(pk=opts["previous"]).first()
+                    if opts["previous"]
+                    else None,
                 )
             except RunError as exc:
                 raise CommandError(str(exc)) from exc

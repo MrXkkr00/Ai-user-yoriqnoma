@@ -8,7 +8,9 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-SCHEMA_VERSION: Literal["1.0"] = "1.0"
+# 1.1 (2026-11-08): optional fields only (Element.css, State.scale...); 1.0 files load.
+SchemaVersion = Literal["1.0", "1.1"]
+SCHEMA_VERSION: SchemaVersion = "1.1"
 
 RoleId = str  # "guest" is the anonymous visitor; others are the site's own role ids
 RoleKind = Literal["guest", "role", "excluded"]  # TZ FR-RL2

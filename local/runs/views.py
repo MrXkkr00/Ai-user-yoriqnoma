@@ -15,7 +15,15 @@ from projects.forms import NewRunForm
 from projects.models import Project
 from projects.services import effective_blueprint, role_options
 from runs.models import InputRequest, Run
-from runs.services import RunError, answer_input, cancel_run, resume_run, run_files, start_run
+from runs.services import (
+    RunError,
+    answer_input,
+    cancel_run,
+    resume_run,
+    run_files,
+    start_run,
+    update_run,
+)
 from settings_app.models import AppSettings
 
 
@@ -93,6 +101,18 @@ def _status_ctx(run: Run) -> dict[str, object]:
 def run_cancel(request: HttpRequest, pk: int) -> HttpResponse:
     cancel_run(get_object_or_404(Run, pk=pk))
     return redirect("run-detail", pk)
+
+
+@require_POST
+def run_update(request: HttpRequest, pk: int) -> HttpResponse:
+    run = get_object_or_404(Run, pk=pk)
+    try:
+        new = update_run(run)
+    except RunError as exc:
+        messages.error(request, str(exc))
+        return redirect("run-detail", pk)
+    messages.success(request, "Yangilash boshlandi: o'zgarishlar ro'yxati ham tuziladi.")
+    return redirect("run-detail", new.pk)
 
 
 @require_POST

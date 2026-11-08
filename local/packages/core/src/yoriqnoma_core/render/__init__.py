@@ -18,7 +18,8 @@ from yoriqnoma_core.writer.templates_uz import PATCHED_NOTE
 from yoriqnoma_schemas import CaptureRun, Manual, State, load_json
 
 TEMPLATES = Path(__file__).parent / "templates"
-FORMATS = {"html", "pdf", "docx"}
+DEFAULT_FORMATS = {"html", "pdf", "docx"}
+FORMATS = DEFAULT_FORMATS | {"tour", "gif"}  # tour: Driver.js; gif: one per article
 
 
 @dataclass
@@ -61,7 +62,7 @@ class ImageCache:
         return {
             "png": f"images/{img.png.name}",
             "webp": f"images/{img.webp.name}",
-            "width": min(img.width, 860),
+            "width": min(round(img.width / img.scale), 860),
             "path": img.png,
         }
 
@@ -176,9 +177,25 @@ def render_coverage(manual: Manual, out_dir: Path) -> Path:
     return path
 
 
+def _gifs(ctx: dict[str, Any], gif_dir: Path) -> int:
+    from yoriqnoma_core.render.gif import build_gif, gif_name
+
+    if gif_dir.exists():
+        shutil.rmtree(gif_dir)
+    made = 0
+    for section in ctx["sections"]:
+        if section["stage"] in {"reference", "faq", "unverified"}:
+            continue
+        for article in section["articles"]:
+            frames = [(st["n"], st["img"]["path"]) for st in article["steps"] if st["img"]]
+            if build_gif(frames, gif_dir / gif_name(article["flow_id"])) is not None:
+                made += 1
+    return made
+
+
 def build(run_dir: Path, formats: set[str] | None = None) -> RenderResult:
     """Render dist/ for a run folder that has manual.json and capture/."""
-    wanted = (formats or FORMATS) & FORMATS
+    wanted = (formats or DEFAULT_FORMATS) & FORMATS
     manual = load_json(run_dir / "manual.json", Manual)
     capture = load_json(run_dir / "capture" / "capture.json", CaptureRun)
     out_dir = run_dir / "dist"
@@ -196,6 +213,17 @@ def build(run_dir: Path, formats: set[str] | None = None) -> RenderResult:
         from yoriqnoma_core.render.docx import build_docx
 
         result.files["docx"] = build_docx(manual, ctx, out_dir / "manual.docx")
+    if "tour" in wanted:
+        from yoriqnoma_core.render.tour import build_tours
+
+        result.files["tour"] = build_tours(manual, capture, out_dir)
+    if "gif" in wanted:
+        made = _gifs(ctx, out_dir / "gif")
+        if made:
+            result.files["gif"] = out_dir / "gif"
+    changelog = run_dir / "changelog.md"
+    if changelog.is_file():  # incremental update (T30)
+        result.files["changelog"] = Path(shutil.copy(changelog, out_dir / "changelog.md"))
     (out_dir / "render_info.json").write_text(
         json.dumps(
             {

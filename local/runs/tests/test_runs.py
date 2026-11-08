@@ -65,6 +65,38 @@ def test_run_page_files_and_path_traversal(client: Client, project: Project) -> 
         assert client.get(f"/runs/{run.pk}/files/{evil}").status_code == 404
 
 
+def test_update_run_keeps_the_scope_of_fakes(
+    client: Client, project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T30: «Oldingi natija asosida yangilash» starts a linked run with the same fakes."""
+    first = start_run(project, "full", "customer", formats=["html", "gif"], enqueue=False)
+    with pytest.raises(services.RunError):
+        services.update_run(first)  # not finished yet
+    capture_dir = Path(first.run_dir) / "capture"
+    capture_dir.mkdir(parents=True)
+    (capture_dir / "capture.json").write_text(
+        '{"run_id": "r1", "blueprint_hash": "h", "role": "customer", '
+        '"base_url": "http://127.0.0.1:8800/", "environment": "staging", '
+        '"started_at": "2026-11-08T00:00:00Z", "flows": [], "states": [], '
+        '"firewall_log": [], "own_objects": {}, "pseudonym_scope": "r0"}',
+        encoding="utf-8",
+    )
+    first.status = "done"
+    first.save()
+    queued: list[int] = []
+    monkeypatch.setattr("runs.tasks.execute_run_task", queued.append)
+
+    response = client.post(f"/runs/{first.pk}/update/")
+    second = Run.objects.exclude(pk=first.pk).get(project=project, role="customer")
+
+    assert response.status_code == 302 and response["Location"] == f"/runs/{second.pk}/"
+    assert queued == [second.pk]
+    assert second.previous == first and second.formats == ["html", "gif"]
+    assert services.explore_options(second).pseudonym_scope == "r0"
+    assert services.explore_options(second).device_scale_factor == 2.0
+    assert services.explore_options(first).pseudonym_scope == ""
+
+
 @pytest.mark.slow
 @pytest.mark.django_db(transaction=True)  # the run writes from its own DB thread
 @pytest.mark.parametrize("output", ["bundle", "full"])
