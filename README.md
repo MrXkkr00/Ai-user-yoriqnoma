@@ -45,9 +45,19 @@ dastur alohida o'rnatiladi. Nusxalar bir xilligini `tests/test_shared_copies.py`
 
 ## Lokal dastur
 
-**Windows'da tez ishga tushirish:** `local/startup.bat` faylini ikki marta bosing. U `uv` ni o'zi
-topadi (PATH'da bo'lmasa ham), kutubxonalarni o'rnatadi va lokal dasturni ochadi:
-`http://127.0.0.1:8765`. To'xtatish uchun oynada `Ctrl+C` bosing yoki oynani yoping.
+**Windows'da tez ishga tushirish:** `local/startup.bat` faylini ikki marta bosing. Terminal yoki
+PATH sozlash kerak emas — fayl hammasini o'zi qiladi:
+
+1. `uv` ni topadi (PATH'da bo'lmasa ham); umuman bo'lmasa, rozilik so'rab rasmiy o'rnatuvchi bilan
+   o'rnatadi (PATH o'zgartirilmaydi). Python 3.12 ni ham `uv` o'zi yuklaydi.
+2. Kutubxonalarni o'rnatadi yoki yangilaydi.
+3. Saytni o'rganish uchun Chromium brauzerini o'rnatadi (faqat birinchi marta yuklanadi).
+4. Ollama ishlamayotgan bo'lsa, uni ishga tushiradi (o'rnatilmagan bo'lsa, qayerdan olishni aytadi).
+5. Dasturni `http://127.0.0.1:8765` da ochadi va brauzerni ochadi. Dastur allaqachon ishlayotgan
+   bo'lsa, faqat brauzerni ochadi.
+
+To'xtatish uchun oynada `Ctrl+C` bosing yoki oynani yoping. Ish stolida yorliq kerak bo'lsa:
+faylni o'ng tugma bilan bosing → «Отправить / Send to» → «Рабочий стол / Desktop».
 
 ```bash
 cd local
