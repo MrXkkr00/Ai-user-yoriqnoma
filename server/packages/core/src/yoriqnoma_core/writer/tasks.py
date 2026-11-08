@@ -71,6 +71,7 @@ class TaskStats:
     tokens_in: int = 0
     tokens_out: int = 0
     seconds: float = 0.0
+    review_fixes: int = 0  # corrections applied by the final review
     errors: list[str] = field(default_factory=list)
 
 

@@ -404,3 +404,46 @@ def test_fakes_stay_the_same_within_a_scope() -> None:
         update.identity("customer", "A", "x.test").email
         != first.identity("customer", "A", "x.test").email
     )  # each run still signs up its own fresh test accounts
+
+
+# --- T21: final review (Claude: Opus) -----------------------------------------------
+
+
+def test_final_review_applies_only_clean_corrections(tmp_path: Path) -> None:
+    from typing import Any
+
+    from yoriqnoma_core.writer.providers import LLMResult
+    from yoriqnoma_core.writer.review import Correction, ReviewAnswer
+
+    class ReviewingFake(FakeProvider):
+        def capabilities(self) -> set[str]:
+            return {"vision", "json_schema", "final_review"}
+
+        def model_for(self, task: str) -> str:
+            return "reviewer" if task == "final_review" else self.model
+
+        async def generate(self, req: LLMRequest, schema: Any) -> Any:
+            if req.task != "final_review":
+                return await super().generate(req, schema)
+            fixes = [
+                Correction(
+                    flow_id="customer.register",
+                    field="purpose",
+                    text="Saytda yangi hisob ochish uchun.",
+                ),
+                Correction(flow_id="customer.register", field="note", index=9, text="Ortiqcha."),
+                Correction(flow_id="nope", field="purpose", text="Yo'q maqola."),
+            ]
+            return LLMResult(data=ReviewAnswer(corrections=fixes), model="reviewer")
+
+    run = make_run(tmp_path)
+    manual, stats = asyncio.run(write_manual(run, ReviewingFake()))
+
+    register = next(
+        a for s in manual.sections for a in s.articles if a.flow_id == "customer.register"
+    )
+    assert register.purpose == "Saytda yangi hisob ochish uchun."
+    assert stats.review_fixes == 1  # the bad note index and the unknown flow are skipped
+    assert manual.models[-1] == "reviewer"
+    saved = load_json(run / "manual.json", Manual)
+    assert saved.sections[0].articles[0].purpose == register.purpose

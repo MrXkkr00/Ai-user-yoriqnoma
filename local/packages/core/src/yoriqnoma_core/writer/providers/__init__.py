@@ -1,4 +1,4 @@
-"""LLM providers: Fake (tests), Ollama (local app). Claude lives in the server task T21."""
+"""LLM providers: Fake (tests), Ollama (local app), Claude (server, optional extra)."""
 
 from yoriqnoma_core.writer.providers.base import (
     LLMProvider,

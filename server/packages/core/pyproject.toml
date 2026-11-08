@@ -16,6 +16,10 @@ dependencies = [
     "rapidocr-onnxruntime>=1.4",
 ]
 
+[project.optional-dependencies]
+# The server writes with Claude; the local app does not install the SDK.
+claude = ["anthropic>=1.0"]
+
 [project.scripts]
 yoriqnoma-core = "yoriqnoma_core.__main__:main"
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from yoriqnoma_core.writer.assemble import ManualBuilder
 from yoriqnoma_core.writer.cache import LLMCache
 from yoriqnoma_core.writer.providers.base import LLMProvider
+from yoriqnoma_core.writer.review import final_review
 from yoriqnoma_core.writer.tasks import TaskRunner, TaskStats
 from yoriqnoma_schemas import Blueprint, CaptureRun, Manual, load_json, save_json
 
@@ -36,6 +37,12 @@ async def write_manual(
     tasks.before_call = before_call
     builder = ManualBuilder(bp, capture, tasks, run_dir / "capture", source_mode)
     manual = await builder.build([provider.model])
+    if "final_review" in provider.capabilities():  # Claude: Opus reads it all (T21)
+        known = builder._known(list(capture.states))
+        tasks.stats.review_fixes = await final_review(manual, tasks, run_dir / "capture", known)
+        model_for = getattr(provider, "model_for", None)
+        if callable(model_for):
+            manual.models = list(dict.fromkeys([*manual.models, model_for("final_review")]))
     save_json(run_dir / "manual.json", manual)
     return manual, tasks.stats
 

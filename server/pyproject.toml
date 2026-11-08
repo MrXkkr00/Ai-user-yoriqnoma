@@ -13,7 +13,7 @@ description = "Server Django app: modes A, A' and B, writes the manual with the 
 requires-python = ">=3.12"
 dependencies = [
     "yoriqnoma-schemas",
-    "yoriqnoma-core",
+    "yoriqnoma-core[claude]",
     "django>=5.2,<5.3",
     "djangorestframework>=3.16",
     "celery[redis]>=5.4",
