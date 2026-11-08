@@ -31,6 +31,7 @@ from yoriqnoma_scanner.parsers.base import (
     ParseResult,
 )
 from yoriqnoma_scanner.parsers.jsx_utils import component_definitions, expr_text, label_of
+from yoriqnoma_scanner.parsers.zod_yup import FieldRules, schema_used_in, schemas_in
 from yoriqnoma_schemas import Form, FormField, Target
 
 API_OBJECTS = {"api", "axios", "http", "client", "request", "$http", "apiClient", "ky"}
@@ -91,16 +92,52 @@ class JsxFormsParser:
 
     def parse(self, project: ProjectInfo, fs: SafeFS) -> ParseResult:
         result = ParseResult()
+        roots: list[tuple[str, Node]] = []
+        self.schemas: dict[str, dict[str, FieldRules]] = {}
         for path in project.js_files:
             text = fs.read_text(path)
-            if text is None or "<" not in text:
+            if text is None:
                 continue
             root = parse(text, path.suffix)
+            if "object(" in text:
+                self.schemas.update(schemas_in(root))
+            if "<" in text:
+                roots.append((fs.rel(path), root))
+        for rel, root in roots:
             for name, body in component_definitions(root).items():
-                info = self._component(name, body, fs.rel(path))
+                info = self._component(name, body, rel)
+                self._apply_schemas(info, body)
                 result.components[name] = info
                 result.forms.extend(info.forms)
         return result
+
+    def _apply_schemas(self, info: ComponentInfo, body: Node) -> None:
+        """zod / yup rules of the schema the component's form library validates with."""
+        rules: dict[str, FieldRules] = {}
+        for schema in schema_used_in(body):
+            rules.update(self.schemas.get(schema, {}))
+        if not rules:
+            return
+        for i, form in enumerate(info.forms):
+            fields = []
+            for ff in form.fields:
+                found = rules.get(ff.name)
+                if found is None:
+                    fields.append(ff)
+                    continue
+                merged = merge_rule_lists(ff.rules, found.rules)
+                fields.append(
+                    ff.model_copy(
+                        update={
+                            "rules": merged,
+                            "required": found.required
+                            if found.required is not None
+                            else ff.required,
+                            "type": "email" if found.email and ff.type == "text" else ff.type,
+                        }
+                    )
+                )
+            info.forms[i] = form.model_copy(update={"fields": fields})
 
     # --- one component ------------------------------------------------------------
 
@@ -435,6 +472,9 @@ class JsxFormsParser:
 
         name = attr("name")
         el_id = attr("id")
+        registered = _registered(el)  # react-hook-form: {...register("email", {...})}
+        if registered is not None:
+            name = name or registered[0]
         if not name and not el_id:
             return None
         ftype = (
@@ -457,13 +497,17 @@ class JsxFormsParser:
             value = attr(key)
             if value is not None:
                 rules.append(f"{rule}:{value}")
+        required = attr("required") not in (None, "false")
+        if registered is not None:
+            rules += registered[1]
+            required = required or registered[2]
         label = labels.get(el_id or "") or labels.get(f"name:{name}")
         options = self._options(el) if tag == "select" else None
         return FormField(
             name=name or el_id or "",
             label=label,
             type=ftype,
-            required=attr("required") not in (None, "false"),
+            required=required,
             rules="|".join(rules) or None,
             options=options,
         )
@@ -483,3 +527,44 @@ class JsxFormsParser:
                     if obj is not None and obj.type == "array":
                         values += [v for c in obj.named_children if (v := string_value(c))]
         return values or None
+
+
+def _registered(el: Node) -> tuple[str, list[str], bool] | None:
+    """``{...register("email", { required: true, minLength: 8 })}`` -> name, rules, required."""
+    target = el.child_by_field_name("open_tag") if el.type == "jsx_element" else el
+    if target is None:
+        return None
+    for child in target.named_children:
+        text = node_text(child)
+        match = re.match(
+            r"\{\s*\.\.\.\s*register\(\s*['\"]([\w.]+)['\"]\s*(?:,(.*))?\)\s*\}$", text, re.S
+        )
+        if child.type != "jsx_expression" or not match:
+            continue
+        options = match.group(2) or ""
+        rules: list[str] = []
+        for key, rule in (
+            ("minLength", "min"),
+            ("maxLength", "max"),
+            ("min", "min"),
+            ("max", "max"),
+        ):
+            found = re.search(rf"\b{key}\s*:\s*(?:\{{\s*value\s*:\s*)?(\d+)", options)
+            if found:
+                rules.append(f"{rule}:{found.group(1)}")
+        pattern = re.search(r"pattern\s*:\s*(?:\{\s*value\s*:\s*)?/(.+?)/[a-z]*", options)
+        if pattern:
+            rules.append(f"regex:{pattern.group(1)}")
+        required = bool(re.search(r"required\s*:\s*(true|['\"])", options))
+        return match.group(1).split(".")[-1], rules, required
+    return None
+
+
+def merge_rule_lists(front: str | None, schema: list[str]) -> str | None:
+    """HTML attribute rules overridden by the schema's (``min:8|regex:...``)."""
+    merged: dict[str, str] = {}
+    for rule in [*(front or "").split("|"), *schema]:
+        key, _, value = rule.partition(":")
+        if key:
+            merged[key] = value
+    return "|".join(f"{k}:{v}" for k, v in merged.items()) or None

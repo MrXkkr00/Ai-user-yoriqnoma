@@ -10,6 +10,8 @@ from yoriqnoma_scanner.fs_guard import SafeFS
 from yoriqnoma_schemas import Flow, Form, FormField
 
 GuardKind = Literal["role", "ownership", "auth", "unknown"]
+# creates_user_role placeholder: "the role new users get by default", resolved in scan()
+SIGNUP_DEFAULT = "__signup_default__"
 
 
 @dataclass
@@ -103,8 +105,10 @@ class ParseResult:
     request_models: dict[str, list[FormField]] = field(default_factory=dict)
     role_values: dict[str, str] = field(default_factory=dict)  # role id -> source
     role_labels: dict[str, str] = field(default_factory=dict)
+    signup_role_default: str | None = None  # model default of the user's role field
 
     def merge(self, other: ParseResult) -> None:
+        self.signup_role_default = self.signup_role_default or other.signup_role_default
         self.routes += other.routes
         self.forms += other.forms
         self.entities += other.entities

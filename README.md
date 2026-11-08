@@ -98,6 +98,11 @@ qayta yozish tez bo'ladi.
 | Stek | Nimalar o'qiladi | Sinov loyihasi |
 |---|---|---|
 | FastAPI + React (Vite, React Router) | route'lar, `Depends` guard'lari, pydantic va JSX formalari, SQLAlchemy modellari, i18n JSON, Playwright E2E | `fixtures/demo_shop` |
+| Express (Node.js) | `express()`/`Router()` va `app.use('/prefix', router)` zanjiri (`require`/`import` bo'ylab), middleware guard'lari (`requireAuth`, `requireRole('manager')`, `passport.authenticate`, loyihaning `req.user.role` tekshiruvlari), controller'lardagi status o'zgarishi va egalik, Mongoose/Sequelize modellari, EJS sahifalar | test ichidagi namunalar |
+| Vue (Vue Router) | `createRouter` route'lari (`children`, lazy `import()`), `meta` guard'lari (`requiresAuth`, `roles`, `requiresAdmin`), `.vue` komponentlar: shablon formalari, `@submit`/`@click` handler'larining API so'rovlari, `router-link` | test ichidagi namunalar |
+| Next.js | `pages/` va `app/` router'lari (route group, `[id]`, `[...slug]`), `middleware.ts` matcher, `layout` va sahifadagi session/rol tekshiruvlari, API handler'lar (`route.ts`, `pages/api`) | test ichidagi namunalar |
+| Laravel | `routes/web.php`, `routes/api.php` (`resource`, `apiResource`, guruhlar: `middleware`/`prefix`/`name`), `auth`, Spatie `role:`, admin middleware, controller'lar (`view()`, `abort_if`, `authorize`), migratsiyalar (jadval, `enum`, `foreignId`, rol ustuni), Blade (`@method`, `route()`, `__()`), `lang/*.json` | test ichidagi namunalar |
+| Prisma, zod/yup | `schema.prisma` modellari va enum'lari (rollar, statuslar, egasi); zod/yup sxemalari va react-hook-form `register()` qoidalari formalarga | test ichidagi namunalar |
 | Flask | `Flask()` va `Blueprint(url_prefix=)` zanjiri, `@bp.route`/`@bp.get`, Flask-Login, Flask-Security rollari, `before_request` tekshiruvlari, `abort(403)`, WTForms, Jinja shablonlari (`url_for`, `_()`), Flask-SQLAlchemy modellari, Flask-Babel `.po` | test ichidagi namunalar |
 | Django (+ Django REST framework) | `urls.py` (`include`, `app_name`, `re_path`, DRF router), dekorator va mixin guard'lari, `user_passes_test`, guruhlar, `LoginRequiredMiddleware`, generic view'lar, `forms.py`/`ModelForm`, serializer'lar, modellar (`TextChoices`, egasi), shablonlar (`{% url %}`, `{% trans %}`, `{{ form }}`), `.po` tarjimalar | `fixtures/demo_django` |
 

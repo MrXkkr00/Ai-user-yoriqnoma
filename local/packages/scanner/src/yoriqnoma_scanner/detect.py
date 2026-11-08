@@ -30,6 +30,7 @@ class ProjectInfo:
     template_files: list[Path] = field(default_factory=list)  # server-side templates
     php_files: list[Path] = field(default_factory=list)
     po_files: list[Path] = field(default_factory=list)  # gettext catalogues
+    prisma_files: list[Path] = field(default_factory=list)  # Prisma schemas
 
 
 def _deps_of_package_json(text: str) -> set[str]:
@@ -93,6 +94,8 @@ def detect(fs: SafeFS) -> ProjectInfo:
             info.template_files.append(path)
         elif suffix == ".po":
             info.po_files.append(path)
+        elif suffix == ".prisma":
+            info.prisma_files.append(path)
         elif suffix == ".py":
             info.python_files.append(path)
             parts = {p.lower() for p in Path(rel).parts}

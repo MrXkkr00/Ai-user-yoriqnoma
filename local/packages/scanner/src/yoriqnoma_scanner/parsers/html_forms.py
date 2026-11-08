@@ -37,7 +37,10 @@ _FORM_RENDER = re.compile(
 # WTForms: {{ form.email(class_="x") }} or {{ render_field(form.email) }} -> a field placeholder
 _WTF_FIELD = re.compile(r"\{\{\s*(?:\w+\(\s*)?form\.(\w+)\s*(?:\(|,|\))[^}]*\}\}")
 FIELD_MARK = "yq-field"
-_OTHER = re.compile(r"\{%.*?%\}|\{\{.*?\}\}|\{#.*?#\}|<%.*?%>|@\w+(\([^)]*\))?", re.S)
+# Blade directives (@csrf, @if(...)) but not Vue's @click="..." / @submit.prevent or emails
+_OTHER = re.compile(
+    r"\{%.*?%\}|\{\{.*?\}\}|\{#.*?#\}|<%.*?%>|(?<![\w@.])@\w+(\([^)]*\))?(?![\w.=])", re.S
+)
 _RULE_ATTRS = (
     ("minlength", "min"),
     ("maxlength", "max"),
@@ -47,6 +50,27 @@ _RULE_ATTRS = (
 )
 _SKIP_NAMES = {"csrfmiddlewaretoken", "_token", "csrf_token", "_method"}
 _CONTAINERS = {"div", "dialog", "section", "aside"}
+
+
+LINK_TAGS = {"router-link", "nuxt-link", "routerlink", "nuxtlink", "inertia-link"}
+
+
+def _vue_handler(attrs: dict[str, str], event: str) -> str | None:
+    """``@submit.prevent="save"`` / ``v-on:click="cancel(o.id)"`` -> "save" / "cancel"."""
+    for key, value in attrs.items():
+        if key.split(".")[0] in {f"@{event}", f"v-on:{event}"} and value:
+            name = re.match(r"\s*([A-Za-z_$][\w$]*)", value)
+            return name.group(1) if name else None
+    return None
+
+
+def _vue_to(expr: str) -> str:
+    """``:to="`/orders/${o.id}`"`` -> "/orders/:id"; ``:to="'/x'"`` -> "/x"."""
+    expr = expr.strip()
+    if len(expr) >= 2 and expr[0] in "`'\"" and expr[-1] == expr[0]:
+        inner = expr[1:-1]
+        return re.sub(r"\$\{\s*[\w.]*?(\w+)\s*\}", r":\1", inner)
+    return ""
 
 
 def reduce_template(text: str, translate: Callable[[str], str]) -> str:
@@ -80,6 +104,7 @@ class TForm:
     line: int = 0
     modal: str | None = None  # id of the modal or dialog that holds the form
     method_override: str | None = None  # Laravel/Rails hidden ``_method`` field
+    handler: str | None = None  # Vue: @submit.prevent="save"
 
 
 @dataclass
@@ -88,6 +113,7 @@ class TemplateInfo:
     links: list[tuple[str, str]] = field(default_factory=list)  # (href, text)
     buttons: list[str] = field(default_factory=list)  # buttons outside forms
     openers: dict[str, str] = field(default_factory=dict)  # modal id -> opener button text
+    clicks: list[tuple[str, str]] = field(default_factory=list)  # (label, Vue @click handler)
 
 
 def _is_modal(tag: str, attrs: dict[str, str]) -> bool:
@@ -131,12 +157,13 @@ class _Parser(HTMLParser):
                 action=attrs.get("action", ""),
                 line=self.getpos()[0],
                 modal=self._modal(),
+                handler=_vue_handler(attrs, "submit"),
             )
         elif tag in {"input", "select", "textarea"} and self.form is not None:
             self._field(tag, attrs)
         elif tag == "option" and self.select is not None and attrs.get("value"):
             self.select.options.append(attrs["value"])
-        if tag in {"label", "button", "a"}:
+        if tag in {"label", "button", "a", *LINK_TAGS}:
             self.text_stack.append((tag, [], attrs))
 
     def _field(self, tag: str, attrs: dict[str, str]) -> None:
@@ -196,14 +223,22 @@ class _Parser(HTMLParser):
             self.label_wraps = []
         elif name in {"button", "a"} and self._opens_modal(attrs, text):
             pass
+        elif name == "button" and _vue_handler(attrs, "click"):
+            self.info.clicks.append((text, _vue_handler(attrs, "click") or ""))
         elif name == "button":
             btype = attrs.get("type", "submit").lower()
             if self.form is not None and btype == "submit" and not self.form.submit:
                 self.form.submit = text
             elif self.form is None and text:
                 self.info.buttons.append(text)
-        elif name == "a":
-            href = attrs.get("href", "")
+        elif name == "a" and _vue_handler(attrs, "click") and not attrs.get("href"):
+            self.info.clicks.append((text, _vue_handler(attrs, "click") or ""))
+        elif name == "a" or name in LINK_TAGS:
+            href = (
+                attrs.get("href", "")
+                or attrs.get("to", "")
+                or _vue_to(attrs.get(":to") or attrs.get("v-bind:to") or "")
+            )
             if href and text:
                 self.info.links.append((href, text))
         if self.text_stack:
