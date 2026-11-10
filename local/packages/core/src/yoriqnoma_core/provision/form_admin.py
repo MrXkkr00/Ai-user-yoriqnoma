@@ -24,11 +24,13 @@ from playwright.async_api import Error as PlaywrightError
 from yoriqnoma_core.discovery.forms import FORMS_JS, data_kind, to_form
 from yoriqnoma_core.explorer.datagen import Identity
 from yoriqnoma_core.provision.base import (
+    ADMIN_ANSWER_TIMEOUT_MS,
     AdminCredentials,
     CreatedUser,
     ProvisionError,
     RoleCandidate,
     classify_role,
+    settle,
 )
 from yoriqnoma_core.provision.guard import USERISH, ProvisionGuard
 from yoriqnoma_core.text_uz import normalize_uz
@@ -74,7 +76,7 @@ class FormAdminAdapter:
         return urljoin(self.base_url, path)
 
     async def _forms(self, page: Page) -> list[dict[str, Any]]:
-        await page.wait_for_load_state("networkidle")
+        await settle(page)
         forms: list[dict[str, Any]] = await page.evaluate(FORMS_JS)
         return forms
 
@@ -139,19 +141,19 @@ class FormAdminAdapter:
                 .first
             )
             async with page.expect_response(
-                lambda r: r.request.method in {"POST", "PUT"}, timeout=15000
+                lambda r: r.request.method in {"POST", "PUT"}, timeout=ADMIN_ANSWER_TIMEOUT_MS
             ) as answer:
                 await button.click()
             if (await answer.value).status >= 400:
                 raise ProvisionError("Admin login yoki paroli noto'g'ri (sayt kirishni rad etdi)")
-            await page.wait_for_load_state("networkidle")
+            await settle(page)
             await page.wait_for_timeout(500)
         self.guard.signed_in = True
         await self._find_form(page)
 
     async def _links(self, page: Page, url: str) -> list[tuple[str, str]]:
         await page.goto(url)
-        await page.wait_for_load_state("networkidle")
+        await settle(page)
         raw: list[list[str]] = await page.evaluate(LINKS_JS)
         out = []
         for href, text in raw:
@@ -221,7 +223,7 @@ class FormAdminAdapter:
         self, page: Page, role: RoleCandidate, identity: Identity, alias: str
     ) -> CreatedUser:
         await page.goto(self.users_url)
-        await page.wait_for_load_state("networkidle")
+        await settle(page)
         form = page.locator("form").nth(self.form_index)
         values = {
             "fake:email": identity.email,
@@ -249,7 +251,7 @@ class FormAdminAdapter:
         before = len(self.guard.created)
         try:
             async with page.expect_response(
-                lambda r: r.request.method == "POST", timeout=15000
+                lambda r: r.request.method == "POST", timeout=ADMIN_ANSWER_TIMEOUT_MS
             ) as answer:
                 await form.locator(
                     "button[type=submit], input[type=submit], button:not([type])"
@@ -257,7 +259,7 @@ class FormAdminAdapter:
             await self.guard.on_response(await answer.value)  # learn the new id now
         except PlaywrightError:
             pass  # no request: the form did not pass its own checks (reported below)
-        await page.wait_for_load_state("networkidle")
+        await settle(page)
         if len(self.guard.created) == before:
             shown = await page.locator(".error, [role=alert], .errorlist").all_inner_texts()
             raise ProvisionError(
@@ -278,7 +280,7 @@ class FormAdminAdapter:
 
     async def delete_user(self, page: Page, user: CreatedUser) -> None:
         await page.goto(self.users_url)
-        await page.wait_for_load_state("networkidle")
+        await settle(page)
         words = [normalize_uz(w) for w in DELETE_TEXT]
         state = await page.evaluate(ROW_BUTTON_JS, [user.email, words])
         if state != "ok":
@@ -296,10 +298,10 @@ class FormAdminAdapter:
             )
             if await confirm.count():
                 await confirm.first.click()
-            await page.wait_for_load_state("networkidle")
+            await settle(page)
         finally:
             page.remove_listener("dialog", accept)
         await page.goto(self.users_url)
-        await page.wait_for_load_state("networkidle")
+        await settle(page)
         if user.email in (await page.locator("body").inner_text()):
             raise ProvisionError(f"{user.email}: foydalanuvchi ro'yxatdan o'chmadi")

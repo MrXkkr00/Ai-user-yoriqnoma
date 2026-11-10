@@ -18,12 +18,14 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
+from playwright.async_api import Error as PlaywrightError
 from pydantic import SecretStr
 
 from yoriqnoma_core.explorer.datagen import DataGen
 from yoriqnoma_core.explorer.options import AccountCredentials, ExploreOptions
 from yoriqnoma_core.provision.agent_admin import AgentAdminAdapter
 from yoriqnoma_core.provision.base import (
+    ADMIN_PAGE_TIMEOUT_MS,
     AdminAdapter,
     AdminCredentials,
     CleanupReport,
@@ -106,7 +108,8 @@ class Provisioner:
         self._context = await self._browser.new_context(
             locale=self.opts.locale, timezone_id=self.opts.timezone, base_url=self.opts.base_url
         )
-        self._context.set_default_timeout(self.opts.step_timeout_ms * 2)
+        self._context.set_default_timeout(ADMIN_PAGE_TIMEOUT_MS)
+        self._context.set_default_navigation_timeout(ADMIN_PAGE_TIMEOUT_MS)
         await self._context.route("**/*", self.guard.handle)
         self.page = await self._context.new_page()
         self.page.on("response", self.guard.on_response)
@@ -127,12 +130,16 @@ class Provisioner:
             if key in seen:
                 continue
             seen.add(key)
-            if not await adapter.detect(self.page):
-                continue
             try:
+                if not await adapter.detect(self.page):
+                    continue
                 await adapter.login(self.page, self.creds)
             except ProvisionError as exc:
                 reasons.append(f"{adapter.name}: {exc}")
+                continue
+            except PlaywrightError as exc:  # a timeout here: try the next way, say why at the end
+                first = str(exc).splitlines()[0][:160]
+                reasons.append(f"{adapter.name} ({getattr(adapter, 'admin_path', '')}): {first}")
                 continue
             self.guard.signed_in = True
             self.adapter = adapter

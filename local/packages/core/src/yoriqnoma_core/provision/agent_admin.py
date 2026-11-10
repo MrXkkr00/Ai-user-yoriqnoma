@@ -34,6 +34,7 @@ from yoriqnoma_core.provision.base import (
     ProvisionError,
     RoleCandidate,
     classify_role,
+    settle,
 )
 from yoriqnoma_core.provision.guard import ProvisionGuard
 from yoriqnoma_core.writer.providers.base import LLMProvider, LLMRequest
@@ -145,7 +146,7 @@ class AgentAdminAdapter:
                     await locator.fill(values[act.value_kind])
                 elif act.tool == "select":
                     await locator.select_option(label=act.option or role)
-                await page.wait_for_load_state("networkidle")
+                await settle(page)
             except PlaywrightError:
                 continue
         return AdminAction(tool="fail", reason="qadamlar limiti tugadi")
@@ -158,7 +159,7 @@ class AgentAdminAdapter:
             await login.first.fill(creds.login)
             await password.first.fill(creds.password.get_secret_value())
             await password.first.press("Enter")
-            await page.wait_for_load_state("networkidle")
+            await settle(page)
         self.guard.signed_in = True
 
     async def roles(self, page: Page) -> list[RoleCandidate]:

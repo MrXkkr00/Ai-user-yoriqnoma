@@ -28,6 +28,24 @@ ADMIN_LIKE = re.compile(
 )
 
 
+# Admin panels of real sites can be slow: pages get a minute, the answer to a login or a
+# "save" click 45 seconds. Waiting for the network to calm down is capped and never an
+# error (some sites keep polling for ever).
+ADMIN_PAGE_TIMEOUT_MS = 60_000
+ADMIN_ANSWER_TIMEOUT_MS = 45_000
+SETTLE_TIMEOUT_MS = 10_000
+
+
+async def settle(page: Page) -> None:
+    """Wait until the page is quiet, but at most ``SETTLE_TIMEOUT_MS``."""
+    from playwright.async_api import Error as PlaywrightError
+
+    try:
+        await page.wait_for_load_state("networkidle", timeout=SETTLE_TIMEOUT_MS)
+    except PlaywrightError:
+        pass
+
+
 class ProvisionError(Exception):
     """Admin provisioning cannot go on; the reason is shown to the user."""
 
