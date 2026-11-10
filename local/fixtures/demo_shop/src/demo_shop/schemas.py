@@ -73,5 +73,13 @@ class SettingIn(BaseModel):
     value: str
 
 
+class AdminUserIn(BaseModel):
+    full_name: str = Field(min_length=3, max_length=80)
+    email: str = Field(pattern=EMAIL, max_length=120)
+    phone: str = Field(pattern=PHONE)
+    password: str = Field(min_length=8, max_length=64)
+    role: str = Field(pattern="^(customer|manager|courier)$")
+
+
 class RoleChangeIn(BaseModel):
     role: str

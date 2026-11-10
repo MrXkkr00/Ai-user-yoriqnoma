@@ -146,7 +146,12 @@
     "title": "Admin panel",
     "users": "Foydalanuvchilar",
     "roles": "Rollar",
-    "refund": "Pulni qaytarish"
+    "refund": "Pulni qaytarish",
+    "newUser": "Yangi foydalanuvchi",
+    "role": "Rol",
+    "create": "Yaratish",
+    "delete": "O'chirish",
+    "confirmDelete": "foydalanuvchini o'chirasizmi?"
   },
   "footer": {
     "contacts": "Aloqa",
