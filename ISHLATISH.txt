@@ -1,0 +1,107 @@
+=====================================================================
+  YO'RIQNOMA DASTURI - BOSHQA KOMPYUTERDA ISHLATISH
+  (internet kerak emas)
+=====================================================================
+
+Bu papkada dastur va uni ishlatish uchun kerak bo'lgan hamma narsa bor:
+Python, kutubxonalar, brauzer, Ollama va gemma4:26b modeli.
+Hammasi bo'lib taxminan 20 GB.
+
+Kompyuterga talablar:
+  - Windows 10 yoki 11, 64-bit
+  - Diskda kamida 30 GB bo'sh joy
+  - Operativ xotira 16 GB dan ko'p bo'lsa yaxshi; NVIDIA videokarta
+    bo'lsa, dastur tezroq ishlaydi (videokartasiz ham ishlaydi, lekin sekin)
+
+
+---------------------------------------------------------------------
+ 1-QADAM. PAPKANI KO'CHIRISH
+---------------------------------------------------------------------
+
+  1. Shu papkani (AI_User_Yoriqnoma 06.11.26) butunligicha fleshkaga
+     yoki tashqi diskka ko'chiring.
+
+  2. Yangi kompyuterda uni istalgan joyga qo'ying, masalan:
+        D:\AI Projects\AI_User_Yoriqnoma 06.11.26
+
+  Muhim: papka ichidagi hech narsani o'chirmang va nomini o'zgartirmang.
+  "packets" va "local" papkalari yonma-yon turishi kerak.
+
+
+---------------------------------------------------------------------
+ 2-QADAM. O'RNATISH (faqat birinchi marta)
+---------------------------------------------------------------------
+
+  1. Papkani oching:  packets -> lokal
+
+  2. install_offline.bat  faylini ikki marta bosing.
+
+  3. Qora oyna ochiladi va 6 ta bosqichni o'zi bajaradi:
+        [1/6] uv
+        [2/6] Python 3.12
+        [3/6] Microsoft Visual C++ runtime
+        [4/6] Kutubxonalar
+        [5/6] Chromium brauzeri
+        [6/6] Ollama va model
+
+     - Windows "Bu ilovaga o'zgartirish kiritishga ruxsat berasizmi?"
+       deb so'rasa, "Ha" ni bosing.
+     - Eng uzoq qismi modelni ko'chirish: 5-15 daqiqa. Oynani yopmang.
+
+  4. Oxirida "O'rnatish tugadi" yozuvi chiqadi. Istalgan tugmani bosing.
+
+
+---------------------------------------------------------------------
+ 3-QADAM. DASTURNI ISHGA TUSHIRISH (har safar)
+---------------------------------------------------------------------
+
+  1. Papkani oching:  packets -> lokal
+
+  2. start_offline.bat  faylini ikki marta bosing.
+
+  3. Bir necha soniyadan keyin brauzer o'zi ochiladi:
+        http://127.0.0.1:8765
+
+     Brauzer ochilmasa, shu manzilni brauzerga o'zingiz yozing.
+
+  4. Dasturni to'xtatish: qora oynani yoping.
+
+  Qulaylik uchun ish stolida yorliq qilish mumkin:
+  start_offline.bat ni o'ng tugma bilan bosing ->
+  "Отправить / Send to" -> "Рабочий стол / Desktop".
+
+
+---------------------------------------------------------------------
+ MUAMMO BO'LSA
+---------------------------------------------------------------------
+
+  * "Ollama topilmadi" yoki model topilmadi:
+      install_offline.bat ni qayta ishga tushiring.
+      Yoki Ollama'ni qo'lda o'rnating: packets\lokal\ollama\OllamaSetup.exe
+
+  * Dastur sahifasida Ollama qizil rangda:
+      Soat yonidagi lama belgisini o'ng tugma bilan bosing -> "Quit",
+      keyin start_offline.bat ni qayta ishga tushiring.
+
+  * "uv sync internetsiz o'tmadi" xabari:
+      Dastur kodi yangilangan, packets esa eski qolgan. Internet bor
+      kompyuterda packets\lokal\tayyorlash.bat ni ishga tushirib,
+      papkani qayta ko'chiring.
+
+  * Xato bilan to'xtasa:
+      Qora oynadagi xabarni rasmga olib, dasturchiga yuboring.
+
+  install_offline.bat ni qayta ishga tushirish xavfsiz: oldin o'rnatilgan
+  narsalar o'tkazib yuboriladi.
+
+
+---------------------------------------------------------------------
+ MA'LUMOT UCHUN: packets\lokal\ollama\models ICHIDAGI FAYLLAR
+---------------------------------------------------------------------
+
+  "sha256-a8bdd07a..." kabi tushunarsiz nomlar - bu xato emas.
+  Ollama modelni shunday saqlaydi. Bu fayllarni ochmang va nomini
+  o'zgartirmang, aks holda model ishlamaydi. Ularni o'rnatish skripti
+  o'zi joyiga ko'chiradi.
+
+  Batafsil texnik ma'lumot: packets\lokal\README.md
