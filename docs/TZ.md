@@ -300,6 +300,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - «Tekshirish» tugmasi: kod skanerlanadi (1, 2) va admin paneliga kirib rollar o'qiladi (2, 3). Keyin rol variantlardan tanlanadi (FR-RL3), so'ng ish boshlanadi.
   - 3-rejimda sahifa, forma va vazifalar ish boshida saytning o'zidan o'rganiladi (serverning B rejimi bilan bir xil razvedka, LLM — Ollama).
   - Admin login faqat test foydalanuvchilarni yaratish va o'chirish uchun (SEC-18). Ish tugagach — muvaffaqiyatli, xato yoki bekor qilingan bo'lsa ham — vosita yaratgan foydalanuvchilar va ular yaratgan obyektlar o'chiriladi. O'chmagani ish sahifasida ko'rsatiladi, «Tozalashni qayta urinish» tugmasi va `manage.py cleanup --run <id>` bor.
+  - Admin panel manzili ixtiyoriy: bo'sh qolsa, vosita odatiy manzillarni (`/admin/`, `/dashboard`, `/panel` ...) sinaydi, so'ng admin sifatida saytga kirib uning havolalaridan panelni topadi. Pochta (papka yoki Mailpit) ham ixtiyoriy: u faqat sayt ro'yxatdan o'tishda email tasdiqlashni so'rasa kerak.
   - Qo'llab-quvvatlanadigan admin panellar: Django admin (aniq qadamlar), «yangi foydalanuvchi» formasi va o'chirish tugmasi bor oddiy panel; boshqalarida Ollama agenti xuddi shu cheklovlar ichida ishlaydi.
 
 - **FR-L12. `eval` — modellarni solishtirish.** Oltin to'plamda ikki modelni solishtiradi:

@@ -35,6 +35,8 @@ from yoriqnoma_core.text_uz import normalize_uz
 
 ROLE_FIELD = re.compile(r"(^|_)(role|rol|type|user_?type|account_?type|kind|group)s?$", re.I)
 USERS_TEXT = re.compile(r"(foydalanuvchi|users?|пользовател|xodim|accounts?)", re.I)
+ADMIN_TEXT = re.compile(r"(admin|panel|boshqaruv|dashboard|управлен|backend|cabinet|kabinet)", re.I)
+LOGIN_TEXT = re.compile(r"(kirish|login|log in|sign in|войти|вход|kiriş)", re.I)
 DELETE_TEXT = ("o'chirish", "ochirish", "delete", "remove", "удалить", "o'chir")
 LINKS_JS = r"""
 () => Array.from(document.querySelectorAll('a[href]')).map(a => [a.getAttribute('href'),
@@ -107,6 +109,22 @@ class FormAdminAdapter:
             if login_form is not None or any(self._is_create_form(f) for f in forms):
                 break
             await page.wait_for_timeout(500)
+        if login_form is None and not self.guard.signed_in:
+            # no login form here (the home page, say): follow the site's own "Kirish" link
+            links: list[list[str]] = await page.evaluate(LINKS_JS)
+            target = next((h for h, t in links if h and LOGIN_TEXT.search(t or "")), None)
+            if target:
+                await page.goto(urljoin(page.url, target))
+                forms = await self._forms(page)
+                login_form = next(
+                    (
+                        f
+                        for f in forms
+                        if [x.get("type") for x in f["fields"]].count("password") == 1
+                        and len(f["fields"]) <= 3
+                    ),
+                    None,
+                )
         if login_form is not None:
             for field in login_form["fields"]:
                 selector = f'form >> nth={login_form["index"]} >> [name="{field["name"]}"]'
@@ -131,19 +149,39 @@ class FormAdminAdapter:
         self.guard.signed_in = True
         await self._find_form(page)
 
-    async def _find_form(self, page: Page) -> None:
-        candidates = [self.url(self.admin_path)]
-        await page.goto(candidates[0])
+    async def _links(self, page: Page, url: str) -> list[tuple[str, str]]:
+        await page.goto(url)
         await page.wait_for_load_state("networkidle")
-        links: list[list[str]] = await page.evaluate(LINKS_JS)
-        for href, text in links:
+        raw: list[list[str]] = await page.evaluate(LINKS_JS)
+        out = []
+        for href, text in raw:
             path = urlsplit(urljoin(page.url, href or "")).path
+            if path and "logout" not in path.lower():
+                out.append((path, text or ""))
+        return out
+
+    async def _find_form(self, page: Page) -> None:
+        """The "new user" form: on the panel page, its users page, or (no path given)
+        a panel the site's own links lead to after signing in."""
+        start = self.url(self.admin_path)
+        candidates = [start]
+        panels = []
+        for path, text in await self._links(page, start):
             last = [p for p in path.split("/") if p][-1:] or [""]
-            if USERISH.match(last[0]) or USERS_TEXT.search(text or ""):
+            full = self.url(path)
+            if (USERISH.match(last[0]) or USERS_TEXT.search(text)) and full not in candidates:
+                candidates.append(full)
+            elif ADMIN_TEXT.search(text) or ADMIN_TEXT.search(path):
+                panels.append(full)
+        for panel in panels[:3]:  # one level deeper: the panel's own users page
+            if panel not in candidates:
+                candidates.append(panel)
+            for path, text in await self._links(page, panel):
+                last = [p for p in path.split("/") if p][-1:] or [""]
                 full = self.url(path)
-                if full not in candidates:
+                if (USERISH.match(last[0]) or USERS_TEXT.search(text)) and full not in candidates:
                     candidates.append(full)
-        for url in candidates[:8]:
+        for url in candidates[:12]:
             await page.goto(url)
             for raw in await self._forms(page):
                 if self._is_create_form(raw):

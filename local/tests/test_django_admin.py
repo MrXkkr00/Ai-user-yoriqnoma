@@ -87,7 +87,7 @@ def test_django_admin_provisioning(demo_django: tuple[str, dict[str, str]], tmp_
         pseudonym_key=SecretBytes(b"k" * 32),
     )
     prov = Provisioner(
-        opts, AdminCredentials("admin", SecretStr("Admin-pass-1"), "/admin/"), tmp_path / "p.json"
+        opts, AdminCredentials("admin", SecretStr("Admin-pass-1"), ""), tmp_path / "p.json"
     )
 
     async def go() -> tuple[list[tuple[str, str]], str, CleanupReport]:

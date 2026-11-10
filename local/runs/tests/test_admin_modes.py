@@ -48,10 +48,10 @@ def make_project(mode: str, url: str, var: Path) -> Project:
         source_dir=str(DEMO_SHOP) if mode == "code_admin" else "",
         base_url=url.rstrip("/"),
         mailbox_kind="dir",
-        mailbox_target=str(var / "mail"),
+        mailbox_target=str(var / "mail") if mode == "code_admin" else "",  # optional
         admin_login=ADMIN[0],
         admin_password_enc=encrypt(ADMIN[1]),
-        admin_path="/admin",
+        admin_path="/admin" if mode == "code_admin" else "",  # mode 3: the tool finds it
     )
 
 
@@ -68,7 +68,7 @@ def test_provisioner_creates_and_removes_test_users(
         pseudonym_key=SecretBytes(b"k" * 32),
     )
     prov = Provisioner(
-        opts, AdminCredentials(ADMIN[0], SecretStr(ADMIN[1]), "/admin"), tmp_path / "p.json"
+        opts, AdminCredentials(ADMIN[0], SecretStr(ADMIN[1]), ""), tmp_path / "p.json"
     )
 
     async def go() -> tuple[list[str], list[str], Any, list[str]]:

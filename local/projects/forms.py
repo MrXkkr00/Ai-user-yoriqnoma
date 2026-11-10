@@ -32,14 +32,16 @@ class ProjectForm(_ProjectFormBase):
             "source_dir": "Kod papkasi (ixtiyoriy)",
             "base_url": "Sayt manzili (base URL)",
             "environment": "Muhit",
-            "mailbox_kind": "Pochta",
-            "mailbox_target": "Pochta papkasi yoki Mailpit manzili",
+            "mailbox_kind": "Pochta (ixtiyoriy)",
+            "mailbox_target": "Pochta papkasi yoki Mailpit manzili (ixtiyoriy)",
             "language": "Til",
         }
         help_texts = {
             "source_dir": "Masalan: D:\\loyihalar\\mening-saytim. Bo'sh bo'lsa, blueprint.json "
             "ni qo'lda yuklaysiz.",
-            "mailbox_target": "Papka: sayt xatlarni .eml qilib yozadigan joy. Mailpit: "
+            "mailbox_target": "Faqat sayt ro'yxatdan o'tishda email tasdiqlashni so'rasa "
+            "kerak; bo'sh qolsa, tasdiqlash xatlari o'qilmaydi. "
+            "Papka: sayt xatlarni .eml qilib yozadigan joy. Mailpit: "
             "http://127.0.0.1:8025",
         }
 
@@ -58,12 +60,16 @@ class ProjectForm(_ProjectFormBase):
         label="Admin panel manzili (ixtiyoriy)",
         required=False,
         max_length=200,
-        help_text="Masalan: /admin/ (Django) yoki /admin/users",
+        help_text="Masalan: /admin/ (Django) yoki /admin/users. Bo'sh qolsa, vosita panelni "
+        "o'zi qidiradi: odatiy manzillarni sinaydi, so'ng admin sifatida saytga kirib "
+        "uning havolalaridan topadi.",
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["mode"].widget = forms.RadioSelect(choices=Project.MODES)
+        self.fields["mailbox_kind"].required = False
+        self.fields["mailbox_target"].required = False
         if self.instance.pk:
             self.fields["admin_login"].initial = self.instance.admin_login
             self.fields["admin_path"].initial = self.instance.admin_path
@@ -71,6 +77,8 @@ class ProjectForm(_ProjectFormBase):
     def clean(self) -> dict[str, Any]:
         data = super().clean() or {}
         mode = data.get("mode", "code")
+        if not data.get("mailbox_kind"):
+            data["mailbox_kind"] = "dir"
         if mode in {"code", "code_admin"} and not data.get("source_dir"):
             self.add_error("source_dir", "Bu rejimda kod papkasi kerak")
         if mode in {"code_admin", "admin"}:

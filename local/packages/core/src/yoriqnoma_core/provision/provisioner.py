@@ -43,11 +43,25 @@ from yoriqnoma_core.writer.providers.base import LLMProvider
 Log = Callable[[str, str], None]
 
 
-def admin_path(creds: AdminCredentials) -> str:
+# Where admin panels usually are; "/" last: sign in on the site and follow its links.
+ADMIN_PATHS = (
+    "/admin/",
+    "/dashboard",
+    "/panel",
+    "/administrator",
+    "/backend",
+    "/manage",
+    "/cabinet",
+    "/",
+)
+
+
+def admin_paths(creds: AdminCredentials) -> list[str]:
+    """The panel the owner named, or (empty field) the usual places and the site itself."""
     raw = creds.admin_url.strip()
-    if not raw:
-        return "/admin/"
-    return urlsplit(raw).path or "/admin/"
+    if raw:
+        return [urlsplit(raw).path or "/"]
+    return list(ADMIN_PATHS)
 
 
 class Provisioner:
@@ -96,15 +110,23 @@ class Provisioner:
         await self._context.route("**/*", self.guard.handle)
         self.page = await self._context.new_page()
         self.page.on("response", self.guard.on_response)
-        path = admin_path(self.creds)
-        candidates: list[Any] = [
-            DjangoAdminAdapter(self.opts.base_url, path),
-            FormAdminAdapter(self.opts.base_url, path, self.guard),
-        ]
+        paths = admin_paths(self.creds)
+        # Django admin: the named path, or its default /admin/; then plain panels on every
+        # candidate path (the last one, "/", follows the site's own links after signing in)
+        django_path = paths[0] if self.creds.admin_url.strip() else "/admin/"
+        candidates: list[Any] = [DjangoAdminAdapter(self.opts.base_url, django_path)]
+        candidates += [FormAdminAdapter(self.opts.base_url, p, self.guard) for p in paths]
         if self.agent is not None:
-            candidates.append(AgentAdminAdapter(self.opts.base_url, path, self.guard, self.agent))
+            candidates.append(
+                AgentAdminAdapter(self.opts.base_url, paths[0], self.guard, self.agent)
+            )
         reasons = []
+        seen: set[tuple[str, str]] = set()
         for adapter in candidates:
+            key = (adapter.name, getattr(adapter, "admin_path", getattr(adapter, "admin", "")))
+            if key in seen:
+                continue
+            seen.add(key)
             if not await adapter.detect(self.page):
                 continue
             try:
