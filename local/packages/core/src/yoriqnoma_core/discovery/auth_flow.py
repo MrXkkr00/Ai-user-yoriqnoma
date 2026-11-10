@@ -18,8 +18,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from scout.crawler import CrawlResult, PageSeen
-from scout.forms import classify, fill_steps, to_form
+from yoriqnoma_core.discovery.crawler import CrawlResult, PageSeen
+from yoriqnoma_core.discovery.forms import classify, fill_steps, to_form
 from yoriqnoma_core.writer.providers.base import LLMProvider, LLMRequest, ProviderError
 from yoriqnoma_schemas import Flow, Form, Step, Target
 

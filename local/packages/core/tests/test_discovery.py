@@ -1,31 +1,31 @@
-"""Scout pieces without a browser (T26, T27): templates, JS routes, forms, API inference,
-blueprint building (default-deny, admin excluded) and the A+B merge."""
+"""Discovery pieces without a browser (server mode B, local mode 3): templates, JS
+routes, forms, API inference, blueprint building (default-deny) and the A+B merge."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from jobs.tests.samples import EXAMPLES
-from scout.auth_flow import AuthForms, auth_flows, find_auth_forms
-from scout.blueprint_builder import build
-from scout.crawler import CrawlResult, PageSeen
-from scout.forms import classify, data_kind, fill_steps, signup_roles, to_form
-from scout.js_routes import (
+from yoriqnoma_core.discovery.auth_flow import AuthForms, auth_flows, find_auth_forms
+from yoriqnoma_core.discovery.blueprint_builder import build
+from yoriqnoma_core.discovery.crawler import CrawlResult, PageSeen
+from yoriqnoma_core.discovery.forms import classify, data_kind, fill_steps, signup_roles, to_form
+from yoriqnoma_core.discovery.js_routes import (
     api_paths_from_js,
     routes_from_js,
     routes_from_source_map,
     source_map_url,
 )
-from scout.merge import merge
-from scout.network_infer import ApiCall, infer_entities, json_key_names
-from scout.preflight import parse_sitemap
-from scout.urls import clean_url, template_path
+from yoriqnoma_core.discovery.merge import merge
+from yoriqnoma_core.discovery.network_infer import ApiCall, infer_entities, json_key_names
+from yoriqnoma_core.discovery.urls import clean_url, template_path
 from yoriqnoma_schemas import Blueprint
 
 BASE = "https://shop.example.uz/"
+EXAMPLES = Path(__file__).resolve().parents[4] / "docs" / "schemas" / "examples"
 
 
 @pytest.mark.parametrize(
@@ -151,15 +151,6 @@ def test_network_inference_keeps_only_key_names() -> None:
     assert order.status_field == "status" and order.owner_field == "user_id"
     keys = json_key_names({"items": [{"name": "Ali", "phone": "+998901112233"}], "total": 1})
     assert keys == ["items", "name", "phone", "total"]  # names, never the values
-
-
-def test_sitemap_parsing() -> None:
-    xml = (
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        "<url><loc>https://s.uz/a</loc></url><url><loc>https://s.uz/b</loc></url></urlset>"
-    )
-    assert parse_sitemap(xml) == (["https://s.uz/a", "https://s.uz/b"], [])
-    assert parse_sitemap("<broken") == ([], [])
 
 
 def _page(tpl: str, **kw: Any) -> PageSeen:
@@ -308,7 +299,7 @@ def test_merge_code_wins_and_adds_only_new() -> None:
 
 
 def test_confirmation_step_uses_the_code_form() -> None:
-    from scout.auth_flow import verify_steps_for
+    from yoriqnoma_core.discovery.auth_flow import verify_steps_for
 
     code_form = {
         "index": 0,

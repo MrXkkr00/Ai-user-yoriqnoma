@@ -18,12 +18,10 @@ import re
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
-from django.conf import settings
-
-from scout.auth_flow import AuthForms, auth_flows
-from scout.crawler import CrawlResult, PageSeen
-from scout.forms import fill_steps, to_form
-from scout.network_infer import infer_entities
+from yoriqnoma_core.discovery.auth_flow import AuthForms, auth_flows
+from yoriqnoma_core.discovery.crawler import CrawlResult, PageSeen
+from yoriqnoma_core.discovery.forms import fill_steps, to_form
+from yoriqnoma_core.discovery.network_infer import infer_entities
 from yoriqnoma_core.safety.pii import find_pii, mask_text
 from yoriqnoma_schemas import (
     Blueprint,
@@ -99,6 +97,7 @@ def build(
     verify_email: bool,
     extra_deny: list[str],
     public_values: set[str],
+    generator: str = "yoriqnoma-discovery",
 ) -> Blueprint:
     deny = sorted(set(DEFAULT_DENY_PATHS) | set(extra_deny))
     policy = Policy(target_role=role, deny_paths=deny)
@@ -270,7 +269,7 @@ def build(
         base_url=base_url,  # type: ignore[arg-type]
         source="discovered",
         generated_at=datetime.now(UTC),
-        generator=f"yoriqnoma-scout {settings.YORIQNOMA_VERSION}",
+        generator=generator,
         policy=policy,
         roles=roles,
         pages=pages,

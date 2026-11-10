@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -25,9 +26,8 @@ from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 from pydantic import BaseModel, ConfigDict
 
-from scout.kit import ScoutKit
-from scout.urls import clean_url, path_of
-from security.ratelimit import wait_turn
+from yoriqnoma_core.discovery.kit import ScoutKit
+from yoriqnoma_core.discovery.urls import clean_url, path_of
 from yoriqnoma_core.explorer.options import CancelToken, ProgressSink
 from yoriqnoma_core.explorer.steps import locate
 from yoriqnoma_core.safety.policy_engine import ClickContext
@@ -117,6 +117,7 @@ class Agent:
         progress: ProgressSink,
         cancel: CancelToken,
         limits: AgentLimits | None = None,
+        wait: Callable[[str], Awaitable[None]] | None = None,
     ) -> None:
         self.kit = kit
         self.provider = provider
@@ -125,6 +126,7 @@ class Agent:
         self.progress = progress
         self.cancel = cancel
         self.limits = limits or AgentLimits()
+        self.wait = wait
         self.result = AgentResult()
         self.production = kit.opts.environment == "production"
 
@@ -149,7 +151,7 @@ class Agent:
         url = clean_url(path, self.kit.opts.base_url)
         if url is None or not self.kit.engine.allows_path(path):
             return
-        await wait_turn(self._host())
+        await self._wait()
         await page.goto(url)
         steps: list[Step] = [Step(action="goto", path=path)]
         while self.result.steps_used < self.limits.steps and not self.cancel.is_cancelled():
@@ -182,6 +184,10 @@ class Agent:
             if step is not None:
                 steps.append(step)
 
+    async def _wait(self) -> None:
+        if self.wait is not None:
+            await self.wait(self._host())
+
     def _host(self) -> str:
         from urllib.parse import urlsplit
 
@@ -199,7 +205,7 @@ class Agent:
                 if url is None or not self.kit.engine.allows_path(path_of(url)):
                     self.result.notes.append(f"agent: taqiqlangan yo'l {act.path}")
                     return None
-                await wait_turn(self._host())
+                await self._wait()
                 await page.goto(url)
                 return Step(action="goto", path=path_of(url))
             if act.tool == "back":

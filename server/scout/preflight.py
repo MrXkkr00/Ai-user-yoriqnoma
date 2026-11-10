@@ -15,9 +15,9 @@ from xml.etree import ElementTree
 
 import httpx
 
-from scout.urls import clean_url, origin
 from security.robots import Robots, fetch_robots
 from security.ssrf import check_public_url, safe_get
+from yoriqnoma_core.discovery.urls import clean_url, origin
 from yoriqnoma_core.safety.url_guard import UrlBlocked
 
 TECH_HINTS = {

@@ -233,7 +233,7 @@ def _blueprint_for(
     discovered = asyncio.run(discover(job, run_dir, human, progress, cancel, base=uploaded))
     if uploaded is None:
         return discovered
-    from scout.merge import merge
+    from yoriqnoma_core.discovery.merge import merge
 
     merged, notes = merge(uploaded, discovered)
     for note in notes:

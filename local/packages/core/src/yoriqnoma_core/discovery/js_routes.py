@@ -12,7 +12,7 @@ import json
 import re
 from urllib.parse import urljoin
 
-from scout.urls import is_route_like, same_site
+from yoriqnoma_core.discovery.urls import is_route_like, same_site
 
 PATTERNS = [
     re.compile(r"""\bpath\s*:\s*["'`](/[^"'`\s]*)["'`]"""),

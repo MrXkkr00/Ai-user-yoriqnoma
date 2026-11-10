@@ -10,6 +10,7 @@ API calls the page made (method, path, status and JSON key names only).
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
@@ -17,11 +18,9 @@ from urllib.parse import urlsplit
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page, Response
 
-from scout.forms import FORMS_JS
-from scout.network_infer import ApiCall, json_key_names
-from scout.urls import clean_url, path_of, same_site, template_path
-from security.ratelimit import wait_turn
-from security.robots import Robots
+from yoriqnoma_core.discovery.forms import FORMS_JS
+from yoriqnoma_core.discovery.network_infer import ApiCall, json_key_names
+from yoriqnoma_core.discovery.urls import clean_url, path_of, same_site, template_path
 from yoriqnoma_core.explorer.options import CancelToken
 from yoriqnoma_core.safety.policy_engine import PolicyEngine
 
@@ -67,16 +66,21 @@ def _host(url: str) -> str:
     return (urlsplit(url).hostname or "").lower()
 
 
+Wait = Callable[[str], Awaitable[None]]  # per-host rate limit of the app
+Allowed = Callable[[str], bool]  # robots.txt of the app
+
+
 async def crawl(
     page: Page,
     base_url: str,
     engine: PolicyEngine,
-    robots: Robots,
+    allowed: Allowed | None,
     *,
     start: list[str],
     max_pages: int,
     cancel: CancelToken | None = None,
     settle: Any = None,
+    wait: Wait | None = None,
 ) -> CrawlResult:
     result = CrawlResult()
     samples: dict[str, int] = {}
@@ -116,11 +120,12 @@ async def crawl(
             if not engine.allows_path(path):
                 result.skipped.append(f"{path}: deny_paths")
                 continue
-            if not robots.allowed(url):
+            if allowed is not None and not allowed(url):
                 result.skipped.append(f"{path}: robots.txt")
                 continue
             samples[tpl] = samples.get(tpl, 0) + 1
-            await wait_turn(_host(url))
+            if wait is not None:
+                await wait(_host(url))
             try:
                 await page.goto(url, wait_until="domcontentloaded")
                 if settle is not None:

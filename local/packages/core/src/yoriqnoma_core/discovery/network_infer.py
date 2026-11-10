@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from scout.urls import template_path
+from yoriqnoma_core.discovery.urls import template_path
 from yoriqnoma_core.safety.pii import is_pii_field
 from yoriqnoma_schemas import Entity
 
