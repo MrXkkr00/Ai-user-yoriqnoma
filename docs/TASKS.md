@@ -34,6 +34,8 @@ Lokal dastur serverga ulanmaydi: blueprint va bundle serverga odam orqali o'tadi
 - skrinshotda maqsadli rol ko'radigan narsa xiralashtirilmaydi; faqat rolga tegishli bo'lmagan elementlar xiralashtiriladi. Begona shaxslarning ma'lumotlari (ism, telefon, email, manzil...) xiralashtirilmaydi, balki to'qima test ma'lumotlari bilan almashtiriladi. Saytning o'z tashkilot ma'lumotlari va nashr kontenti (maqola, muallif, reklama) o'z holicha qoladi; qaror zona bo'yicha, to'qima qiymat HMAC bilan, rasm ichidagi matn OCR bilan tekshiriladi (T09, T10, T12, T16);
 - manual'da `role` bor va yo'riqnoma boshida qaysi rol uchun yozilgani aytiladi (T15).
 
+**Lokal dastur: uch rejim (2026-11-10 dan, TZ FR-L13, SEC-18).** Lokal dastur bitta bo'lib qoladi; loyiha yaratishda foydalanuvchi tanlaydi: (1) kod + sayt linki, (2) kod + sayt linki + admin login, (3) sayt linki + admin login. 2- va 3-rejimda test foydalanuvchilarni vosita admin panelida o'zi yaratadi va ish oxirida o'chiradi. Vazifalarda «admin yo'q» deyilgan joylar yo'riqnoma, blueprint va capture'ga tegishli; admin login faqat F8 vazifalaridagi cheklovlar bilan ishlatiladi. Yangi vazifalar: F8 (T31–T33).
+
 ## 0. Boshlashdan oldin (o'zingiz bajarasiz)
 
 1. **O'rnating:**
@@ -1029,3 +1031,81 @@ Vazifa:
   (har flow skrinshotlaridan).
 Commit: "feat: incremental regeneration, ci example, tour and gif export".
 ```
+
+---
+
+## F8 — Lokal dastur: uch rejim va admin orqali test foydalanuvchilar
+
+### T31 — Kodsiz razvedkani core'ga ko'chirish
+
+Rejim: plan
+
+```
+@CLAUDE.md @docs/TZ.md (FR-SV5, FR-L13) @docs/ARCHITECTURE.md (7.6, 11)
+Vazifa: server/scout dagi Django'siz qismlarni local/packages/core/src/yoriqnoma_core/discovery/ ga ko'chir
+(urls, js_routes, forms, network_infer, crawler, auth_flow, blueprint_builder, merge, kit, agent,
+validation_probe) va orkestratorni discovery/run.py (DiscoveryInput, discover_site) qilib yoz.
+- Django'ga bog'liq narsalar parametr bo'ladi: rate limit (wait), robots.txt (allowed), JS fayllarni olish
+  (fetch_text), LLM provayderlar (classify, agent), generator nomi.
+- allow_signup: akkaunt berilmagan va ro'yxatdan o'tib bo'lmaydigan rol uchun razvedka to'xtaydi.
+- Serverda scout/discover.py faqat o'z qismini beradi (preflight, safe_get, Redis rate limit, Claude);
+  scout/preflight.py serverda qoladi.
+- core nusxasini serverga ham ko'chir (test_shared_copies). Unit testlar core'ga (test_discovery.py),
+  sitemap testi serverga.
+Tekshir: ikkala dasturda ruff, mypy, testlar; server sekin testlari (B rejimi demo_shop'da).
+Commit: "refactor(core): shared site discovery for server mode B and local mode 3".
+```
+
+### T32 — Admin orqali test foydalanuvchilar (core/provision)
+
+Rejim: plan
+
+```
+@CLAUDE.md (1-qoida) @docs/TZ.md (FR-L13, SEC-18, SEC-6)
+Vazifa: yoriqnoma_core/provision/ — admin login bilan test foydalanuvchi yaratish va tozalash.
+- guard.ProvisionGuard: admin brauzer kontekstining firewall'i. GET mumkin (logout'dan tashqari);
+  yozish faqat: kirish (signed_in bo'lguncha), foydalanuvchiga o'xshash to'plamga yangi yozuv
+  (/admin/app/user/add/, POST /api/admin/users), vosita yaratgan (model, id) ni o'zgartirish yoki o'chirish.
+  Ro'yxat ommaviy amallari (action=, _selected_action=), sozlamalar, rollar, guruhlar, boshqalarning
+  yozuvlari — blok va log. Yangi id'lar javobdan (Location, JSON id) o'rganiladi.
+- Adapterlar: DjangoAdminAdapter (UserAdmin: add → change formasi, role yoki groups, is_staff va
+  is_superuser o'chiq, <model>/<id>/delete/), FormAdminAdapter (parol + email + rol maydonli forma,
+  qatordagi o'chirish tugmasi va tasdiqlash), AgentAdminAdapter (Ollama, faqat boshqalari mos kelmasa;
+  formaga faqat vositaning test qiymatlari yoziladi).
+- Rollar: admin formasidagi variantlar; adminga o'xshash yoki noaniq — excluded.
+- Provisioner: start (alohida brauzer, adapter tanlash, kirish), list_roles, find_role,
+  create_accounts (A, B), cleanup (avval test foydalanuvchilarning obyektlari, keyin o'zlari).
+  Ledger: provision.json, parolsiz, har o'zgarishdan keyin yoziladi.
+- Poligonlar: demo_shop admin'iga POST /api/admin/users va DELETE /api/admin/users/{id} (foydalanuvchi
+  bilan uning buyurtma, sharh va xabarlari ham) va /admin/users sahifasida forma va o'chirish tugmasi;
+  demo_django admin'i UserAdmin bilan (role, phone).
+- Testlar: guard jadvali (ruxsat va blok), rol tasnifi, ledger; sekin: demo_shop'da FormAdminAdapter,
+  demo_django'da DjangoAdminAdapter — yaratish, to'g'ri rol, admin huquqi yo'q, tozalash, sayt
+  foydalanuvchilari avvalgidek, guard.log bo'sh.
+Commit: "feat(core): admin provisioning of test users with cleanup".
+```
+
+### T33 — Lokal dasturda uch rejim
+
+Rejim: plan
+
+```
+@docs/TZ.md (FR-L3, FR-L4, FR-L13) @docs/ARCHITECTURE.md (6, 11)
+Vazifa: lokal dasturda rejim tanlash, «Tekshirish», rol tanlash va tozalash.
+- Project: mode (code | code_admin | admin), admin_login, admin_password_enc (Fernet), admin_path,
+  check_state, check_error; BlueprintVersion.source ga admin va discovered.
+- Loyiha formasi: «Sizda nima bor?» — 3 ta karta; rejimga keraksiz maydonlar yashirinadi (CSS :has),
+  kod papkasi yo'li faqat 1-2 rejimda, admin maydonlari faqat 2-3 rejimda; tahrirlashda parol bo'sh
+  qolsa eskisi saqlanadi; admin login haqida ogohlantirish.
+- «Tekshirish»: Huey vazifasi (check_project): skan va/yoki admin rollari; sahifa HTMX bilan kutadi.
+- Rol kartalari: admin orqali yaratiladigan rol uchun «Test foydalanuvchi admin orqali yaratiladi va ish
+  oxirida o'chiriladi».
+- Ish: explore_with_test_users — test foydalanuvchilar (maqsadli rol A va B, 2-rejimda yordamchi rollar A),
+  3-rejimda discover_blueprint (core discovery, Ollama), run_explore, finally ichida tozalash;
+  Run.stats["cleanup"], ish sahifasida natija va «Tozalashni qayta urinish», manage.py cleanup --run.
+- Testlar (sekin, demo_shop): 2- va 3-rejimda manager uchun bundle ishi tugaydi, tozalash toza, sayt
+  foydalanuvchilari ro'yxati avvalgidek; 3-rejimda blueprint discovered, /staff/orders manager'ga.
+Commit: "feat(local): three modes with admin-made test users and cleanup".
+```
+
+**Qabul mezoni (F8):** `uv run yoriqnoma-local` → «Yangi loyiha» → 3-rejim (demo_shop: `http://127.0.0.1:8800`, admin `admin@demo.local` / `Admin12345`, `/admin`) → «Tekshirish» → «Menejer» → «To'liq yo'riqnoma». Ish tugagach demo_shop'ning `/admin/users` ro'yxati ish boshidagidek bo'lishi kerak.

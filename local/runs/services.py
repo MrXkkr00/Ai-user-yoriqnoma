@@ -1,5 +1,11 @@
 """Runs: start, execute (explore -> write -> render), cancel, human input (FR-L4, FR-L7).
 
+Modes with an admin login (2: code + admin, 3: admin only): before exploring, test users
+of the needed roles are made through the admin panel; mode 3 then learns the pages and
+tasks from the site itself (core discovery). Right after exploring — also when it fails
+or is cancelled — the test users and what they created are removed (``provision.json``
+keeps the list, «Tozalashni qayta urinish» repeats it).
+
 The core pipeline runs in an asyncio loop inside a Huey worker thread (never in a view).
 Django ORM calls from that loop go through ``_db``: a dedicated thread, because Django
 forbids synchronous ORM calls from an async context.
@@ -39,7 +45,7 @@ from yoriqnoma_core.pipeline import (
 from yoriqnoma_core.writer.providers import OllamaProvider
 from yoriqnoma_core.writer.providers.base import ProviderError
 from yoriqnoma_local.keys import decrypt, encrypt, pseudonym_key
-from yoriqnoma_schemas import CaptureRun, load_json, save_json
+from yoriqnoma_schemas import Blueprint, CaptureRun, load_json, save_json
 
 T = TypeVar("T")
 FORMATS = ("html", "pdf", "docx", "tour", "gif")
@@ -250,7 +256,11 @@ class DbHumanInput:
 # --- execution ------------------------------------------------------------------------
 
 
-def explore_options(run: Run, mailbox_target: str | None = None) -> ExploreOptions:
+def explore_options(
+    run: Run,
+    mailbox_target: str | None = None,
+    created: dict[str, dict[str, AccountCredentials]] | None = None,
+) -> ExploreOptions:
     project = run.project
     accounts = {
         role: {
@@ -259,6 +269,8 @@ def explore_options(run: Run, mailbox_target: str | None = None) -> ExploreOptio
         }
         for role, aliases in accounts_for(project).items()
     }
+    for role, aliases in (created or {}).items():  # test users made through the admin
+        accounts.setdefault(role, {}).update(aliases)
     return ExploreOptions(
         base_url=project.base_url,
         role=run.role,
@@ -307,6 +319,88 @@ def _finish(run: Run, status: str, error: str = "") -> None:
     run.save(update_fields=["status", "error", "finished_at"])
 
 
+def needed_roles(run: Run, bp: Blueprint) -> dict[str, tuple[str, str]]:
+    """Roles that get admin-made test users: the target role (A and B) and, in mode 2,
+    the helper roles its tasks need (A). Roles the admin does not have are left to the
+    owner's accounts or to sign-up."""
+    project = run.project
+    matched: dict[str, str] = dict((run.blueprint.stats or {}).get("admin_roles", {}))
+    label = {r.id: r.label for r in bp.roles}
+    out: dict[str, tuple[str, str]] = {run.role: (label.get(run.role, run.role), "AB")}
+    if project.mode == "code_admin":
+        target = [f.id for f in bp.flows_for_role(run.role)]
+        for flow in bp.requirement_closure(target):
+            if flow.role not in {"guest", run.role} and matched.get(flow.role):
+                out.setdefault(flow.role, (label.get(flow.role, flow.role), "A"))
+        if not matched.get(run.role):
+            out.pop(run.role)
+    return out
+
+
+def fetch_site_file(url: str) -> str | None:
+    """A JS file or source map of the studied site (mode 3 discovery)."""
+    import httpx
+
+    from yoriqnoma_core.safety.url_guard import UrlBlocked, check_url
+
+    try:
+        check_url(url, allow_private=True)
+        answer = httpx.get(url, timeout=10, follow_redirects=False)
+    except (UrlBlocked, httpx.HTTPError):
+        return None
+    if answer.status_code != 200 or len(answer.content) > 16 * 1024 * 1024:
+        return None
+    return answer.text
+
+
+def discover_blueprint(
+    run: Run,
+    roles_bp: Blueprint,
+    created: dict[str, dict[str, AccountCredentials]],
+    human: DbHumanInput,
+    progress: DbProgressSink,
+    cancel: DbCancelToken,
+) -> Blueprint:
+    """Mode 3: pages, forms and tasks of the role, learned from the site itself."""
+    from yoriqnoma_core.discovery.kit import ScoutKit
+    from yoriqnoma_core.discovery.run import DiscoveryFailed, DiscoveryInput, discover_site
+    from yoriqnoma_schemas import Policy
+
+    role = roles_bp.role(run.role)
+    opts = explore_options(run, created=created)
+    kit = ScoutKit.create(opts, Path(run.run_dir), Policy(target_role=run.role))
+    inp = DiscoveryInput(
+        base_url=run.project.base_url,
+        role=run.role,
+        role_label=role.label if role else run.role,
+        project=run.project.name,
+        accounts=created.get(run.role, {}),
+        allow_signup=False,
+        fetch_text=fetch_site_file,
+        classify=provider_for(run),
+        agent=provider_for(run),
+        max_pages=40,
+        agent_steps=20,
+        generator="yoriqnoma-local discovery",
+    )
+    progress.stage("explore", 80)
+    try:
+        bp = asyncio.run(discover_site(kit, inp, human, progress, cancel))
+    except DiscoveryFailed as exc:
+        raise RunAborted(str(exc)) from exc
+    version = _discovered_version(run, bp)
+    Run.objects.filter(pk=run.pk).update(blueprint=version)
+    return bp
+
+
+def _discovered_version(run: Run, bp: Blueprint) -> BlueprintVersion:
+    from projects.services import _new_version
+
+    stats = dict(run.blueprint.stats or {})
+    stats.update({"flows": len(bp.flows), "pages": len(bp.pages)})
+    return _new_version(run.project, bp, "discovered", stats=stats)
+
+
 def execute_run(run_id: int) -> Run:
     """Explore, then (full) write with Ollama and render, or (bundle) package."""
     run = Run.objects.select_related("project", "blueprint").get(pk=run_id)
@@ -329,8 +423,7 @@ def execute_run(run_id: int) -> Run:
         provider = provider_for(run) if run.output == "full" else None
         if provider is not None:
             provider.check()  # fail early with a clear message (FR-L11)
-        opts = explore_options(run)
-        capture = asyncio.run(run_explore(bp, run_dir, opts, human, progress, cancel))
+        capture = explore_with_test_users(run, bp, run_dir, human, progress, cancel)
         verified = sum(1 for f in capture.flows if not f.helper and f.status == "verified")
         total = sum(1 for f in capture.flows if not f.helper)
         stats: dict[str, Any] = {
@@ -358,7 +451,7 @@ def execute_run(run_id: int) -> Run:
             Run.objects.filter(pk=run.pk).update(stage="render")
             run_render(run_dir, set(run.formats))
         run.refresh_from_db()
-        run.stats = stats
+        run.stats = {**(run.stats or {}), **stats}
         run.save(update_fields=["stats"])
         _finish(run, "done")
         log(run, "info", "Tayyor.")
@@ -376,6 +469,87 @@ def execute_run(run_id: int) -> Run:
         log(run, "error", f"Kutilmagan xato: {type(exc).__name__}: {exc}")
     finally:
         db.close()
+    return run
+
+
+def explore_with_test_users(
+    run: Run,
+    bp: Blueprint,
+    run_dir: Path,
+    human: DbHumanInput,
+    progress: DbProgressSink,
+    cancel: DbCancelToken,
+) -> CaptureRun:
+    """Explore; in admin modes with test users made before and removed right after."""
+    if not run.project.uses_admin:
+        return asyncio.run(run_explore(bp, run_dir, explore_options(run), human, progress, cancel))
+    from projects.admin_access import ProvisionSession, report_dict
+
+    db = _DbThread()  # the admin session logs from its event loop: ORM on its own thread
+    session = ProvisionSession(
+        run.project,
+        run_dir,
+        run_dir.name,
+        lambda level, msg: db(lambda: log(run, level, msg, "explore")),
+    )
+    try:
+        log(run, "info", "Admin orqali test foydalanuvchilar yaratilmoqda", "explore")
+        created = asyncio.run(session.create(needed_roles(run, bp)))
+        if run.project.mode == "admin":
+            bp = discover_blueprint(run, bp, created, human, progress, cancel)
+        opts = explore_options(run, created=created)
+        return asyncio.run(run_explore(bp, run_dir, opts, human, progress, cancel))
+    finally:
+        own = own_objects_of(run_dir)
+        try:
+            report = asyncio.run(session.cleanup(own))
+            result = report_dict(report)
+        except Exception as exc:  # noqa: BLE001 - reported on the run page, never silent
+            result = {"clean": False, "left": [f"tozalash ishlamadi: {exc}"[:300]]}
+            log(run, "error", f"Tozalash ishlamadi: {exc}", "explore")
+        stats = dict(Run.objects.get(pk=run.pk).stats or {})
+        stats["cleanup"] = result
+        Run.objects.filter(pk=run.pk).update(stats=stats)
+        db.close()
+
+
+def own_objects_of(run_dir: Path) -> dict[str, list[str]]:
+    """Objects the test users made (capture.json, or progress.json if it stopped early)."""
+    import json
+
+    for name in ("capture.json", "progress.json"):
+        path = run_dir / "capture" / name
+        if path.is_file():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            own = data.get("own_objects") or {}
+            return {str(k): [str(i) for i in v] for k, v in own.items()}
+    return {}
+
+
+def retry_cleanup(run_id: int) -> Run:
+    """«Tozalashni qayta urinish»: remove what is still on the site from provision.json."""
+    from projects.admin_access import ProvisionSession, report_dict
+
+    run = Run.objects.select_related("project").get(pk=run_id)
+    run_dir = Path(run.run_dir)
+    db = _DbThread()
+    session = ProvisionSession(
+        run.project,
+        run_dir,
+        run_dir.name,
+        lambda level, msg: db(lambda: log(run, level, msg, "explore")),
+    )
+    try:
+        result = report_dict(asyncio.run(session.cleanup(own_objects_of(run_dir))))
+    except Exception as exc:  # noqa: BLE001 - shown on the run page
+        result = {"clean": False, "left": [f"tozalash ishlamadi: {exc}"[:300]]}
+    finally:
+        db.close()
+    run.refresh_from_db()
+    stats = dict(run.stats or {})
+    stats["cleanup"] = result
+    run.stats = stats
+    run.save(update_fields=["stats"])
     return run
 
 

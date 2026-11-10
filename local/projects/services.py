@@ -153,6 +153,7 @@ class RoleOption:
     flows: int
     self_signup: bool
     has_account: bool
+    admin_made: bool = False  # modes 2 and 3: a test user is made through the admin
 
     @property
     def selectable(self) -> bool:
@@ -160,6 +161,8 @@ class RoleOption:
 
     @property
     def account_note(self) -> str:
+        if self.admin_made:
+            return "Test foydalanuvchi admin orqali yaratiladi va ish oxirida o'chiriladi"
         if self.self_signup:
             return "Akkaunt shart emas: vosita o'zi ro'yxatdan o'tadi"
         if self.has_account:
@@ -169,6 +172,8 @@ class RoleOption:
 
 def role_options(project: Project, bp: Blueprint) -> list[RoleOption]:
     given = accounts_for(project)
+    version = project.current_blueprint()
+    admin_roles = (version.stats or {}).get("admin_roles", {}) if version else {}
     options: list[RoleOption] = []
     for role in bp.roles:
         if role.kind == "guest":
@@ -186,6 +191,38 @@ def role_options(project: Project, bp: Blueprint) -> list[RoleOption]:
                 flows=flows,
                 self_signup=role.self_signup,
                 has_account="A" in given.get(role.id, {}),
+                admin_made=project.uses_admin and bool(admin_roles.get(role.id)),
             )
         )
     return sorted(options, key=lambda o: (not o.selectable, not o.self_signup, o.label))
+
+
+def check_project(project: Project) -> BlueprintVersion | None:
+    """«Tekshirish»: scan the code (modes 1, 2) and sign in to the admin (modes 2, 3).
+
+    Mode 3 gets a first blueprint with the admin's roles only; the role is chosen next.
+    Runs in a Huey worker (a browser is opened for the admin), never in a view.
+    """
+    from projects.admin_access import check_admin, roles_blueprint, store_admin_roles
+
+    Project.objects.filter(pk=project.pk).update(check_state="running", check_error="")
+    try:
+        version = scan_project(project) if project.has_code else None
+        if project.uses_admin:
+            roles = check_admin(project, project_dir(project))
+            if version is not None:
+                store_admin_roles(version, roles, raw_blueprint(version))
+            else:
+                version = _new_version(
+                    project,
+                    roles_blueprint(project, roles),
+                    "admin",
+                    stats={"admin_roles": {r.id: r.id for r in roles if r.kind == "role"}},
+                )
+    except Exception as exc:  # noqa: BLE001 - shown on the project page, never silent
+        Project.objects.filter(pk=project.pk).update(
+            check_state="failed", check_error=f"{type(exc).__name__}: {exc}"[:2000]
+        )
+        raise
+    Project.objects.filter(pk=project.pk).update(check_state="done", check_error="")
+    return version

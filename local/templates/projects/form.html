@@ -2,16 +2,36 @@
 {% block title %}{% if project %}{{ project.name }}{% else %}Yangi loyiha{% endif %}{% endblock %}
 {% block content %}
 <h1>{% if project %}Loyihani tahrirlash{% else %}Yangi loyiha{% endif %}</h1>
-<form method="post" class="card form">
+<form method="post" class="card form project-form">
   {% csrf_token %}
-  {% for field in form %}
-    <div class="field">
+  <div class="field">
+    <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>{{ form.name }}
+    {% for e in form.name.errors %}<div class="error">{{ e }}</div>{% endfor %}
+  </div>
+  <div class="field">
+    <label>{{ form.mode.label }}</label>
+    <div class="mode-cards">
+      {% for choice in form.mode %}
+      <label class="option mode-card">{{ choice.tag }} <b>{{ choice.choice_label }}</b><br>
+        <span class="small muted">
+          {% if choice.data.value == "code" %}Loyiha kodi kompyuteringizda. Xodim rollari (menejer, kuryer) uchun test akkauntlarni o'zingiz berasiz.
+          {% elif choice.data.value == "code_admin" %}Kod + admin login: vosita admin panelida rol uchun test foydalanuvchilarni o'zi yaratadi va ish tugagach ularni va ular yaratgan narsalarni o'chiradi.
+          {% else %}Kod yo'q: rollar admin panelidan, sahifa va vazifalar saytning o'zidan o'rganiladi. Test foydalanuvchilar ish oxirida o'chiriladi.{% endif %}
+        </span></label>
+      {% endfor %}
+    </div>
+    {% for e in form.mode.errors %}<div class="error">{{ e }}</div>{% endfor %}
+  </div>
+  {% for field in form %}{% if field.name != "name" and field.name != "mode" %}
+    <div class="field field-{{ field.name }}">
       <label for="{{ field.id_for_label }}">{{ field.label }}</label>
       {{ field }}
       {% if field.help_text %}<div class="muted small">{{ field.help_text }}</div>{% endif %}
       {% for e in field.errors %}<div class="error">{{ e }}</div>{% endfor %}
     </div>
-  {% endfor %}
+  {% endif %}{% endfor %}
+  {% for e in form.non_field_errors %}<div class="error">{{ e }}</div>{% endfor %}
+  <div class="warn small field-admin_login">Admin login faqat test foydalanuvchilarni yaratish va o'chirish uchun ishlatiladi: admin sahifalari rasmga olinmaydi va yo'riqnomaga kirmaydi, sozlamalar va boshqa odamlarning yozuvlari o'zgartirilmaydi. Iloji bo'lsa staging saytdan foydalaning.</div>
   <div class="warn small">Production tanlansa, vosita o'chirish, bekor qilish va to'lov kabi amallarni faqat tasdiqlash oynasigacha bajaradi.</div>
   <button type="submit">Saqlash</button>
 </form>

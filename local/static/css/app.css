@@ -129,3 +129,12 @@ th { background: #f1f2ee; }
 .messages .msg.success { background: #dcf3e2; }
 .report { white-space: pre-wrap; background: var(--card); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow: auto; }
 .rename input { width: 100%; }
+
+/* project modes (cards) and the fields each mode needs, without JavaScript */
+.mode-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+.mode-card { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; }
+.mode-card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.project-form:has(input[name="mode"][value="admin"]:checked) .field-source_dir { display: none; }
+.project-form:has(input[name="mode"][value="code"]:checked) .field-admin_login,
+.project-form:has(input[name="mode"][value="code"]:checked) .field-admin_password,
+.project-form:has(input[name="mode"][value="code"]:checked) .field-admin_path { display: none; }

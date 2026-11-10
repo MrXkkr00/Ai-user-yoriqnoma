@@ -2,7 +2,12 @@
 
 Bu vosita sayt yoki tizimni o'rganadi va **administratordan boshqa har bir foydalanuvchi roli** (oddiy foydalanuvchi, menejer, sotuv menejeri va h.k.) uchun matn va rasmli to'liq yo'riqnoma yaratadi. Rol ish boshida tanlanadi: vosita saytdagi rollarni topib, variantlar ro'yxatini chiqaradi. Ikkita **alohida** Django dasturidan iborat, repo ham shunga ko'ra ikki papkaga bo'lingan:
 
-- **Lokal dastur** (`local/`). Foydalanuvchi kompyuterida ishlaydi. Kodni tahlil qiladi, saytni o'rganadi va Ollama orqali yo'riqnoma yozadi. Natija turi tanlanadi: to'liq yo'riqnoma yoki server uchun fayl (`blueprint.json` yoki `bundle.zip`).
+- **Lokal dastur** (`local/`). Foydalanuvchi kompyuterida ishlaydi va Ollama orqali yo'riqnoma yozadi. Bitta dastur, loyiha yaratishda foydalanuvchi o'zida nima borligini tanlaydi (3 rejim):
+  1. **Kod + sayt linki** — kod tahlil qilinadi; xodim rollari akkauntlarini sayt egasi beradi;
+  2. **Kod + sayt linki + admin login** — test foydalanuvchilarni vosita admin panelida o'zi yaratadi va ish tugagach ularni va ular yaratgan narsalarni o'chiradi;
+  3. **Sayt linki + admin login (kodsiz)** — rollar admin panelidan, sahifa va vazifalar saytning o'zidan o'rganiladi; test foydalanuvchilar ham tozalanadi.
+
+  Natija turi tanlanadi: to'liq yo'riqnoma yoki server uchun fayl (`blueprint.json` yoki `bundle.zip`).
 - **Server dastur** (`server/`). Onlayn serverda alohida ishlaydi va Claude API orqali yo'riqnoma yozadi. Rejimlari: A (blueprint), A' (bundle), B (faqat URL).
 
 Lokal va server bir-biriga ulanmaydi. Lokal dastur yaratgan faylni serverga **odam o'zi yuklaydi** (server veb-sahifasidagi forma orqali).
@@ -19,7 +24,7 @@ Batafsil hujjatlar:
 | `local/` | **Lokal dastur** — alohida uv loyihasi. Django + Huey (SQLite), faqat `127.0.0.1` da ishlaydi |
 | `local/packages/schemas` | `yoriqnoma_schemas` — blueprint, capture va manual pydantic sxemalari (dasturlar orasidagi shartnoma) |
 | `local/packages/scanner` | `yoriqnoma_scanner` — kod tahlili (SafeFS, parserlar, `scan()` → Blueprint). **Faqat lokalda** |
-| `local/packages/core` | `yoriqnoma_core` — Tadqiqotchi (Playwright), Yozuvchi (LLM provayderlar), Renderer, xavfsizlik |
+| `local/packages/core` | `yoriqnoma_core` — Tadqiqotchi (Playwright), Yozuvchi (LLM provayderlar), Renderer, xavfsizlik, `discovery` (kodsiz razvedka: server B, lokal 3-rejim), `provision` (admin orqali test foydalanuvchilar) |
 | `local/fixtures/demo_shop` | Sinov poligoni (FastAPI + React). Integratsion testlar shu poligonda o'tadi |
 | `server/` | **Server dastur** — alohida uv loyihasi. Django + DRF + Celery + Redis, PostgreSQL, MinIO, Docker |
 | `server/packages/schemas`, `server/packages/core` | Lokaldagi `schemas` va `core` ning **aynan nusxasi** |
@@ -54,6 +59,9 @@ uv run pytest -m llm                               # lokalda Ollama, serverda Cl
 ## Buzilmaydigan qoidalar
 
 1. **Admin yo'q.** Administrator va adminga o'xshash rollarning (saytni boshqaradigan: foydalanuvchilar, rollar, huquqlar, sozlamalar) yo'llari va huquqlari hech qachon blueprint, capture yoki yo'riqnomaga kirmaydi. Bunday rollar uchun yo'riqnoma yozilmaydi. Noaniq rol yoki holat taqiqlanadi (default-deny).
+   - **Admin login — faqat lokal 2- va 3-rejimda va faqat test foydalanuvchilar uchun** (`yoriqnoma_core.provision`). U alohida brauzer kontekstida ishlaydi: hech narsa rasmga olinmaydi va blueprint, capture yoki yo'riqnomaga kirmaydi. `ProvisionGuard` faqat foydalanuvchi yaratishga va vosita shu ishda yaratgan obyektlarni o'zgartirish yoki o'chirishga ruxsat beradi; sozlamalar, rollar, huquqlar, boshqalarning yozuvlari va ommaviy amallar bloklanadi. Admin rollari uchun foydalanuvchi yaratilmaydi.
+   - Ish tugagach (xato yoki bekor qilishda ham) vosita yaratgan test foydalanuvchilar va ular yaratgan obyektlar o'chiriladi; ro'yxat `provision.json` da (parolsiz), o'chmagani hisobotga yoziladi.
+   - Admin login serverga hech qachon berilmaydi va server dasturida ishlatilmaydi.
 2. **Skaner fayllarni faqat `SafeFS` orqali o'qiydi.** `.env*`, kalitlar, dump'lar, `*.db`, `*.sqlite`, `*.sql` o'qilmaydi.
 3. **O'rganilayotgan saytning bazasiga hech qachon ulanilmaydi.**
    - `packages/scanner` va `packages/core` da hech qanday DB drayveri yoki ORM yo'q. Buni har bir dasturdagi `tests/test_no_db_drivers.py` tekshiradi.

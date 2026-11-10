@@ -106,7 +106,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - akkaunt kerakmi (vosita o'zi ro'yxatdan o'ta oladimi yoki sayt egasi berishi kerakmi).
 
   Bitta yoki bir nechta rol tanlanadi; har bir rol uchun **alohida** yo'riqnoma yoziladi. Chiqarib tashlangan rollar ham sababi bilan ko'rsatiladi, lekin ularni tanlab bo'lmaydi. Terminal buyruqlarida: `--list-roles` (variantlar ro'yxati) va `--role <id>`.
-- **FR-RL4. Rol akkauntlari.** O'zi ro'yxatdan o'ta oladigan rol (odatda oddiy foydalanuvchi) uchun vosita o'zi ro'yxatdan o'tadi. Boshqa rollar uchun sayt egasi shu roldagi test akkauntlarini beradi (A, kerak bo'lsa B). Kirgandan keyin akkaunt haqiqatan tanlangan rolda ekani va admin yoki adminga o'xshash huquqi yo'qligi tekshiriladi (SEC-6). Akkaunt boshqa rolda yoki adminga o'xshash bo'lsa, ish to'xtaydi.
+- **FR-RL4. Rol akkauntlari.** O'zi ro'yxatdan o'ta oladigan rol (odatda oddiy foydalanuvchi) uchun vosita o'zi ro'yxatdan o'tadi. Boshqa rollar uchun sayt egasi shu roldagi test akkauntlarini beradi (A, kerak bo'lsa B). Lokal 2- va 3-rejimda esa akkauntlarni vosita admin login orqali o'zi yaratadi va ish oxirida o'chiradi (FR-L13). Kirgandan keyin akkaunt haqiqatan tanlangan rolda ekani va admin yoki adminga o'xshash huquqi yo'qligi tekshiriladi (SEC-6). Akkaunt boshqa rolda yoki adminga o'xshash bo'lsa, ish to'xtaydi.
 
 ### 4.1. Skaner — `yoriqnoma_scanner`, lokal dastur ichida (FR-S)
 
@@ -289,6 +289,19 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 
   Ular UI bilan bir xil servislarni chaqiradi.
 - **FR-L11. Ishga tushish tekshiruvlari.** Ollama ishlayaptimi, model bormi, Playwright chromium o'rnatilganmi, base URL ochiladimi — har biri uchun aniq o'zbekcha yechim xabari chiqariladi.
+- **FR-L13. Uch rejim (loyiha yaratishda tanlanadi).** Lokal dastur bitta; foydalanuvchi «Sizda nima bor?» savoliga javob beradi va faqat shu rejimga kerakli ma'lumotni kiritadi:
+
+  | Rejim | Kiritiladi | Rollar | Test akkauntlar |
+  |---|---|---|---|
+  | 1. Kod + sayt linki | kod papkasi yo'li, URL | koddan | o'zi ro'yxatdan o'tadi yoki sayt egasi beradi |
+  | 2. Kod + sayt linki + admin login | kod papkasi yo'li, URL, admin login va paroli, admin panel manzili (ixtiyoriy) | koddan; admin panelidagi rol bilan moslanadi | admin panelida vosita yaratadi |
+  | 3. Sayt linki + admin login | URL, admin login va paroli, admin panel manzili (ixtiyoriy) | admin panelining «yangi foydalanuvchi» formasidan | admin panelida vosita yaratadi |
+
+  - «Tekshirish» tugmasi: kod skanerlanadi (1, 2) va admin paneliga kirib rollar o'qiladi (2, 3). Keyin rol variantlardan tanlanadi (FR-RL3), so'ng ish boshlanadi.
+  - 3-rejimda sahifa, forma va vazifalar ish boshida saytning o'zidan o'rganiladi (serverning B rejimi bilan bir xil razvedka, LLM — Ollama).
+  - Admin login faqat test foydalanuvchilarni yaratish va o'chirish uchun (SEC-18). Ish tugagach — muvaffaqiyatli, xato yoki bekor qilingan bo'lsa ham — vosita yaratgan foydalanuvchilar va ular yaratgan obyektlar o'chiriladi. O'chmagani ish sahifasida ko'rsatiladi, «Tozalashni qayta urinish» tugmasi va `manage.py cleanup --run <id>` bor.
+  - Qo'llab-quvvatlanadigan admin panellar: Django admin (aniq qadamlar), «yangi foydalanuvchi» formasi va o'chirish tugmasi bor oddiy panel; boshqalarida Ollama agenti xuddi shu cheklovlar ichida ishlaydi.
+
 - **FR-L12. `eval` — modellarni solishtirish.** Oltin to'plamda ikki modelni solishtiradi:
   - sxema xatolari;
   - marker xatolari;
@@ -337,7 +350,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 ## 5. Xavfsizlik talablari (SEC)
 
 - **SEC-1. Default-deny** — barcha komponentlarda.
-- **SEC-2. Admin yo'q.** Administrator va adminga o'xshash rollarning yo'llari va huquqlari hech qachon olinmaydi va ko'rsatilmaydi. Begona shaxslarning haqiqiy ma'lumotlari yo'riqnomaga kirmaydi: ular to'qima test ma'lumotlari bilan almashtiriladi (FR-E10).
+- **SEC-2. Admin yo'q.** Administrator va adminga o'xshash rollarning yo'llari va huquqlari hech qachon olinmaydi va ko'rsatilmaydi (lokal 2- va 3-rejimdagi test foydalanuvchi yaratish bundan mustasno, u ham faqat SEC-18 bo'yicha). Begona shaxslarning haqiqiy ma'lumotlari yo'riqnomaga kirmaydi: ular to'qima test ma'lumotlari bilan almashtiriladi (FR-E10).
 - **SEC-3. Skaner chegaralari.**
   - Fayllar faqat `SafeFS` orqali o'qiladi.
   - **O'qilmaydigan fayllar:** `.env*`, `*.pem`, `*.key`, `*.p12`, `*.sql`, `*.db`, `*.sqlite*`, `*dump*`, `docker-compose*.yml`, `secrets*`, `storage/`, `uploads/`, `logs/`, `node_modules/`, `.git/`, `venv/`, `.venv/`.
@@ -400,6 +413,13 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   - `X-Frame-Options`, CSP (django-csp).
   - Login urinishlari cheklanadi (django-axes yoki rate limit).
   - `manage.py check --deploy` toza o'tishi kerak.
+
+- **SEC-18. Admin login (lokal 2- va 3-rejim).**
+  - Faqat lokal dasturda; serverga berilmaydi. Parol Fernet bilan shifrlanadi.
+  - Admin sessiyasi alohida brauzer kontekstida: capture, skrinshot va log'ga sahifa mazmuni yozilmaydi; admin sahifalari blueprint, capture va yo'riqnomaga kirmaydi.
+  - Admin sessiyasining firewall'i (`ProvisionGuard`): o'qish (GET) mumkin; yozish faqat (1) admin paneliga kirish, (2) foydalanuvchiga o'xshash to'plamga yangi yozuv qo'shish, (3) vosita shu ishda yaratgan (model, id) juftligini o'zgartirish yoki o'chirish uchun. Ro'yxatdagi ommaviy amallar, sozlamalar, rollar, huquqlar, boshqalarning yozuvlari va tizimdan chiqish bloklanadi va logga yoziladi.
+  - Yaratilgan foydalanuvchi faqat tanlangan rolda bo'ladi; staff va superuser belgilari o'chiq. Adminga o'xshash rol uchun foydalanuvchi yaratilmaydi. Kirgandan keyin SEC-6 tekshiruvi baribir bajariladi.
+  - Ish oxirida tozalash majburiy; ro'yxat `provision.json` da (parolsiz) saqlanadi, shuning uchun to'xtab qolgan ishdan keyin ham tozalash mumkin.
 
 ## 6. Nofunksional talablar (NFR)
 

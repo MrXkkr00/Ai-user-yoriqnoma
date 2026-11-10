@@ -166,3 +166,16 @@ def run_open_folder(request: HttpRequest, pk: int) -> HttpResponse:
         else:
             subprocess.Popen(["xdg-open", str(folder)])  # noqa: S603, S607
     return redirect("run-detail", pk)
+
+
+@require_POST
+def run_cleanup(request: HttpRequest, pk: int) -> HttpResponse:
+    """Repeat the removal of test users and their objects (modes 2 and 3)."""
+    from runs.tasks import cleanup_run_task
+
+    run = get_object_or_404(Run, pk=pk)
+    if not run.project.uses_admin:
+        return redirect("run-detail", pk)
+    cleanup_run_task(run.pk)
+    messages.info(request, "Tozalash qayta boshlandi.")
+    return redirect("run-detail", pk)

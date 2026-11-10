@@ -11,13 +11,13 @@ from projects.forms import AccountForm, ProjectForm, UploadBlueprintForm
 from projects.models import Project, ProjectAccount
 from projects.services import (
     BlueprintError,
-    create_project,
     effective_blueprint,
     raw_blueprint,
     role_options,
     scan_project,
     set_account,
     set_override,
+    unique_slug,
     upload_blueprint,
 )
 
@@ -35,8 +35,10 @@ TABS = [
 def project_new(request: HttpRequest) -> HttpResponse:
     form = ProjectForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        project = create_project(**form.cleaned_data)
-        messages.success(request, "Loyiha yaratildi. Endi kodni skanerlang.")
+        project = form.save(commit=False)
+        project.slug = unique_slug(project.name)
+        project.save()
+        messages.success(request, "Loyiha yaratildi. Endi «Tekshirish» tugmasini bosing.")
         return redirect("project-detail", project.pk)
     return render(request, "projects/form.html", {"form": form, "project": None})
 
@@ -50,6 +52,12 @@ def project_edit(request: HttpRequest, pk: int) -> HttpResponse:
         messages.success(request, "Saqlandi.")
         return redirect("project-detail", project.pk)
     return render(request, "projects/form.html", {"form": form, "project": project})
+
+
+def project_check(request: HttpRequest, pk: int) -> HttpResponse:
+    """The «Tekshirish» panel (HTMX polling while the admin check runs)."""
+    project = get_object_or_404(Project, pk=pk)
+    return render(request, "projects/_check.html", {"project": project})
 
 
 def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
@@ -77,6 +85,13 @@ def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def project_scan(request: HttpRequest, pk: int) -> HttpResponse:
     project = get_object_or_404(Project, pk=pk)
+    if project.uses_admin:
+        # the admin is checked in a browser: in the worker, the page polls the result
+        from runs.tasks import check_project_task
+
+        Project.objects.filter(pk=pk).update(check_state="running", check_error="")
+        check_project_task(project.pk)
+        return redirect("project-detail", pk)
     try:
         version = scan_project(project)
     except (BlueprintError, ValueError, NotADirectoryError) as exc:

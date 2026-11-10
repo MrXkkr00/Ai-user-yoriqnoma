@@ -18,6 +18,7 @@ urlpatterns = [
     path("projects/<int:pk>/", project_views.project_detail, name="project-detail"),
     path("projects/<int:pk>/edit/", project_views.project_edit, name="project-edit"),
     path("projects/<int:pk>/scan/", project_views.project_scan, name="project-scan"),
+    path("projects/<int:pk>/check/", project_views.project_check, name="project-check"),
     path("projects/<int:pk>/blueprint/", project_views.blueprint_view, name="blueprint"),
     path(
         "projects/<int:pk>/blueprint/upload/",
@@ -41,6 +42,7 @@ urlpatterns = [
     path("runs/<int:pk>/cancel/", run_views.run_cancel, name="run-cancel"),
     path("runs/<int:pk>/resume/", run_views.run_resume, name="run-resume"),
     path("runs/<int:pk>/update/", run_views.run_update, name="run-update"),
+    path("runs/<int:pk>/cleanup/", run_views.run_cleanup, name="run-cleanup"),
     path("runs/<int:pk>/input/<int:req_id>/", run_views.run_input, name="run-input"),
     path("runs/<int:pk>/files/<path:name>", run_views.run_file, name="run-file"),
     path("runs/<int:pk>/open-folder/", run_views.run_open_folder, name="run-open-folder"),

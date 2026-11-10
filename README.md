@@ -70,6 +70,25 @@ uv run python manage.py <buyruq>           # scan | explore | write | render | r
 uv run demo-shop                           # poligon: http://127.0.0.1:8800
 ```
 
+### Uch rejim
+
+«Yangi loyiha» formasida «Sizda nima bor?» savoliga javob berasiz. Dastur bitta, rejimga qarab
+faqat kerakli maydonlar chiqadi:
+
+| Rejim | Nima kiritasiz | Test akkauntlar |
+|---|---|---|
+| 1. Kod + sayt linki | kod papkasi yo'li, sayt manzili | o'zi ro'yxatdan o'tadi yoki siz berasiz |
+| 2. Kod + sayt linki + admin login | kod papkasi yo'li, sayt manzili, admin login va paroli | vosita admin panelida yaratadi |
+| 3. Sayt linki + admin login | sayt manzili, admin login va paroli (kod kerak emas) | vosita admin panelida yaratadi |
+
+«Tekshirish» kodni skanerlaydi va/yoki admin paneliga kirib rollarni o'qiydi. Keyin rolni tanlaysiz
+(administrator va adminga o'xshash rollar tanlanmaydi) va ishni boshlaysiz. 2- va 3-rejimda vosita
+yaratgan test foydalanuvchilar va ular yaratgan narsalar ish oxirida (xato bo'lsa ham) o'chiriladi;
+qolgani ish sahifasida ko'rinadi («Tozalashni qayta urinish» yoki `manage.py cleanup --run <id>`).
+Admin login faqat shu ish uchun: admin sahifalari rasmga olinmaydi va yo'riqnomaga kirmaydi,
+sozlamalar va boshqalarning yozuvlari o'zgartirilmaydi. Django admin va oddiy formali panellar
+qo'llab-quvvatlanadi; boshqalarida Ollama agenti xuddi shu cheklovlar ichida ishlaydi.
+
 ### Birinchi yo'riqnoma (demo_shop misolida)
 
 1. Ollama ishlayotganini va modelni tekshiring: `ollama pull gemma4:26b` (vision bor model).

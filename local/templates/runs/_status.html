@@ -26,10 +26,20 @@
   </div>
   {% endif %}
 
+  {% if run.stats.cleanup %}
+  <div class="card {% if run.stats.cleanup.clean %}ok{% else %}warnbox{% endif %}">
+    <strong>Test foydalanuvchilarni tozalash:</strong>
+    {{ run.stats.cleanup.users_removed|default:0 }} ta foydalanuvchi va {{ run.stats.cleanup.objects_removed|default:0 }} ta obyekt o'chirildi.
+    {% if run.stats.cleanup.left %}
+      <ul class="small">{% for item in run.stats.cleanup.left %}<li>{{ item }}</li>{% endfor %}</ul>
+      <form method="post" action="{% url 'run-cleanup' run.pk %}">{% csrf_token %}<button type="submit">Tozalashni qayta urinish</button></form>
+    {% else %}<span class="small muted">Saytda vosita yaratgan narsa qolmadi.</span>{% endif %}
+  </div>
+  {% endif %}
   {% if run.status == "done" %}
   <div class="card">
     <h2>Natijalar</h2>
-    {% if run.stats %}<p class="small">{% for k, v in run.stats.items %}{{ k }}: <b>{{ v }}</b>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if run.stats %}<p class="small">{% for k, v in run.stats.items %}{% if k != "cleanup" %}{{ k }}: <b>{{ v }}</b> · {% endif %}{% endfor %}</p>{% endif %}
     <ul class="files">
       {% for f in files %}
       <li><a href="{% url 'run-file' run.pk f.rel %}" {% if f.rel == "dist/html/index.html" %}target="_blank"{% endif %}>{{ f.label }}</a>

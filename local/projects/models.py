@@ -6,9 +6,27 @@ from django.db import models
 class Project(models.Model):
     ENVIRONMENTS = [("staging", "Staging (sinov)"), ("production", "Production (ishchi sayt)")]
     MAILBOXES = [("dir", "Papka (.eml fayllar)"), ("mailpit", "Mailpit")]
+    # What the user has (chosen when the project is made):
+    MODES = [
+        ("code", "Kod + sayt linki"),  # 1: accounts of staff roles come from the owner
+        ("code_admin", "Kod + sayt linki + admin login"),  # 2: test users through the admin
+        ("admin", "Sayt linki + admin login (kodsiz)"),  # 3: roles and pages from the site
+    ]
+    CHECK_STATES = [
+        ("", "Tekshirilmagan"),
+        ("running", "Tekshirilmoqda"),
+        ("done", "Tekshirildi"),
+        ("failed", "Xato"),
+    ]
 
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=120, unique=True)
+    mode = models.CharField(max_length=12, choices=MODES, default="code")
+    admin_login = models.CharField(max_length=200, blank=True)
+    admin_password_enc = models.BinaryField(null=True, blank=True)  # Fernet, var/secret.key
+    admin_path = models.CharField(max_length=200, blank=True)  # "/admin/"; empty: guessed
+    check_state = models.CharField(max_length=10, choices=CHECK_STATES, blank=True)
+    check_error = models.TextField(blank=True)
     source_dir = models.CharField(max_length=500, blank=True)
     base_url = models.URLField()
     environment = models.CharField(max_length=20, choices=ENVIRONMENTS, default="staging")
@@ -22,6 +40,14 @@ class Project(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def uses_admin(self) -> bool:
+        return self.mode in {"code_admin", "admin"}
+
+    @property
+    def has_code(self) -> bool:
+        return self.mode in {"code", "code_admin"}
 
     def current_blueprint(self) -> BlueprintVersion | None:
         return self.blueprints.filter(is_current=True).order_by("-created_at").first()
@@ -50,7 +76,12 @@ class ProjectAccount(models.Model):
 
 
 class BlueprintVersion(models.Model):
-    SOURCES = [("scan", "Skan"), ("upload", "Yuklangan")]
+    SOURCES = [
+        ("scan", "Skan"),
+        ("upload", "Yuklangan"),
+        ("admin", "Admin panelidagi rollar"),
+        ("discovered", "Saytdan razvedka"),
+    ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="blueprints")
     created_at = models.DateTimeField(auto_now_add=True)
