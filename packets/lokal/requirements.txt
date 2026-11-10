@@ -1,0 +1,196 @@
+annotated-doc==0.0.5
+    # via fastapi
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.16.0
+    # via
+    #   httpx
+    #   starlette
+asgiref==3.13.0
+    # via django
+certifi==2026.10.23
+    # via
+    #   httpcore
+    #   httpx
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
+    # via cryptography
+cfgv==3.5.0
+    # via pre-commit
+click==8.5.1
+    # via uvicorn
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via
+    #   pytest
+    #   tqdm
+cryptography==50.0.2
+    # via yoriqnoma-local
+distlib==0.4.4
+    # via virtualenv
+django==5.2.19
+    # via
+    #   django-stubs
+    #   django-stubs-ext
+    #   yoriqnoma-local
+django-stubs==5.2.9
+django-stubs-ext==6.1.2
+    # via django-stubs
+fastapi==0.162.2
+    # via demo-shop
+filelock==4.2.9
+    # via
+    #   python-discovery
+    #   virtualenv
+flatbuffers==25.12.19
+    # via onnxruntime
+greenlet==3.5.6
+    # via playwright
+h11==0.16.0
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via
+    #   ollama
+    #   yoriqnoma-core
+huey==3.5.4
+    # via yoriqnoma-local
+identify==2.6.20
+    # via pre-commit
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+iniconfig==2.3.1
+    # via pytest
+jinja2==3.1.6
+    # via yoriqnoma-core
+librt==0.16.0 ; platform_python_implementation != 'PyPy'
+    # via mypy
+lxml==6.1.3
+    # via python-docx
+markupsafe==3.0.4
+    # via jinja2
+mypy==1.19.1
+    # via django-stubs
+mypy-extensions==1.2.0
+    # via mypy
+nodeenv==1.12.0
+    # via pre-commit
+numpy==2.5.4
+    # via
+    #   onnxruntime
+    #   opencv-python
+    #   rapidocr-onnxruntime
+    #   shapely
+ollama==0.6.3
+    # via yoriqnoma-core
+onnxruntime==1.31.1
+    # via rapidocr-onnxruntime
+opencv-python==5.0.0.93
+    # via rapidocr-onnxruntime
+opentelemetry-api==1.45.2
+    # via fastapi
+packaging==26.3
+    # via
+    #   onnxruntime
+    #   pytest
+    #   virtualenv
+pathspec==1.1.1
+    # via mypy
+pillow==13.0.0
+    # via
+    #   demo-shop
+    #   rapidocr-onnxruntime
+    #   yoriqnoma-core
+platformdirs==4.14.5
+    # via virtualenv
+playwright==1.64.1
+    # via yoriqnoma-core
+pluggy==1.7.0
+    # via pytest
+pre-commit==4.7.0
+protobuf==7.36.2
+    # via onnxruntime
+pyclipper==1.4.0
+    # via rapidocr-onnxruntime
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+    # via cffi
+pydantic==2.14.3
+    # via
+    #   fastapi
+    #   ollama
+    #   yoriqnoma-schemas
+pydantic-core==2.50.4
+    # via pydantic
+pyee==14.0.0
+    # via playwright
+pygments==2.21.0
+    # via pytest
+pytest==9.2.0
+    # via
+    #   pytest-asyncio
+    #   pytest-django
+pytest-asyncio==1.4.1.post1
+pytest-django==4.14.0
+python-discovery==1.9.5
+    # via virtualenv
+python-docx==1.2.0
+    # via yoriqnoma-core
+pyyaml==6.0.3
+    # via
+    #   pre-commit
+    #   rapidocr-onnxruntime
+rapidocr-onnxruntime==1.4.4
+    # via yoriqnoma-core
+ruff==0.17.4
+shapely==2.2.0
+    # via rapidocr-onnxruntime
+six==1.17.0
+    # via rapidocr-onnxruntime
+sqlalchemy==2.1.8
+    # via demo-shop
+sqlparse==0.6.1
+    # via django
+starlette==1.10.0
+    # via fastapi
+tqdm==4.70.1
+    # via rapidocr-onnxruntime
+tree-sitter==0.26.0
+    # via yoriqnoma-scanner
+tree-sitter-javascript==0.25.0
+    # via yoriqnoma-scanner
+tree-sitter-typescript==0.23.2
+    # via yoriqnoma-scanner
+types-pyyaml==6.0.12.20261103
+    # via django-stubs
+types-waitress==3.0.1.20260724
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   django-stubs
+    #   django-stubs-ext
+    #   fastapi
+    #   mypy
+    #   opentelemetry-api
+    #   pydantic
+    #   pydantic-core
+    #   pyee
+    #   pytest-asyncio
+    #   python-docx
+    #   sqlalchemy
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.5
+    # via
+    #   fastapi
+    #   pydantic
+tzdata==2026.6 ; sys_platform == 'win32'
+    # via django
+uvicorn==0.54.0
+    # via demo-shop
+virtualenv==21.15.6
+    # via pre-commit
+waitress==3.0.2
+    # via yoriqnoma-local
