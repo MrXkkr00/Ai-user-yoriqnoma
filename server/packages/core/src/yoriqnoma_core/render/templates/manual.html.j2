@@ -27,7 +27,7 @@
   <header class="cover">
     <h1>{{ manual.project }}: foydalanuvchi yo'riqnomasi</h1>
     <p class="lead">Rol: <strong>{{ manual.role_label }}</strong>. {{ manual.role_granted_by }}</p>
-    <p class="meta">Yaratilgan: {{ generated }} · Model: {{ manual.models | join(", ") }} · Qamrov: {{ coverage_total }}%</p>
+    <p class="meta">Yaratilgan: {{ generated }} · Model: {{ manual.models | join(", ") }} · Qamrov: {{ coverage_total }}</p>
   </header>
   {% for s in sections %}
   <section id="{{ s.id }}" class="section">

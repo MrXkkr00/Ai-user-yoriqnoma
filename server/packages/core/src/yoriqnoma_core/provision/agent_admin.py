@@ -14,20 +14,22 @@ the user with email Y" (done when a delete of that id went through).
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urljoin, urlsplit
 
 from PIL import Image
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from yoriqnoma_core.explorer import js
 from yoriqnoma_core.explorer.capture import Capturer
 from yoriqnoma_core.explorer.datagen import Identity
 from yoriqnoma_core.explorer.som import draw_som
-from yoriqnoma_core.explorer.steps import locate
+from yoriqnoma_core.explorer.steps import StepFailed, locate
 from yoriqnoma_core.provision.base import (
     AdminCredentials,
     CreatedUser,
@@ -36,22 +38,39 @@ from yoriqnoma_core.provision.base import (
     classify_role,
     settle,
 )
+from yoriqnoma_core.provision.form_admin import LINKS_JS
 from yoriqnoma_core.provision.guard import ProvisionGuard
 from yoriqnoma_core.writer.providers.base import LLMProvider, LLMRequest
 from yoriqnoma_schemas import Element
 
 SYSTEM = (
     "Siz veb-saytning admin panelida ishlaydigan ehtiyotkor yordamchisiz. Faqat berilgan "
-    "vazifani bajaring: test foydalanuvchi yaratish yoki vosita yaratgan test "
-    "foydalanuvchini o'chirish. Sozlamalar, rollar, huquqlar va boshqa odamlarning "
-    "yozuvlariga tegmang. Formaga qiymat yozmang: faqat value_kind tanlang (username, "
-    "email, password, full_name, first_name, last_name, phone). Har javobda bitta amal."
+    "vazifani bajaring. Vazifalar uch xil: (1) foydalanuvchi yaratish formasidagi rol "
+    "variantlarini O'QIB, roles ro'yxatida qaytarish (hech narsa saqlanmaydi); (2) test "
+    "foydalanuvchi yaratish; (3) vosita yaratgan test foydalanuvchini o'chirish. Rol "
+    "variantlarini o'qish ruxsat etilgan va kerak. Sozlamalarni, rollarni va huquqlarni "
+    "O'ZGARTIRMANG, boshqa odamlarning yozuvlariga tegmang. Formaga qiymat yozmang: faqat "
+    "value_kind tanlang (username, email, password, full_name, first_name, last_name, "
+    "phone). Har javobda bitta amal. done faqat vazifa TO'LIQ bajarilgach yoziladi; "
+    "bajarilmagan bo'lsa, menyudagi mos elementni click qiling yoki goto bilan o'ting."
 )
+# Menu items about people come first in the list the model sees (a big menu is cut).
+PEOPLE_WORDS = re.compile(
+    r"(foydalanuvchi|user|xodim|hodim|employee|staff|(?<![a-z])rol(?![a-z])|role|akkaunt|account|lavozim|"
+    r"mijoz|polzovat|пользоват|сотрудник|роль|ro'yxat|registratsiya)",
+    re.I,
+)
+MAX_LISTED = 200
+MAX_LINKS = 80
 Kind = Literal["username", "email", "password", "full_name", "first_name", "last_name", "phone"]
 
 
 class AdminAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    # first, so the model thinks before it picks the tool (a small model answers "done" at once)
+    plan: str | None = Field(
+        default=None, description="1 gap: sahifada nima bor va vazifa uchun keyingi qadam nima"
+    )
     tool: Literal["goto", "click", "fill", "select", "done", "fail"]
     path: str | None = None
     marker: int | None = None
@@ -71,9 +90,12 @@ class AgentAdminAdapter:
         guard: ProvisionGuard,
         provider: LLMProvider,
         max_steps: int = 25,
+        start_url: str = "",
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url
         self.admin_path = admin_path or "/admin"
+        # where the agent starts: the panel the owner named, else the site's own start page
+        self.start_url = start_url or urljoin(base_url, self.admin_path)
         self.guard = guard
         self.provider = provider
         self.max_steps = max_steps
@@ -88,7 +110,16 @@ class AgentAdminAdapter:
         return True
 
     async def _look(self, page: Page) -> tuple[list[Element], Path]:
-        raw = await page.evaluate(js.COLLECT_ELEMENTS, 2400)
+        # single-page apps draw their menu after the page "loads": wait until the number of
+        # elements stops changing (at most ~10 s), or the model sees an empty page
+        await settle(page)
+        previous = -1
+        for _ in range(20):
+            raw = await page.evaluate(js.COLLECT_ELEMENTS, 2400)
+            if len(raw) > 2 and len(raw) == previous:
+                break
+            previous = len(raw)
+            await page.wait_for_timeout(500)
         elements = Capturer._elements(raw, [])
         shot = self._tmp / "admin.png"
         await page.screenshot(path=str(shot))
@@ -97,7 +128,12 @@ class AgentAdminAdapter:
         return elements, shot
 
     async def _act(
-        self, page: Page, task: str, identity: Identity | None, role: str = ""
+        self,
+        page: Page,
+        task: str,
+        identity: Identity | None,
+        role: str = "",
+        needs_roles: bool = False,
     ) -> AdminAction:
         values = {}
         if identity is not None:
@@ -110,19 +146,30 @@ class AgentAdminAdapter:
                 "last_name": identity.last_name,
                 "phone": identity.phone,
             }
+        history: list[str] = []
         for _ in range(self.max_steps):
             elements, shot = await self._look(page)
+            ranked = sorted(elements, key=lambda e: 0 if PEOPLE_WORDS.search(e.name) else 1)
             listing = [
                 {"marker": e.marker, "role": e.role, "name": e.name[:60], "kind": e.kind}
-                for e in elements
-            ][:120]
+                for e in ranked
+            ][:MAX_LISTED]
+            # every link of the page (collapsed menus included), people-related ones first:
+            # the model may only go to a path that really exists, never to a guessed one
+            raw_links: list[list[str]] = await page.evaluate(LINKS_JS)
+            links = {urlsplit(urljoin(page.url, h)).path: t for h, t in raw_links if h}
+            known = sorted(links.items(), key=lambda kv: 0 if PEOPLE_WORDS.search(kv[1]) else 1)
+            link_list = [{"path": k, "name": v[:50]} for k, v in known[:MAX_LINKS]]
+            seen = f"\nOldingi qadamlar: {'; '.join(history[-6:])}" if history else ""
             answer = await self.provider.generate(
                 LLMRequest(
                     task="admin_step",
                     system=SYSTEM,
                     prompt=(
-                        f"Vazifa: {task}\nSahifa: {page.url}\n"
-                        f"Elementlar: {json.dumps(listing, ensure_ascii=False)}"
+                        f"Vazifa: {task}\nSahifa: {page.url}{seen}\n"
+                        f"Elementlar: {json.dumps(listing, ensure_ascii=False)}\n"
+                        f"Mavjud havolalar (goto faqat shulardan): "
+                        f"{json.dumps(link_list, ensure_ascii=False)}"
                     ),
                     images=[shot],
                     max_tokens=300,
@@ -130,11 +177,22 @@ class AgentAdminAdapter:
                 AdminAction,
             )
             act = answer.data
-            if act.tool in {"done", "fail"}:
+            if act.tool == "fail" or (act.tool == "done" and (act.roles or not needs_roles)):
                 return act
+            history.append(
+                f"{act.tool} {act.path or act.marker or ''}".strip()
+                if act.tool != "done"
+                else "done (roles bo'sh: avval rol variantlarini toping)"
+            )
+            if len(history) >= 4 and len(set(history[-4:])) == 1:
+                return AdminAction(tool="fail", reason="agent bir xil amalni takrorlayapti")
             try:
                 if act.tool == "goto" and act.path:
-                    await page.goto(self.base_url + "/" + act.path.lstrip("/"))
+                    target = urlsplit(urljoin(self.base_url, act.path)).path
+                    if target not in links:
+                        history[-1] += " (bunday havola yo'q)"
+                        continue
+                    await page.goto(urljoin(self.base_url, act.path))
                     continue
                 element = next((e for e in elements if e.marker == act.marker), None)
                 if element is None:
@@ -147,12 +205,12 @@ class AgentAdminAdapter:
                 elif act.tool == "select":
                     await locator.select_option(label=act.option or role)
                 await settle(page)
-            except PlaywrightError:
+            except (PlaywrightError, StepFailed):
                 continue
         return AdminAction(tool="fail", reason="qadamlar limiti tugadi")
 
     async def login(self, page: Page, creds: AdminCredentials) -> None:
-        await page.goto(self.base_url + "/" + self.admin_path.lstrip("/"))
+        await page.goto(self.start_url)
         password = page.locator("input[type=password]")
         if await password.count():
             login = page.locator("input[type=email], input[name*=user], input[name*=login]")
@@ -160,18 +218,31 @@ class AgentAdminAdapter:
             await password.first.fill(creds.password.get_secret_value())
             await password.first.press("Enter")
             await settle(page)
+            if await page.locator("input[type=password]:visible").count():
+                raise ProvisionError(
+                    "Admin login yoki paroli noto'g'ri (kirish sahifasi qayta ochildi)"
+                )
         self.guard.signed_in = True
 
     async def roles(self, page: Page) -> list[RoleCandidate]:
         act = await self._act(
             page,
-            "Foydalanuvchi yaratish formasini toping va undagi rol tanlovlarini roles "
-            "ro'yxatida done bilan qaytaring. Hech narsani saqlamang.",
+            "Yangi foydalanuvchi yaratish formasini toping: menyudan «Foydalanuvchilar» (Users) "
+            "bo'limini oching, «Qo'shish» / «Yaratish» / «Add» / «Create» tugmasini bosing. "
+            "Forma ochilgach, undagi rol (role, lavozim, guruh) tanlovining barcha variantlarini "
+            "roles ro'yxatiga yozib, tool=done bilan qaytaring. Bu faqat o'qish: hech narsani "
+            "saqlamang va yubormang.",
             None,
+            needs_roles=True,
         )
         names = act.roles or []
         if act.tool != "done" or not names:
-            raise ProvisionError(f"admin panelida rollar topilmadi: {act.reason or '-'}")
+            raise ProvisionError(
+                "admin panelida foydalanuvchi yaratish formasi va undagi rollar topilmadi"
+                + (f" (agent: {act.reason})" if act.reason else "")
+                + ". Bu panelda test foydalanuvchi yaratib bo'lmasa, «Admin panel manzili» "
+                "maydoniga foydalanuvchi qo'shiladigan sahifa manzilini yozing"
+            )
         return [classify_role(n, n, "admin agent", "role") for n in names]
 
     async def create_user(

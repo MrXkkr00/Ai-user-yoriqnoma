@@ -7,11 +7,12 @@ import json
 import re
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from PIL import Image
 
 from yoriqnoma_core.render.images import RenderedImage, render_step_image
 from yoriqnoma_core.writer.templates_uz import PATCHED_NOTE
@@ -20,6 +21,37 @@ from yoriqnoma_schemas import CaptureRun, Manual, State, load_json
 TEMPLATES = Path(__file__).parent / "templates"
 DEFAULT_FORMATS = {"html", "pdf", "docx"}
 FORMATS = DEFAULT_FORMATS | {"tour", "gif"}  # tour: Driver.js; gif: one per article
+UZ_TZ = timezone(timedelta(hours=5), "UZT")  # Uzbekistan has no daylight saving time
+PRINT_MAX_WIDTH = 1100
+KIND_UZ = {
+    "route": "Sahifalar",
+    "form": "Formalar",
+    "button": "Tugmalar",
+    "action": "Amallar",
+    "status": "Statuslar",
+    "section": "Bo'limlar",
+    "total": "Umumiy",
+}
+
+
+def format_percent(value: float) -> str:
+    """94.4 -> «94,4», 100.0 -> «100» (Uzbek decimal comma)."""
+    if float(value).is_integer():
+        return str(int(value))
+    return f"{value:.1f}".replace(".", ",")
+
+
+def coverage_line(manual: Manual) -> str:
+    """«100%» or «100% (tugmalar: 94,4%)»: the headline number does not hide a weak group."""
+    percent = manual.coverage.percent
+    total = percent.get("total", 0)
+    line = f"{format_percent(total)}%"
+    weak = [
+        f"{KIND_UZ[k].lower()}: {format_percent(v)}%"
+        for k, v in percent.items()
+        if k in {"route", "form", "button", "action", "status"} and v < total
+    ]
+    return f"{line} ({', '.join(weak)})" if weak else line
 
 
 @dataclass
@@ -110,8 +142,8 @@ def build_context(
         "sections": sections,
         "reference": manual.reference,
         "faq": manual.faq,
-        "generated": manual.generated_at.strftime("%Y-%m-%d %H:%M"),
-        "coverage_total": manual.coverage.percent.get("total", 0),
+        "generated": manual.generated_at.astimezone(UZ_TZ).strftime("%Y-%m-%d %H:%M"),
+        "coverage_total": coverage_line(manual),
     }
     return ctx, images
 
@@ -126,6 +158,52 @@ def search_index(ctx: dict[str, Any]) -> list[dict[str, str]]:
     return out
 
 
+def _env() -> Environment:
+    return Environment(
+        loader=FileSystemLoader(str(TEMPLATES)), autoescape=select_autoescape(["html", "j2"])
+    )
+
+
+def _print_ctx(ctx: dict[str, Any], html_dir: Path) -> dict[str, Any]:
+    """A copy of ``ctx`` whose images are small JPEGs, for the PDF only.
+
+    Chromium keeps a JPEG as it is inside a PDF but stores a PNG almost uncompressed:
+    the same manual is ~19 MB with PNG and a few MB with JPEG. The offline HTML keeps PNG/WebP.
+    """
+    print_dir = html_dir / "images" / "print"
+    print_dir.mkdir(parents=True, exist_ok=True)
+    done: dict[str, str] = {}
+
+    def small(img: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not img:
+            return img
+        source = Path(img["path"])
+        rel = done.get(source.name)
+        if rel is None:
+            with Image.open(source) as opened:
+                picture = opened.convert("RGB")
+            if picture.width > PRINT_MAX_WIDTH:
+                height = round(picture.height * PRINT_MAX_WIDTH / picture.width)
+                picture = picture.resize((PRINT_MAX_WIDTH, height), Image.Resampling.LANCZOS)
+            target = print_dir / f"{source.stem}.jpg"
+            picture.save(target, "JPEG", quality=82, optimize=True)
+            rel = done[source.name] = f"images/print/{target.name}"
+        return {**img, "png": rel, "webp": rel}
+
+    sections = []
+    for section in ctx["sections"]:
+        articles = [
+            {
+                **article,
+                "steps": [{**st, "img": small(st["img"])} for st in article["steps"]],
+                "statuses": [{**row, "img": small(row["img"])} for row in article["statuses"]],
+            }
+            for article in section["articles"]
+        ]
+        sections.append({**section, "articles": articles})
+    return {**ctx, "sections": sections}
+
+
 def render_html(
     manual: Manual, capture: CaptureRun, capture_dir: Path, out_dir: Path
 ) -> tuple[Path, dict[str, Any], ImageCache]:
@@ -134,11 +212,8 @@ def render_html(
         shutil.rmtree(html_dir)
     (html_dir / "assets").mkdir(parents=True)
     ctx, images = build_context(manual, capture, capture_dir, html_dir)
-    env = Environment(
-        loader=FileSystemLoader(str(TEMPLATES)), autoescape=select_autoescape(["html", "j2"])
-    )
     index = html_dir / "index.html"
-    index.write_text(env.get_template("manual.html.j2").render(**ctx), encoding="utf-8")
+    index.write_text(_env().get_template("manual.html.j2").render(**ctx), encoding="utf-8")
     shutil.copy(TEMPLATES / "style.css", html_dir / "assets" / "style.css")
     shutil.copy(TEMPLATES / "search.js", html_dir / "assets" / "search.js")
     entries = search_index(ctx)
@@ -153,12 +228,16 @@ def render_html(
 
 def render_coverage(manual: Manual, out_dir: Path) -> Path:
     rows = "".join(
-        f"<tr class='{'ok' if i.covered else 'no'}'><td>{html_lib.escape(i.kind)}</td>"
+        f"<tr class='{'ok' if i.covered else 'no'}'>"
+        f"<td>{html_lib.escape(KIND_UZ.get(i.kind, i.kind))}</td>"
         f"<td>{html_lib.escape(i.key)}</td><td>{'ha' if i.covered else 'yo‘q'}</td>"
         f"<td>{html_lib.escape(i.reason or '')}</td></tr>"
         for i in sorted(manual.coverage.items, key=lambda x: (x.covered, x.kind, x.key))
     )
-    percent = "".join(f"<li>{k}: <b>{v}%</b></li>" for k, v in manual.coverage.percent.items())
+    percent = "".join(
+        f"<li>{html_lib.escape(KIND_UZ.get(k, k))}: <b>{format_percent(v)}%</b></li>"
+        for k, v in manual.coverage.percent.items()
+    )
     note = ""
     if manual.source_mode in {"B", "A+B"}:
         # mode B learns the site without its code (TZ 8, FR-SV5)
@@ -218,7 +297,16 @@ def build(run_dir: Path, formats: set[str] | None = None) -> RenderResult:
     if "pdf" in wanted:
         from yoriqnoma_core.render.pdf import html_to_pdf
 
-        result.files["pdf"] = html_to_pdf(index, out_dir / "manual.pdf", manual)
+        print_index = index.with_name("index_print.html")
+        print_index.write_text(
+            _env().get_template("manual.html.j2").render(**_print_ctx(ctx, index.parent)),
+            encoding="utf-8",
+        )
+        try:
+            result.files["pdf"] = html_to_pdf(print_index, out_dir / "manual.pdf", manual)
+        finally:
+            print_index.unlink(missing_ok=True)
+            shutil.rmtree(index.parent / "images" / "print", ignore_errors=True)
     if "docx" in wanted:
         from yoriqnoma_core.render.docx import build_docx
 

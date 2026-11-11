@@ -11,6 +11,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
+from yoriqnoma_core.render import coverage_line
 from yoriqnoma_schemas import Manual
 
 
@@ -52,9 +53,7 @@ def build_docx(manual: Manual, ctx: dict[str, Any], out: Path) -> Path:
     style.font.size = Pt(11)
     document.add_heading(f"{manual.project}: foydalanuvchi yo'riqnomasi", level=0)
     document.add_paragraph(f"Rol: «{manual.role_label}». {manual.role_granted_by}")
-    document.add_paragraph(
-        f"Qamrov: {manual.coverage.percent.get('total', 0)}%. Model: {', '.join(manual.models)}."
-    )
+    document.add_paragraph(f"Qamrov: {coverage_line(manual)}. Model: {', '.join(manual.models)}.")
     document.add_heading("Mundarija", level=1)
     _toc(document)
     figure = 0

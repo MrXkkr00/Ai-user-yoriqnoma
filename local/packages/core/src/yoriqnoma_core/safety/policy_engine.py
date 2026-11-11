@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
+from yoriqnoma_core.safety.sso import trusted_decision
 from yoriqnoma_core.safety.url_guard import same_origin
 from yoriqnoma_core.text_uz import contains_word
 from yoriqnoma_schemas import Policy
@@ -42,10 +43,18 @@ def path_of(url: str) -> str:
 
 
 class PolicyEngine:
-    def __init__(self, policy: Policy, base_url: str, *, passive: bool = False) -> None:
+    def __init__(
+        self,
+        policy: Policy,
+        base_url: str,
+        *,
+        passive: bool = False,
+        trusted_hosts: tuple[str, ...] = (),
+    ) -> None:
         self.policy = policy
         self.base_url = base_url
         self.passive = passive
+        self.trusted_hosts = trusted_hosts  # named sign-in domains (SSO), see safety/sso.py
 
     def allows_path(self, path: str) -> bool:
         clean = path.split("?")[0].rstrip("/") or "/"
@@ -62,6 +71,11 @@ class PolicyEngine:
         if scheme in {"data", "blob", "about"}:
             return True, "inline"
         if not same_origin(url, self.base_url):
+            sso = trusted_decision(method, url, resource_type, self.trusted_hosts)
+            if sso is not None:
+                if sso[0] and self.passive and method not in {"GET", "HEAD", "OPTIONS"}:
+                    return False, "passiv rejim: domen tasdiqlanmagan, faqat o'qish"
+                return sso
             if method == "GET" and resource_type in STATIC_TYPES:
                 return True, "boshqa domen: statik resurs"
             return False, f"boshqa domen: {resource_type} {method} taqiqlangan"

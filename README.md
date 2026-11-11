@@ -66,7 +66,7 @@ cd local
 uv sync
 uv run playwright install chromium
 uv run yoriqnoma-local                     # http://127.0.0.1:8765 (--dev: DEBUG rejimi)
-uv run python manage.py <buyruq>           # scan | explore | write | render | run | bundle | eval
+uv run python manage.py <buyruq>           # scan | explore | write | render | run | bundle | cleanup | eval
 uv run demo-shop                           # poligon: http://127.0.0.1:8800
 ```
 

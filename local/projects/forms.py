@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 
 from projects.models import Project
+from yoriqnoma_core.safety.sso import invalid_entries, parse_hosts
 
 if TYPE_CHECKING:
     _ProjectFormBase = forms.ModelForm[Project]
@@ -21,6 +22,7 @@ class ProjectForm(_ProjectFormBase):
             "mode",
             "source_dir",
             "base_url",
+            "sso_hosts",
             "environment",
             "mailbox_kind",
             "mailbox_target",
@@ -29,22 +31,29 @@ class ProjectForm(_ProjectFormBase):
         labels = {
             "name": "Loyiha nomi",
             "mode": "Sizda nima bor?",
-            "source_dir": "Kod papkasi (ixtiyoriy)",
+            "source_dir": "Kod papkasi",
             "base_url": "Sayt manzili (base URL)",
+            "sso_hosts": "Kirish (SSO) domeni (ixtiyoriy)",
             "environment": "Muhit",
             "mailbox_kind": "Pochta (ixtiyoriy)",
             "mailbox_target": "Pochta papkasi yoki Mailpit manzili (ixtiyoriy)",
             "language": "Til",
         }
         help_texts = {
-            "source_dir": "Masalan: D:\\loyihalar\\mening-saytim. Bo'sh bo'lsa, blueprint.json "
-            "ni qo'lda yuklaysiz.",
+            "source_dir": "Loyiha kodi turgan papka, masalan: D:/loyihalar/mening-saytim. "
+            "Vosita kodni faqat o'qiydi (maxfiy fayllarsiz): sahifalar, rollar va vazifalarni "
+            "undan oladi.",
+            "sso_hosts": "Sayt kirish uchun boshqa domenga o'tsa (masalan, auth.sayt.uz), "
+            "o'sha domenni yozing; bir nechta bo'lsa, vergul bilan. Faqat shu domenlarga "
+            "kirish so'rovlari ruxsat etiladi va parol faqat sayt hamda shu domenlarga yuboriladi.",
             "mailbox_target": "Faqat sayt ro'yxatdan o'tishda email tasdiqlashni so'rasa "
             "kerak; bo'sh qolsa, tasdiqlash xatlari o'qilmaydi. "
             "Papka: sayt xatlarni .eml qilib yozadigan joy. Mailpit: "
             "http://127.0.0.1:8025",
         }
 
+    # an address typed without "http(s)://" is read as https (the Django 6.0 default)
+    base_url = forms.URLField(label="Sayt manzili (base URL)", assume_scheme="https")
     admin_login = forms.CharField(
         label="Admin login (email yoki foydalanuvchi nomi)", required=False, max_length=200
     )
@@ -109,6 +118,24 @@ class ProjectForm(_ProjectFormBase):
         if value and not Path(value).is_dir():
             raise forms.ValidationError("Bunday papka topilmadi")
         return value
+
+    def clean_sso_hosts(self) -> str:
+        value = str(self.cleaned_data.get("sso_hosts") or "").strip()
+        bad = invalid_entries(value)
+        if bad:
+            raise forms.ValidationError(
+                "Domen nomi noto'g'ri: " + ", ".join(bad) + ". Masalan: auth.sayt.uz"
+            )
+        return ", ".join(parse_hosts(value))
+
+    def clean_name(self) -> str:
+        name = str(self.cleaned_data["name"]).strip()
+        same = Project.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            same = same.exclude(pk=self.instance.pk)
+        if same.exists():
+            raise forms.ValidationError("Bunday nomli loyiha bor: boshqa nom bering")
+        return name
 
     def clean_base_url(self) -> str:
         value = str(self.cleaned_data["base_url"]).strip()

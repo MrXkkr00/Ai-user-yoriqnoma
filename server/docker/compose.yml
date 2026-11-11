@@ -27,7 +27,8 @@ services:
       - static:/srv/static:ro
       - caddy-data:/data
     networks: [edge]
-    depends_on: [web]
+    depends_on:
+      web: {condition: service_healthy}
 
   web:
     <<: *app
@@ -36,6 +37,23 @@ services:
     command: ["sh", "-c", "cp -r /app/staticfiles/. /app/staticfiles-shared/ && sh docker/web-entrypoint.sh"]
     entrypoint: []
     networks: [edge, internal]
+    # «web answers»: /healthz needs no login and no database. The request carries the site's
+    # own host name and the https header, so ALLOWED_HOSTS and the SSL redirect let it in.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import os, urllib.request as u
+          host = os.environ["DJANGO_ALLOWED_HOSTS"].split(",")[0].strip()
+          host = "health" + host if host.startswith(".") else host
+          req = u.Request("http://127.0.0.1:8000/healthz", headers={"Host": host, "X-Forwarded-Proto": "https"})
+          u.urlopen(req, timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   worker:
     <<: *app

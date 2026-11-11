@@ -52,6 +52,10 @@ ai-user-yoriqnoma/
 │   │       │                      # assemble.py, validate.py, coverage.py, cache.py
 │   │       ├── render/            # images.py, html.py, pdf.py, docx.py,
 │   │       │                      # search_index.py, templates/
+│   │       ├── discovery/         # kodsiz razvedka (server B, lokal 3-rejim): crawler, js_routes,
+│   │       │                      # forms, network_infer, auth_flow, agent, blueprint_builder, merge, run
+│   │       ├── provision/         # admin orqali test foydalanuvchilar (lokal 2- va 3-rejim): guard,
+│   │       │                      # django_admin, form_admin, agent_admin, provisioner
 │   │       └── pipeline.py        # run_explore(), run_write(), run_render() — dasturlar chaqiradi
 │   ├── fixtures/demo_shop/        # poligon (§10)
 │   ├── tests/                     # test_no_db_drivers.py, test_shared_copies.py, golden/
@@ -63,11 +67,9 @@ ai-user-yoriqnoma/
     ├── accounts/                  # Django auth: ro'yxatdan o'tish va kirish
     ├── domains/                   # Domain, domen tasdiqlash
     ├── jobs/                      # Job, JobEvent, Artifact, InputRequest; services; tasks (celery)
-    ├── scout/                     # B rejimi: preflight, crawler, js_routes, network_infer,
-    │                              # auth_flow, agent, validation_probe, blueprint_builder, merge
+    ├── scout/                     # B rejimi: preflight va discover (qolgani core/discovery da)
     ├── security/                  # ssrf integratsiyasi, secrets (Fernet), ratelimit, robots
     ├── api/                       # DRF: serializers, views, permissions, urls (faqat sessiya)
-    ├── storage.py                 # django-storages S3 (MinIO)
     ├── templates/  static/        # HTMX
     ├── packages/
     │   ├── schemas/               # local/packages/schemas ning aynan nusxasi
@@ -444,7 +446,7 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 
 ```
 <run_dir>/
-  blueprint.json  scan_report.md  overrides.json
+  blueprint.json
   capture/capture.json  capture/images/<state_id>_{clean,som}.png  capture/progress.json
   bundle.zip                                   # faqat "Bundle" natijasida
   manual.json
@@ -454,6 +456,8 @@ Element topilmasa, flow `failed` bo'ladi va sababi yoziladi.
 ```
 
 `run_id` formati: `YYYYMMDD-HHMMSS-<6 belgi>`.
+
+Lokal dasturda `scan_report.md` va overrides ish papkasida emas: skan hisoboti blueprint versiyasi papkasida (`var/runs/<project>/blueprints/<vaqt>/`), overrides esa bazada (`BlueprintVersion.overrides`). `logs/run.jsonl` ga har bir jurnal yozuvi (vaqt, daraja, bosqich, matn) bazadagi `RunEvent` bilan birga yoziladi.
 
 `core.pipeline` funksiyalari faqat papka va obyektlar bilan ishlaydi. Django haqida hech narsa bilmaydi:
 
@@ -494,7 +498,10 @@ class AppSettings(models.Model):          # yagona yozuv (singleton)
     num_ctx = IntegerField(default=24576); language = CharField(default="uz")
 
 class Project(models.Model):
-    name; slug; source_dir = CharField(blank=True)          # bo'sh bo'lsa: blueprint qo'lda yuklanadi
+    name; slug; mode = CharField(choices=code|code_admin|admin)   # FR-L13
+    source_dir = CharField(blank=True)                      # 1- va 2-rejimda kod papkasi
+    admin_login; admin_password_enc = BinaryField(null=True); admin_path   # 2- va 3-rejim (SEC-18)
+    check_state; check_error                                # «Tekshirish» natijasi
     base_url = URLField(); environment = CharField(choices=staging|production)
     mailbox_kind = CharField(choices=mailpit|dir); mailbox_target = CharField()
     language = CharField(default="uz"); created_at
@@ -547,12 +554,13 @@ class InputRequest(models.Model): run = FK; kind; message; value_enc = BinaryFie
 | `/` | Loyihalar ro'yxati, tizim holati (Ollama, Playwright) |
 | `/projects/new/`, `/projects/<id>/edit/` | Loyiha formasi (kod papkasi, base URL, muhit, akkauntlar, pochta) |
 | `/projects/<id>/` | Loyiha: oxirgi blueprint, ishlar tarixi, tugmalar |
-| `POST /projects/<id>/scan/` | Skanerlashni boshlash |
+| `POST /projects/<id>/scan/` | Skanerlash; admin rejimlarida «Tekshirish» (Huey'da), `/projects/<id>/check/` — holat paneli |
 | `/projects/<id>/blueprint/` | Ko'rib chiqish: Rollar · Sahifalar · Obyektlar · Flow'lar · Chiqarib tashlanganlar · Hisobot (tablar, HTMX tugmalar) |
 | `POST /projects/<id>/blueprint/upload/` | Kodsiz loyiha uchun tayyor blueprint yuklash |
 | `/projects/<id>/runs/new/` | Rol variantlari (kartalar, bir yoki bir nechta), natija turi (3 ta radio karta), model, formatlar |
 | `/runs/<id>/` | Progress (`/runs/<id>/status/` partial, har 2 s), log, input formasi, bekor qilish, natijalar (yuklab olish; blueprint/bundle uchun "server sahifasida yuklang" ko'rsatmasi) |
 | `/runs/<id>/files/<name>` | Yuklab olish (faqat `run_dir` ichidagi fayllar, path traversal himoyasi) |
+| `POST /runs/<id>/cleanup/` | Test foydalanuvchilarni tozalashni qayta urinish (2- va 3-rejim) |
 | `POST /runs/<id>/open-folder/` | Papkani ochish: Windows'da `os.startfile`, Linux'da `xdg-open` |
 | `/settings/` | Ollama (host, model ro'yxati, ulanish testi) |
 | `/eval/` | Modellarni solishtirish natijalari |
@@ -566,6 +574,7 @@ manage.py write   --run <id> [--model gemma4:26b]
 manage.py render  --run <id> [--formats html,pdf,docx]
 manage.py run     --project <slug> --output full|blueprint|bundle [--role <id> ...] [--list-roles] [--model ...]
 manage.py bundle  --run <id> --out bundle.zip
+manage.py cleanup --run <id>                      # 2- va 3-rejim: saytda qolgan test foydalanuvchilarni o'chirish
 manage.py eval    --golden tests/golden/ --models gemma4:26b,qwen3.6:27b
 ```
 
@@ -778,7 +787,7 @@ Seed'da `manager` va `courier` test akkauntlari bor: ular sayt egasi beradigan a
 - telefon `+998XXXXXXXXX` formatida;
 - buyurtma miqdori 1–99.
 
-## 11. Amalga oshirish holati va farqlar (2026-11-09)
+## 11. Amalga oshirish holati va farqlar (2026-11-10)
 
 Lokal dastur (F0–F4, T00–T20, T29, T30) va server dastur (F5–F6, T21–T28) qurildi. Lokal dastur demo_shop'da to'liq tekshirildi. Server: unit va sekin testlar (demo_shop, haqiqiy brauzer, Claude o'rnida FakeProvider) yashil; docker compose bilan e2e testlar yozilgan, lekin Docker va Claude kaliti bo'lgan mashinada ishga tushirilishi kerak. Quyidagilar yuqoridagi tavsifdan farq qiladi yoki uni to'ldiradi:
 
@@ -809,7 +818,7 @@ Lokal dastur (F0–F4, T00–T20, T29, T30) va server dastur (F5–F6, T21–T28
 
 **Yozuvchi:** javob sxemalari `writer/answers.py` da. Ollama'da `think=False`; model takrorlanib qolsa (`repeat limit`), bir marta `temperature=0.4` bilan qayta so'raladi. Prompt versiyasi `tasks.PROMPT_VERSION`. Modellar solishtiruvi (`manage.py eval`, 25 holat, RTX 3090, 2026-11-08): gemma4:26b — sxema xatosi 0, marker xatosi 3, taqiqlangan so'z 0, kalit so'z qamrovi 79%, o'rtacha 2,0 s; qwen3.6:27b — 0, 5, 2 (yo'q «administrator»ni o'ylab topdi), 73%, 3,7 s. Asosiy model: gemma4:26b; qwen muqobil sifatida qoladi (ikkalasida ham vision bor).
 
-**Renderer:** rasmlar 1x (2x retina hali yo'q), PNG + WebP. Qidiruv indeksi `search_index.json` va `file://` da ishlashi uchun `search_index.js`.
+**Renderer:** rasmlar 2x (retina, `device_scale_factor=2.0`), PNG + WebP. Qidiruv indeksi `search_index.json` va `file://` da ishlashi uchun `search_index.js`.
 
 **Lokal dastur:** boshqaruv buyruqlari `runs/management/commands/` da (qo'shimcha `account` buyrug'i — test akkaunt qo'shish) va `evaluation/management/commands/eval.py`. Statik fayllar waitress orqali Django'ning o'zidan beriladi (`var/static`, faqat 127.0.0.1). Pipeline Huey thread'ida `asyncio.run` bilan, ORM chaqiruvlari alohida DB thread'ida. Oltin to'plam: `local/tests/golden/` — 25 holat (24 tasi demo_shop, 1 tasi demo_django). OCR modeli lotin: kirill matni buzilib o'qiladi («MBaHOB»), shuning uchun begona zonadagi rasmda bunday yoki kirill qatori ism bo'lishi mumkin deb xiralashtiriladi (default-deny, `ocr.unreadable`).
 
@@ -829,4 +838,14 @@ Lokal dastur (F0–F4, T00–T20, T29, T30) va server dastur (F5–F6, T21–T28
 
 **Core `discovery/`:** serverning `scout` paketidagi Django'siz qismlar shu yerga ko'chirildi (`urls`, `js_routes`, `forms`, `network_infer`, `crawler`, `auth_flow`, `blueprint_builder`, `merge`, `kit`, `agent`, `validation_probe`, `run`). Rate limit, robots.txt, JS fayllarni olish va LLM provayder dasturdan beriladi. Serverda faqat `scout/preflight.py` va `scout/discover.py` (safe_get, Redis rate limit, Claude) qoldi.
 
+**Admin sessiyasi kutish vaqtlari:** sahifa 60 s, login yoki saqlash javobi 45 s, tarmoq tinchlanishi ko'pi bilan 10 s (xato emas). Bir usul timeout bo'lsa keyingisi sinaladi, sabablar yakuniy xabarda. 3-rejimda birinchi ishdan keyin ham admin panelidagi boshqa rollar tanlanadigan bo'lib qoladi (razvedka blueprint'iga qo'shiladi); «Blueprint» natija turi 3-rejimda yo'q.
+
 **Server, deploy (`server/docker/`):** worker ikki tarmoqda: `internal` (internetsiz; postgres, redis, minio, mailpit) va `egress` (internet, `egress-firewall.sh` qoidalari bilan). Har ish alohida jarayonda (`--max-tasks-per-child=1`); har ish uchun alohida konteyner emas (SEC-11 shu darajada). Batafsil: `docs/DEPLOY.md`.
+
+**Yangilanishlar (2026-11-11):**
+- **Kirish (SSO) domeni** (`core/safety/sso.py`, `Project.sso_hosts`, `ExploreOptions.trusted_hosts`). Sayt kirish uchun boshqa domenga o'tsa, foydalanuvchi shu domenni loyiha formasida o'zi yozadi. Faqat shu aniq host (subdomenlarsiz) ruxsat oladi, va faqat kirish uchun: o'qish (GET, HEAD, OPTIONS, shu jumladan `.well-known`) va kirish qadami bo'lgan POST (`/Account/Login`, `/connect/token`, `/signin-oidc`). Chiqish, parol almashtirish, ro'yxatdan o'tish, o'chirish va boshqa o'zgartirishlar yopiq. Qoida `PolicyEngine` (tadqiqotchi va razvedka) va `ProvisionGuard` (admin sessiyasi) da bir xil; server dasturi uni ishlatmaydi (passiv rejimda POST baribir yopiq).
+- **Admin adapterlari.** `Provisioner` har usulni sinashdan oldin `guard.signed_in` ni o'chiradi (muvaffaqiyatsiz urinish keyingi usulning login so'rovini bloklab qo'ymasligi uchun). Agent (`AgentAdminAdapter`): saytning boshlang'ich sahifasidan boshlaydi (URL ichida yo'l bo'lsa ham), SPA menyusi chizilishini kutadi, faqat sahifadagi haqiqiy havolalarga `goto` qiladi, javobda avval `plan` yozadi, bir xil amal 4 marta takrorlansa to'xtaydi, rollar ro'yxatisiz `done` ni qabul qilmaydi. Tekshiruv xatosi sababi va nima qilish mumkinligi bilan ko'rsatiladi.
+- **Yozuvchi.** `validate.format_problems`: matndagi teg yoki markdown va bir abzasga yopishgan nomerlangan ro'yxat «qattiq» xato (shablon matni ishlatiladi), `#<raqam>` — «yumshoq» (qayta so'raladi). Prompt versiyasi 3. Ma'lumotnomada sahifa nomi menyu yorlig'idan, aks holda sahifaning `<h1>` idan olinadi (bitta yozuv sahifasi — ro'yxat sahifasi nomi + «tafsilot»); har sahifada takrorlanadigan menyu elementlari bir marta, bo'lim kirishida sanaladi.
+- **Renderer.** Vaqt Toshkent vaqtida (UTC+5), foiz o'nlik vergul bilan; sarlavhadagi qamrov kuchsiz guruhni yashirmaydi («100% (tugmalar: 94,4%)»). PDF uchun vaqtincha JPEG nusxalar (Chromium PNG ni deyarli siqmaydi: 19 MB o'rniga ~4,5 MB); HTML va DOCX o'zgarmagan.
+- **Lokal dastur.** Loyiha va ishni o'chirish (`projects/<id>/delete/`, `runs/<id>/delete/`: ishlayotgan ish yoki saytda test foydalanuvchilar qolgan bo'lsa rad etiladi; faqat `var/runs` ichidagi papkalar o'chadi), loyiha nomi noyob, ish natijalari o'zbekcha nomlar bilan (`Run.stats_display`), jurnal `logs/run.jsonl` ga ham yoziladi.
+- **Server.** `/healthz` (kirishsiz, faqat `ok`) va web servisiga healthcheck.

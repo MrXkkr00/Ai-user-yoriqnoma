@@ -234,6 +234,18 @@ def create_jobs(owner: User, req: JobRequest) -> list[Job]:
             job.bundle.save(bundle_name, ContentFile(req.bundle.read()), save=False)
         job.save()
         JobEvent.objects.create(job=job, kind="status", payload={"status": "queued"})
+        if req.mode == "B" and not accounts.get(role_id) and not passive:
+            JobEvent.objects.create(
+                job=job,
+                kind="log",
+                payload={
+                    "level": "warning",
+                    "message": f"«{label}» uchun akkaunt berilmadi: vosita saytda o'zi "
+                    "ro'yxatdan o'tadi. Bu faqat ro'yxatdan o'tgan har kim oladigan rol (masalan, "
+                    "mijoz) uchun to'g'ri; xodim roli (menejer, kuryer) uchun shu roldagi test "
+                    "akkauntni bering.",
+                },
+            )
         if passive:
             JobEvent.objects.create(
                 job=job,

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }}{% endblock %}
 {% block content %}
-<div class="row">
+<a class="back" href="{% url 'home' %}">← Loyihalar</a>
+<div class="page-head">
   <div>
     <h1>{{ project.name }}</h1>
     <p class="muted">{{ project.get_mode_display }} · {{ project.base_url }} · {{ project.get_environment_display }}{% if project.has_code and project.source_dir %} · <code>{{ project.source_dir }}</code>{% endif %}{% if project.uses_admin %} · admin: {{ project.admin_login }}{% endif %}</p>
@@ -71,5 +72,12 @@
       <td><span class="badge s-{{ r.status }}">{{ r.get_status_display }}</span></td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td></tr>{% endfor %}
   </table>
   {% else %}<p class="muted">Hali ish yo'q.</p>{% endif %}
+</section>
+<section class="card danger-zone">
+  <h2>Loyihani o'chirish</h2>
+  <p class="small muted">Loyiha, uning ishlari, blueprint'lari, test akkauntlari va barcha natija fayllari diskdan butunlay o'chadi. Saytdagi hech narsa o'zgarmaydi. Ishlayotgan ish yoki saytda qolgan test foydalanuvchilar bo'lsa, o'chirilmaydi.</p>
+  <form method="post" action="{% url 'project-delete' project.pk %}" onsubmit="return confirm('«{{ project.name|escapejs }}» loyihasi va uning barcha fayllari oʻchirilsinmi? Buni qaytarib boʻlmaydi.');">{% csrf_token %}
+    <button class="danger" type="submit">Loyihani o'chirish</button>
+  </form>
 </section>
 {% endblock %}

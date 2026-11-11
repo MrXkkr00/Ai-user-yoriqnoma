@@ -31,7 +31,7 @@
     </div>
   {% endif %}{% endfor %}
   {% for e in form.non_field_errors %}<div class="error">{{ e }}</div>{% endfor %}
-  <div class="warn small field-admin_login">Admin login faqat test foydalanuvchilarni yaratish va o'chirish uchun ishlatiladi: admin sahifalari rasmga olinmaydi va yo'riqnomaga kirmaydi, sozlamalar va boshqa odamlarning yozuvlari o'zgartirilmaydi. Iloji bo'lsa staging saytdan foydalaning.</div>
+  <div class="warn small field-admin_login">Admin login faqat test foydalanuvchilarni yaratish va o'chirish uchun ishlatiladi: admin sahifalari rasmga olinmaydi va yo'riqnomaga kirmaydi, sozlamalar va boshqa odamlarning yozuvlari o'zgartirilmaydi. Iloji bo'lsa staging saytdan foydalaning: production'da ham test foydalanuvchilar haqiqiy saytda yaratiladi (ish oxirida o'chiriladi).</div>
   <div class="warn small">Production tanlansa, vosita o'chirish, bekor qilish va to'lov kabi amallarni faqat tasdiqlash oynasigacha bajaradi.</div>
   <button type="submit">Saqlash</button>
 </form>

@@ -30,6 +30,7 @@ from yoriqnoma_core.provision.base import (
     RoleCandidate,
 )
 from yoriqnoma_core.provision.provisioner import Provisioner
+from yoriqnoma_core.safety.sso import parse_hosts
 from yoriqnoma_core.writer.providers import OllamaProvider
 from yoriqnoma_local.keys import decrypt, pseudonym_key
 from yoriqnoma_schemas import Blueprint, Policy, RoleInfo
@@ -56,6 +57,7 @@ def admin_options(project: Project, run_id: str) -> ExploreOptions:
         pseudonym_key=SecretBytes(pseudonym_key()),
         run_id=run_id,
         mail_domain="yoriqnoma.test",
+        trusted_hosts=list(parse_hosts(project.sso_hosts)),
     )
 
 

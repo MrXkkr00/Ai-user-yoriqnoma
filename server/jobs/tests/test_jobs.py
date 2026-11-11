@@ -384,3 +384,16 @@ def test_unverified_domain_gives_passive_explorer_options(user: User, unverified
     )
     opts = jobs.pipeline.explore_options(job)
     assert opts.passive is True and opts.allow_private is False
+
+
+@pytest.mark.django_db
+def test_mode_b_without_account_warns_about_staff_roles(user: User, domain: Domain) -> None:
+    (job,) = create_jobs(
+        user, JobRequest(mode="B", url="https://shop.example.uz/", roles=["manager"])
+    )
+    assert job.events.filter(kind="log", payload__message__icontains="xodim roli").exists()
+    (given,) = create_jobs(
+        user,
+        JobRequest(mode="B", url="https://shop.example.uz/", roles=["manager"], accounts=ACCOUNTS),
+    )
+    assert not given.events.filter(kind="log", payload__message__icontains="xodim roli").exists()

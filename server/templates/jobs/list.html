@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Ishlar{% endblock %}
 {% block content %}
-<div class="row"><h1>Ishlar</h1><a class="button" href="{% url 'jobs:new' %}">Yangi ish</a></div>
+<div class="page-head"><h1>Ishlar</h1><a class="button" href="{% url 'jobs:new' %}">Yangi ish</a></div>
 <div class="card budget small">
-  <span>Bugun: <b>${{ spent.user_day|floatformat:2 }}</b> / ${{ limits.user_day|floatformat:2 }}</span>
-  <span>Shu oy: <b>${{ spent.user_month|floatformat:2 }}</b> / ${{ limits.user_month|floatformat:2 }}</span>
+  <span>Bugun sarflandi <b>${{ spent.user_day|floatformat:2 }}</b> limit: ${{ limits.user_day|floatformat:2 }}</span>
+  <span>Shu oy sarflandi <b>${{ spent.user_month|floatformat:2 }}</b> limit: ${{ limits.user_month|floatformat:2 }}</span>
 </div>
 <table>
   <tr><th>#</th><th>Rejim</th><th>Rol</th><th>Sayt</th><th>Holat</th><th>Narx</th><th>Sana</th></tr>

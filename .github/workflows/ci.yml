@@ -47,6 +47,15 @@ jobs:
           uv run python manage.py makemigrations --check --dry-run
       - name: Tests
         run: uv run pytest -m "${{ env.MARKERS }}"
+      # NFR-7 targets: packages >= 80%, apps >= 60%. Report only: the fast tests skip the real
+      # browser runs ("slow"), which cover much of the explorer.
+      - name: Coverage report
+        if: matrix.os == 'ubuntu-latest'
+        run: >
+          uv run --with pytest-cov pytest -m "${{ env.MARKERS }}"
+          --cov=packages/core/src --cov=packages/scanner/src --cov=packages/schemas/src
+          --cov=projects --cov=runs --cov=settings_app --cov=evaluation --cov=yoriqnoma_local
+          --cov-report=term:skip-covered -q
 
   # Server app: runs on a Linux server in Docker.
   server:
@@ -75,3 +84,10 @@ jobs:
           uv run python manage.py makemigrations --check --dry-run
       - name: Tests
         run: uv run pytest -m "${{ env.MARKERS }}"
+      - name: Coverage report
+        run: >
+          uv run --with pytest-cov pytest -m "${{ env.MARKERS }}"
+          --cov=packages/core/src --cov=packages/schemas/src
+          --cov=accounts --cov=api --cov=domains --cov=jobs --cov=scout --cov=security
+          --cov=yoriqnoma_server
+          --cov-report=term:skip-covered -q

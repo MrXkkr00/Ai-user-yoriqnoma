@@ -4,7 +4,7 @@
       · narx: <b>${{ job.cost_usd|floatformat:4 }}</b> / ${{ job.budget_usd }}
       · tokenlar: {{ job.tokens_in }} / {{ job.tokens_out }}</p>
     <ol class="stages">
-      {% for key, label in stages %}<li class="{% if current == key %}current{% endif %}">{{ label }}</li>{% endfor %}
+      {% for key, label in stages %}<li class="{% if job.status == "done" %}done{% elif current == key %}current{% endif %}">{{ label }}</li>{% endfor %}
     </ol>
     {% if not job.finished %}
       <progress class="bar" max="100" value="{{ job.percent }}"></progress>

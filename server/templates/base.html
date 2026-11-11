@@ -12,12 +12,14 @@
   <header class="topbar">
     <a class="brand" href="{% url 'home' %}">AI user yo'riqnoma</a>
     <nav class="mainnav">
+      {% with m=request.resolver_match %}
       {% if user.is_authenticated %}
-      <a href="{% url 'jobs:list' %}">Ishlar</a>
-      <a href="{% url 'jobs:new' %}">Yangi ish</a>
-      <a href="{% url 'domains:list' %}">Domenlar</a>
+      <a href="{% url 'jobs:list' %}" {% if m.namespace == 'jobs' and m.url_name != 'new' %}aria-current="page"{% endif %}>Ishlar</a>
+      <a href="{% url 'jobs:new' %}" {% if m.namespace == 'jobs' and m.url_name == 'new' %}aria-current="page"{% endif %}>Yangi ish</a>
+      <a href="{% url 'domains:list' %}" {% if m.namespace == 'domains' %}aria-current="page"{% endif %}>Domenlar</a>
       {% endif %}
-      <a href="{% url 'about' %}">Bu nima?</a>
+      <a href="{% url 'about' %}" {% if m.url_name == 'about' %}aria-current="page"{% endif %}>Bu nima?</a>
+      {% endwith %}
     </nav>
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="inline-form">{% csrf_token %}
@@ -25,7 +27,7 @@
         <button class="link" type="submit">Chiqish</button>
       </form>
     {% else %}
-      <span class="actions"><a href="{% url 'login' %}">Kirish</a> <a href="{% url 'register' %}">Ro'yxatdan o'tish</a></span>
+      <span class="actions"><a href="{% url 'login' %}">Kirish</a> <a class="button" href="{% url 'register' %}">Ro'yxatdan o'tish</a></span>
     {% endif %}
   </header>
   <main class="container">
@@ -34,5 +36,6 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="footer">AI user yo'riqnoma · boshqa odamlarning ma'lumotlari yo'riqnomaga kirmaydi</footer>
 </body>
 </html>

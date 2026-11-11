@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Solishtirish {{ run.pk }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'eval' %}">← Modellarni solishtirish</a></p>
+<a class="back" href="{% url 'eval' %}">← Modellarni solishtirish</a>
 <h1>Solishtirish {{ run.pk }} <span class="badge s-{{ run.status }}">{{ run.get_status_display }}</span></h1>
 {% if run.status == "queued" or run.status == "running" %}<p class="muted" hx-get="" hx-trigger="every 3s" hx-select="main" hx-target="main">Bajarilmoqda...</p>{% endif %}
 {% if run.error %}<div class="error">{{ run.error }}</div>{% endif %}

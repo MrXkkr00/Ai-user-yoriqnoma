@@ -16,9 +16,11 @@ from projects.models import Project
 from projects.services import effective_blueprint, role_options
 from runs.models import InputRequest, Run
 from runs.services import (
+    DeleteBlocked,
     RunError,
     answer_input,
     cancel_run,
+    delete_run,
     resume_run,
     run_files,
     start_run,
@@ -179,3 +181,16 @@ def run_cleanup(request: HttpRequest, pk: int) -> HttpResponse:
     cleanup_run_task(run.pk)
     messages.info(request, "Tozalash qayta boshlandi.")
     return redirect("run-detail", pk)
+
+
+@require_POST
+def run_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    run = get_object_or_404(Run.objects.select_related("project"), pk=pk)
+    project_id = run.project_id
+    try:
+        delete_run(run)
+    except DeleteBlocked as exc:
+        messages.error(request, str(exc))
+        return redirect("run-detail", pk)
+    messages.success(request, f"Ish {pk} va uning fayllari o'chirildi.")
+    return redirect("project-detail", project_id)

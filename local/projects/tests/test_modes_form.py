@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from projects.forms import ProjectForm
@@ -49,3 +51,42 @@ def test_code_mode_needs_a_folder_and_admin_mode_a_password() -> None:
         }
     )
     assert not no_password.is_valid() and "admin_password" in no_password.errors
+
+
+def test_mode_three_pages_and_no_blueprint_output(client: Any) -> None:
+    """Mode 3 after «Tekshirish»: roles only; pages open, "blueprint" output is refused."""
+    from projects.admin_access import roles_blueprint
+    from projects.models import Project
+    from projects.services import _new_version, role_options
+    from runs.services import RunError, start_run
+    from yoriqnoma_core.provision.base import classify_role
+
+    project = Project.objects.create(
+        name="Kodsiz",
+        slug="kodsiz",
+        mode="admin",
+        base_url="https://shop.example.uz",
+        admin_login="admin",
+    )
+    roles = [
+        classify_role(label, value, "test", "role")
+        for label, value in [("Menejer", "manager"), ("Administrator", "admin")]
+    ]
+    _new_version(
+        project,
+        roles_blueprint(project, roles),
+        "admin",
+        stats={"admin_roles": {"manager": "manager"}},
+    )
+
+    cards = {o.id: o for o in role_options(project, roles_blueprint(project, roles))}
+    assert cards["manager"].admin_made and not cards["admin"].selectable
+    for url in (
+        f"/projects/{project.pk}/",
+        f"/projects/{project.pk}/blueprint/",
+        f"/projects/{project.pk}/runs/new/",
+        f"/projects/{project.pk}/edit/",
+    ):
+        assert client.get(url).status_code == 200, url
+    with pytest.raises(RunError, match="Kodsiz rejimda"):
+        start_run(project, "blueprint")

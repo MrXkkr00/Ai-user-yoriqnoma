@@ -18,6 +18,8 @@ else:
 
 
 class SettingsForm(_SettingsFormBase):
+    ollama_host = forms.URLField(label="Ollama manzili", assume_scheme="http")
+
     class Meta:
         model = AppSettings
         fields = ["ollama_host", "ollama_model", "num_ctx", "language"]

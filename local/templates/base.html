@@ -11,11 +11,13 @@
   <header class="topbar">
     <a class="brand" href="{% url 'home' %}">AI user yo'riqnoma</a>
     <nav class="mainnav">
-      <a href="{% url 'home' %}">{% translate "Loyihalar" %}</a>
-      <a href="{% url 'eval' %}">{% translate "Modellarni solishtirish" %}</a>
-      <a href="{% url 'settings' %}">{% translate "Sozlamalar" %}</a>
+      {% with name=request.resolver_match.url_name %}
+      <a href="{% url 'home' %}" {% if name == 'home' or name|slice:":7" == 'project' or name|slice:":3" == 'run' or name|slice:":9" == 'blueprint' %}aria-current="page"{% endif %}>{% translate "Loyihalar" %}</a>
+      <a href="{% url 'eval' %}" {% if name|slice:":4" == 'eval' %}aria-current="page"{% endif %}>{% translate "Modellarni solishtirish" %}</a>
+      <a href="{% url 'settings' %}" {% if name|slice:":8" == 'settings' %}aria-current="page"{% endif %}>{% translate "Sozlamalar" %}</a>
+      {% endwith %}
     </nav>
-    <span class="muted">{% translate "Lokal dastur" %} · 127.0.0.1</span>
+    <span class="env-chip">{% translate "Lokal dastur" %} · 127.0.0.1</span>
   </header>
   <main class="container">
     {% if messages %}
@@ -23,5 +25,6 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="footer">AI user yo'riqnoma · {% translate "lokal dastur, internetsiz ishlaydi" %}</footer>
 </body>
 </html>

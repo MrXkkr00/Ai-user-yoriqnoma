@@ -15,10 +15,10 @@ from PIL import Image, ImageDraw
 from pydantic import HttpUrl
 
 from yoriqnoma_core.explorer.datagen import DataGen
-from yoriqnoma_core.render import build
+from yoriqnoma_core.render import build, coverage_line, format_percent
 from yoriqnoma_core.text_uz import normalize_uz
 from yoriqnoma_core.writer import write_manual
-from yoriqnoma_core.writer.assemble import element_marker
+from yoriqnoma_core.writer.assemble import element_marker, page_heading
 from yoriqnoma_core.writer.cache import LLMCache, cached_generate
 from yoriqnoma_core.writer.changes import compare, write_changelog
 from yoriqnoma_core.writer.providers import FakeProvider, LLMRequest
@@ -28,6 +28,7 @@ from yoriqnoma_schemas import (
     BBox,
     Blueprint,
     CaptureRun,
+    Coverage,
     Element,
     Flow,
     FlowResult,
@@ -459,3 +460,154 @@ def test_coverage_report_warns_for_mode_b(tmp_path: Path) -> None:
     for mode, warned in (("local", False), ("A", False), ("B", True), ("A+B", True)):
         page = render_coverage(manual.model_copy(update={"source_mode": mode}), tmp_path)
         assert ("faqat sayt orqali topilgan" in page.read_text("utf-8")) is warned, mode
+
+
+# --- quality of the text (leaked markup, page names, coverage, dates) ---
+LEAKED = (
+    "Ushbu bo'lim fikr almashish haqida. </intro> <tasks> <task>Sharh yuboring.</task> </tasks>"
+)
+RUN_ON = (
+    "Boshlash uchun: 1. Ro'yxatdan o'tish - tugmani bosing. 2. Tizimga kirish - kirishni bosing."
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "kind"),
+    [
+        (LEAKED, "hard"),
+        ("Natija **qalin** ko'rinadi.", "hard"),
+        ("```json {}```", "hard"),
+        (RUN_ON, "hard"),
+        ("Bu bo'lim haqida." + chr(10) * 2 + "Ikkinchi abzas.", "hard"),
+        ("Ushbu bo'limda buyurtma berasiz. 2. Asosiy ishlar Siz katalogni ko'rasiz.", "hard"),
+        ("Siz #4 raqamli buyurtmani to'laysiz.", "soft"),
+    ],
+)
+def test_format_problems_are_found(text: str, kind: str) -> None:
+    soft, hard = check_text(text, set(), [])
+    assert hard if kind == "hard" else soft, (text, soft, hard)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "«Miqdor» maydoniga 1 dan 99 gacha son kiriting.",
+        "Parol kamida 8 ta belgidan iborat bo'lishi kerak. 2 marta kiriting.",
+        "Emailingizga kelgan 6 xonali kodni kiriting.",
+        "Narxi 1.250.000 so'm.",
+    ],
+)
+def test_plain_sentences_pass_the_format_checks(text: str) -> None:
+    soft, hard = check_text(text, {"miqdor"}, [])
+    assert not hard and not [s for s in soft if "yozuv raqami" in s]
+
+
+def test_leaked_markup_is_replaced_by_a_template_intro(tmp_path: Path) -> None:
+    fixtures = tmp_path / "llm"
+    (fixtures / "section_intro").mkdir(parents=True)
+    (fixtures / "section_intro" / "default.json").write_text(
+        json.dumps({"intro": LEAKED}), encoding="utf-8"
+    )
+    run = make_run(tmp_path)
+    manual, stats = asyncio.run(write_manual(run, FakeProvider(fixtures)))
+
+    intros = [s.intro for s in manual.sections if s.articles]
+    assert intros and all("<" not in text and "</" not in text for text in intros)
+    assert stats.fallbacks >= 1  # the template sentence was used, nothing leaked
+
+
+def test_run_on_list_is_replaced_by_a_template_intro(tmp_path: Path) -> None:
+    fixtures = tmp_path / "llm"
+    (fixtures / "section_intro").mkdir(parents=True)
+    (fixtures / "section_intro" / "default.json").write_text(
+        json.dumps({"intro": RUN_ON}), encoding="utf-8"
+    )
+    manual, _ = asyncio.run(write_manual(make_run(tmp_path), FakeProvider(fixtures)))
+
+    assert all("1. Ro'yxatdan" not in s.intro for s in manual.sections)
+
+
+def test_page_heading_reads_h1_and_drops_record_numbers() -> None:
+    from yoriqnoma_schemas import State
+
+    def state(aria: str) -> State:
+        return State(
+            id="s",
+            hash="h",
+            url="http://x/",
+            title="Demo",
+            flow_id=None,
+            step_index=None,
+            account="A",
+            images={"clean": "a.png", "som": "b.png"},
+            elements=[],
+            aria=aria,
+        )
+
+    assert page_heading(state('- heading "Buyurtmalarim" [level=1]')) == "Buyurtmalarim"
+    assert page_heading(state("- 'heading \"Buyurtma #4 Yangi\" [level=1]'")) == "Buyurtma"
+    assert page_heading(state('- heading "Kichik" [level=2]')) is None
+    assert page_heading(None) is None
+
+
+def test_reference_names_pages_and_lists_the_common_menu_once(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    capture = load_json(run / "capture" / "capture.json", CaptureRun)
+    base = capture.states[0]
+    menu = [
+        base.elements[0].model_copy(update={"marker": 10 + i, "name": n})
+        for i, n in enumerate(["Katalog", "Kirish", "Profil"])
+    ]
+    pages = {"/a": "Birinchi", "/b": "Ikkinchi", "/c": "Uchinchi", "/orders/4": "Buyurtma #4 Yangi"}
+    states = []
+    for i, (path, heading) in enumerate(pages.items()):
+        states.append(
+            base.model_copy(
+                update={
+                    "id": f"p{i}",
+                    "url": f"http://127.0.0.1:8800{path}",
+                    "title": "t",
+                    "aria": f'- heading "{heading}" [level=1]',
+                    "elements": [*menu, base.elements[0].model_copy(update={"name": f"Maydon{i}"})],
+                }
+            )
+        )
+    save_json(
+        run / "capture" / "capture.json",
+        capture.model_copy(update={"states": [*capture.states, *states]}),
+    )
+    manual, _ = asyncio.run(write_manual(run, FakeProvider()))
+
+    titles = {e.path: e.page_title for e in manual.reference}
+    assert titles["/a"] == "Birinchi" and titles["/c"] == "Uchinchi"
+    assert titles["/orders/:id"] == "Buyurtma"  # no list page known: heading without the number
+    reference = next(s for s in manual.sections if s.stage == "reference")
+    assert all(f"«{n}»" in reference.intro for n in ("Katalog", "Kirish", "Profil"))
+    assert "@" not in reference.intro
+    assert all("Katalog" not in e.elements for e in manual.reference)
+    assert any(e.elements for e in manual.reference)
+
+
+def test_percent_uses_a_decimal_comma_and_shows_the_weak_group() -> None:
+    assert format_percent(100.0) == "100" and format_percent(94.4) == "94,4"
+    manual = Manual.model_construct(
+        coverage=Coverage(percent={"route": 100.0, "button": 94.4, "total": 100.0}, items=[])
+    )
+    assert coverage_line(manual) == "100% (tugmalar: 94,4%)"
+    full = Manual.model_construct(coverage=Coverage(percent={"route": 100.0, "total": 100.0}))
+    assert coverage_line(full) == "100%"
+
+
+def test_html_shows_local_time_and_pdf_images_are_small(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    manual, _ = asyncio.run(write_manual(run, FakeProvider()))
+    manual = manual.model_copy(update={"generated_at": datetime(2026, 11, 10, 20, 0, tzinfo=UTC)})
+    save_json(run / "manual.json", manual)
+    result = build(run, {"html", "pdf"})
+
+    html = result.files["html"].read_text(encoding="utf-8")
+    assert "2026-11-11 01:00" in html  # 20:00 UTC is 01:00 in Uzbekistan
+    assert not (result.out_dir / "html" / "index_print.html").exists()
+    assert not (result.out_dir / "html" / "images" / "print").exists()
+    pdf = result.files["pdf"]
+    assert pdf.read_bytes().startswith(b"%PDF") and pdf.stat().st_size > 0

@@ -1,6 +1,6 @@
 # Texnik topshiriq: AI_user_yoriqnoma
 
-Versiya 1.1 · 2026-11-07 (ikki Django dasturi: Lokal va Server)
+Versiya 1.2 · 2026-11-10 (ikki Django dasturi: Lokal va Server; lokal dasturda uch rejim, FR-L13)
 
 ## 1. Umumiy ma'lumot
 
@@ -23,7 +23,9 @@ Menejer kabi xodim rollari uchun esa shu rolning ishlari: masalan, buyurtmalarni
 
 | Kim | Vaziyat | Ishlatadigan dastur va natija |
 |---|---|---|
-| Ishlab chiquvchi yoki jamoa | Kodi bor, hammasi lokal bo'lsin | Lokal → "To'liq yo'riqnoma" |
+| Ishlab chiquvchi yoki jamoa | Kodi bor, hammasi lokal bo'lsin | Lokal (1-rejim) → "To'liq yo'riqnoma" |
+| Ishlab chiquvchi yoki jamoa | Kodi va admin logini bor, test akkauntlarni qo'lda ochishni xohlamaydi | Lokal (2-rejim) → "To'liq yo'riqnoma" |
+| Sayt egasi | Kodi yo'q, admin logini bor, hammasi lokal bo'lsin | Lokal (3-rejim) → "To'liq yo'riqnoma" |
 | Ishlab chiquvchi yoki jamoa | Kodi bor, sayt internetda, Claude sifati kerak | Lokal → "Blueprint" → Server A |
 | Ichki tarmoqdagi tizim egasi | Server saytga kira olmaydi | Lokal → "Bundle" → Server A' |
 | Sayt egasi | Kodi qo'lida yo'q | Server B (faqat URL) |
@@ -251,14 +253,16 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 - **FR-L2. O'z bazasi.** `var/local.sqlite3` — loyihalar, ishlar, hodisalar va sozlamalar uchun. Test akkaunt parollari Fernet bilan shifrlanadi, kalit `var/secret.key` faylida.
 - **FR-L3. Loyiha.** Har bir loyiha uchun saqlanadi:
   - nomi;
-  - kod papkasining yo'li (ixtiyoriy — kodsiz loyihada faqat bundle uchun qo'lda yozilgan blueprint yuklash mumkin);
+  - rejim (FR-L13): kod + link, kod + link + admin login, yoki link + admin login;
+  - kod papkasining yo'li (1- va 2-rejimda majburiy, 3-rejimda yo'q);
+  - admin login, paroli (Fernet bilan shifrlangan) va admin panel manzili (2- va 3-rejimda; manzil ixtiyoriy);
   - base URL va muhit (staging yoki production);
   - test akkauntlar — rol bo'yicha (FR-RL4);
-  - pochta adapteri (Mailpit URL yoki papka);
+  - pochta adapteri (Mailpit URL yoki papka) — ixtiyoriy;
   - til.
 - **FR-L4. Rol va natija turini tanlash.** Har bir ishni boshlashda foydalanuvchi maqsadli rol(lar)ni variantlardan tanlaydi (FR-RL3) va uchta natija turidan birini tanlaydi:
   - **To'liq yo'riqnoma** — skan → blueprint ko'rib chiqish → tadqiqot → yozish (Ollama) → render (HTML, PDF, DOCX);
-  - **Blueprint (server A uchun)** — skan → ko'rib chiqish → `blueprint.json`;
+  - **Blueprint (server A uchun)** — skan → ko'rib chiqish → `blueprint.json` (3-rejimda yo'q: u yerda blueprint faqat ish davomida saytdan o'rganiladi va ish natijalarida chiqadi);
   - **Bundle (server A' uchun)** — skan → ko'rib chiqish → tadqiqot → `bundle.zip`.
 - **FR-L5. Blueprint ko'rib chiqish.** Skandan keyin foydalanuvchi quyidagilarni ko'radi va o'zgartira oladi:
   - rollar (tasnifi va sababi bilan), sahifalar, obyektlar va flow'lar ro'yxati;
@@ -284,7 +288,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 - **FR-L10. Boshqaruv buyruqlari** (avtomatlashtirish va CI uchun):
 
   ```
-  manage.py scan | explore | write | render | run --output full|blueprint|bundle | bundle | eval
+  manage.py scan | explore | write | render | run --output full|blueprint|bundle | bundle | cleanup --run <id> | eval
   ```
 
   Ular UI bilan bir xil servislarni chaqiradi.
@@ -467,6 +471,9 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 - B rejimi faqat sayt orqali ko'rinadigan va topiladigan funksiyalarni qamraydi. Rollar faqat berilgan akkauntlar va saytda ko'rinadigan belgilar orqali aniqlanadi.
 - Admin harakati talab qiladigan holatlar yamalgan javob yoki matn orqali ko'rsatiladi.
 - Server-rendered saytlar ham qo'llab-quvvatlanadi, chunki Tadqiqotchi DOM bilan ishlaydi.
+- Lokal 2- va 3-rejim: admin paneli Django admin yoki «yangi foydalanuvchi» formasi bor oddiy panel bo'lsa aniq ishlaydi; boshqa panellarda Ollama agenti ishlaydi va natija kafolatlanmagan. Captcha yoki ikki bosqichli kirish bo'lgan admin panelida vosita kira olmaydi.
+- Lokal 2- va 3-rejimda production sayt tanlansa ham test foydalanuvchilar haqiqiy saytda yaratiladi (ish oxirida o'chiriladi); staging tavsiya etiladi.
+- Server B rejimida akkaunt berilmasa, vosita saytda o'zi ro'yxatdan o'tadi; bu faqat ro'yxatdan o'tgan har kim oladigan rol uchun to'g'ri. Xodim rollari uchun shu roldagi akkaunt berilishi kerak.
 - Mobil ilovalar va desktop dasturlar doiradan tashqari.
 
 ## 9. Qabul qilish mezonlari (demo_shop poligonida)
@@ -510,5 +517,6 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 | F5 | Server Django dasturi: A va A' rejimlari, Lokal → Server integratsiyasi |
 | F6 | Server: B rejimi |
 | F7 | Kengaytirish: boshqa steklar, CI, interaktiv tur |
+| F8 | Lokal dastur: uch rejim, admin orqali test foydalanuvchilar va tozalash |
 
 Batafsil vazifalar: `docs/TASKS.md`.

@@ -6,6 +6,7 @@ Every section is always present; a section without flows gets a template sentenc
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -46,6 +47,20 @@ SECTIONS: list[tuple[str, str]] = [
     ("faq", "9. Xatolar va savollar (FAQ)"),
 ]
 NAV_ROLES = {"link"}
+H1 = re.compile(r'heading "((?:[^"\\]|\\.)*)"\s*\[level=1\]')
+RECORD_TAIL = re.compile(r"\s*#\d+.*$")
+CONTACT = re.compile(r"@|\d[\d\s()+-]{6,}")  # an e-mail or a phone number is not a menu item
+
+
+def page_heading(state: State | None) -> str | None:
+    """The page's own <h1> from the aria snapshot, without a record number («Buyurtma #4 Yangi»)."""
+    if state is None:
+        return None
+    match = H1.search(state.aria)
+    if match is None:
+        return None
+    text = RECORD_TAIL.sub("", match.group(1).replace('\\"', '"')).strip()
+    return text or None
 
 
 def useful_rules(rules: str | None) -> str:
@@ -100,6 +115,15 @@ class ManualBuilder:
         self.states = {s.id: s for s in capture.states}
         self.nav = {n.get("path", ""): n.get("label", "") for n in bp.nav}
         self.notes: list[str] = []
+        self.titles: dict[str, str] = {}
+        for state in capture.states:
+            if state.patched or state.account == "B":
+                continue
+            path = path_template(urlsplit(state.url).path)
+            if ":" not in path and path not in self.titles:
+                heading = page_heading(state)
+                if heading:
+                    self.titles[path] = heading
 
     # --- helpers ------------------------------------------------------------------
 
@@ -115,6 +139,27 @@ class ManualBuilder:
     def _image(self, state: State | None, kind: str = "clean") -> str | None:
         return state.images.get(kind) if state else None  # type: ignore[call-overload]
 
+    def page_title(self, path: str, state: State | None) -> str:
+        """A readable page name: the menu label, else the page's <h1>, else the path.
+
+        A page of one record (``/orders/:id``) is named after its list page, because its own
+        heading carries the record's data («Choynak», «Buyurtma #4»).
+        """
+        label = self.nav.get(path)
+        if label:
+            return label
+        if ":" in path:
+            parent = path.rsplit("/", 1)[0] or "/"
+            parent_label = self.nav.get(parent) or self.titles.get(parent)
+            if parent_label:
+                return f"{parent_label} — tafsilot"
+        heading = page_heading(state)
+        if heading:
+            return heading
+        if state is not None and state.title and state.title != self.bp.project:
+            return state.title
+        return path
+
     def _state_for_step(self, states: list[State], index: int) -> State | None:
         exact = [s for s in states if s.step_index == index]
         if exact:
@@ -128,7 +173,14 @@ class ManualBuilder:
         for i, step in enumerate(flow.steps):
             state = self._state_for_step(states, i if step.action != "goto" else i + 1)
             marker = element_marker(state, step) if step.action != "goto" else None
-            label = self.nav.get(step.path or "") if step.action == "goto" else None
+            label = None
+            if step.action == "goto":
+                goto_path = step.path or ""
+                label = self.nav.get(goto_path) or (
+                    None
+                    if "{own:" in goto_path or ":" in goto_path
+                    else self.titles.get(path_template(goto_path))
+                )
             text = tpl.step_sentence(step, marker, label)
             if text is None:
                 continue
@@ -295,13 +347,18 @@ class ManualBuilder:
                     empty_reason=empty,
                 )
             )
-        reference = await self._reference()
+        reference, common = await self._reference()
+        reference_intro = "Rolingiz ko'radigan sahifalar va ulardagi asosiy elementlar."
+        if common:
+            reference_intro += (
+                " Har sahifada bor menyu va tugmalar: " + ", ".join(f"«{n}»" for n in common) + "."
+            )
         sections.append(
             Section(
                 id="reference",
                 stage="reference",
                 title=SECTIONS[7][1],
-                intro="Rolingiz ko'radigan sahifalar va ulardagi asosiy elementlar.",
+                intro=reference_intro,
                 articles=[],
             )
         )
@@ -366,19 +423,33 @@ class ManualBuilder:
         )
         return prefix + text, None
 
-    async def _reference(self) -> list[RefEntry]:
+    async def _reference(self) -> tuple[list[RefEntry], list[str]]:
+        """(entries, names on every page). The menu that repeats on each page is listed once."""
         pages: dict[str, State] = {}
         for state in self.capture.states:
             if state.patched or state.account == "B":
                 continue
             tpl_path = path_template(urlsplit(state.url).path)
             pages.setdefault(tpl_path, state)
+        counts: dict[str, int] = {}
+        for state in pages.values():
+            for name in {el.name for el in state.elements if el.name}:
+                counts[name] = counts.get(name, 0) + 1
+        threshold = max(3, (len(pages) + 1) // 2)
+        common = sorted(
+            (
+                n
+                for n, c in counts.items()
+                if c >= threshold and len(pages) >= 4 and not CONTACT.search(n)
+            ),
+            key=lambda n: -counts[n],
+        )[:12]
         entries = [
             RefEntry(
-                page_title=self.nav.get(path) or s.title or path,
+                page_title=self.page_title(path, s),
                 path=path,
                 purpose="—",
-                elements=[el.name for el in s.elements if el.name][:12],
+                elements=[el.name for el in s.elements if el.name and el.name not in common][:12],
             )
             for path, s in sorted(pages.items())
         ]
@@ -391,7 +462,7 @@ class ManualBuilder:
         purposes = {p.path: p.purpose for p in (answer.pages if answer else [])}
         for entry in entries:
             entry.purpose = purposes.get(entry.path, "—")
-        return sorted(entries, key=lambda e: normalize_uz(e.page_title))
+        return sorted(entries, key=lambda e: normalize_uz(e.page_title)), common
 
     async def _faq(self, failed: list[Flow], results: dict[str, FlowResult]) -> list[QA]:
         forms = []

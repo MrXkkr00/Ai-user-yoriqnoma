@@ -1,11 +1,11 @@
 <div id="status" {% if not run.finished %}hx-get="{% url 'run-status' run.pk %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   <div class="card">
     <p><span class="badge s-{{ run.status }}">{{ run.get_status_display }}</span>
-      {% if run.stage %} · bosqich: <strong>{{ run.get_stage_display }}</strong>{% endif %}
+      {% if run.stage and not run.finished %} · bosqich: <strong>{{ run.get_stage_display }}</strong>{% endif %}
       {% if run.model and run.output == "full" %} · model: {{ run.model }}{% endif %}
       {% if run.previous %} · yangilash: <a href="{% url 'run-detail' run.previous.pk %}">#{{ run.previous.pk }}</a> asosida{% endif %}</p>
     <ol class="stages">
-      {% for key, label in stages %}<li class="{% if run.stage == key %}current{% endif %}">{{ label }}</li>{% endfor %}
+      {% for key, label in stages %}<li class="{% if run.status == "done" %}done{% elif run.stage == key %}current{% endif %}">{{ label }}</li>{% endfor %}
     </ol>
     {% if not run.finished %}
       <div class="progress"><div style="width: {{ run.percent }}%"></div></div>
@@ -39,7 +39,7 @@
   {% if run.status == "done" %}
   <div class="card">
     <h2>Natijalar</h2>
-    {% if run.stats %}<p class="small">{% for k, v in run.stats.items %}{% if k != "cleanup" %}{{ k }}: <b>{{ v }}</b> · {% endif %}{% endfor %}</p>{% endif %}
+    {% if run.stats_display %}<p class="small stats">{% for label, value in run.stats_display %}<span>{{ label }}: <b>{{ value }}</b></span>{% endfor %}</p>{% endif %}
     <ul class="files">
       {% for f in files %}
       <li><a href="{% url 'run-file' run.pk f.rel %}" {% if f.rel == "dist/html/index.html" %}target="_blank"{% endif %}>{{ f.label }}</a>
@@ -63,4 +63,13 @@
     <h2>Jurnal</h2>
     <ol class="log">{% for e in events %}<li class="lvl-{{ e.level }}"><span class="muted small">{{ e.at|date:"H:i:s" }}</span> {{ e.message }}</li>{% empty %}<li class="muted">Hali yozuv yo'q.</li>{% endfor %}</ol>
   </div>
+  {% if run.finished %}
+  <div class="card danger-zone">
+    <h2>Ishni o'chirish</h2>
+    <p class="small muted">Ish yozuvi, jurnali va natija papkasi (HTML, PDF, DOCX, rasmlar) diskdan butunlay o'chadi. Saytdagi hech narsa o'zgarmaydi.</p>
+    <form method="post" action="{% url 'run-delete' run.pk %}" onsubmit="return confirm('Ish {{ run.pk }} va uning barcha fayllari oʻchirilsinmi? Buni qaytarib boʻlmaydi.');">{% csrf_token %}
+      <button class="danger" type="submit">Ishni o'chirish</button>
+    </form>
+  </div>
+  {% endif %}
 </div>

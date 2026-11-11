@@ -28,7 +28,7 @@ from yoriqnoma_core.writer.cache import LLMCache, cached_generate
 from yoriqnoma_core.writer.providers.base import LLMProvider, LLMRequest, ProviderError
 from yoriqnoma_core.writer.validate import check_text
 
-PROMPT_VERSION = "2"
+PROMPT_VERSION = "3"
 PROMPTS = Path(__file__).parent / "prompts"
 A = TypeVar("A", bound=BaseModel)
 

@@ -48,7 +48,9 @@ class ScoutKit:
             self_signup_roles=set(),
             org_domains=list(opts.org_domains),
         )
-        engine = PolicyEngine(policy, opts.base_url, passive=opts.passive)
+        engine = PolicyEngine(
+            policy, opts.base_url, passive=opts.passive, trusted_hosts=tuple(opts.trusted_hosts)
+        )
         capturer = Capturer(
             run_dir=scout_dir,
             ledger=ledger,

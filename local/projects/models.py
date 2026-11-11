@@ -25,6 +25,8 @@ class Project(models.Model):
     admin_login = models.CharField(max_length=200, blank=True)
     admin_password_enc = models.BinaryField(null=True, blank=True)  # Fernet, var/secret.key
     admin_path = models.CharField(max_length=200, blank=True)  # "/admin/"; empty: guessed
+    # exact sign-in hosts of a single sign-on site ("auth.example.uz"); see core safety/sso.py
+    sso_hosts = models.CharField(max_length=300, blank=True)
     check_state = models.CharField(max_length=10, choices=CHECK_STATES, blank=True)
     check_error = models.TextField(blank=True)
     source_dir = models.CharField(max_length=500, blank=True)

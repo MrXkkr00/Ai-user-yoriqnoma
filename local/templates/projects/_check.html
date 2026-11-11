@@ -2,7 +2,7 @@
   {% if project.check_state == "running" %}
     <div class="card warnbox">Tekshirilmoqda: {% if project.has_code %}kod skanerlanmoqda{% endif %}{% if project.uses_admin %}{% if project.has_code %}, {% endif %}admin paneliga kirib rollar o'qilmoqda{% endif %}…</div>
   {% elif project.check_state == "failed" %}
-    <div class="card error">Tekshiruv xatosi: {{ project.check_error }}</div>
+    <div class="card error"><b>Tekshiruv xatosi.</b><br>{{ project.check_error|linebreaksbr }}</div>
   {% elif project.check_state == "done" and project.uses_admin %}
     <div class="card ok small">Admin paneliga kirildi va rollar o'qildi. Endi «Ishga tushirish»da rolni tanlang. <a href="{% url 'project-detail' project.pk %}">Yangilash</a></div>
   {% endif %}

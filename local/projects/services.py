@@ -30,6 +30,25 @@ def project_dir(project: Project) -> Path:
     return path
 
 
+def delete_project(project: Project) -> None:
+    """Remove the project with its runs, blueprints, accounts and every file it made."""
+    from runs.services import DeleteBlocked, block_reason, remove_run_folder
+
+    runs = list(project.runs.all())
+    for run in runs:
+        reason = block_reason(run)
+        if reason:
+            raise DeleteBlocked(f"Ish {run.pk}: {reason}")
+    folders = [Path(run.run_dir) for run in runs]
+    folders.append(Path(settings.MEDIA_ROOT) / project.slug)
+    with transaction.atomic():
+        for run in runs:  # runs first: a run protects its blueprint version
+            run.delete()
+        project.delete()  # blueprints and accounts go with it
+    for folder in folders:
+        remove_run_folder(folder)
+
+
 def unique_slug(name: str) -> str:
     base = slugify(name) or "loyiha"
     slug, n = base, 2
@@ -197,6 +216,32 @@ def role_options(project: Project, bp: Blueprint) -> list[RoleOption]:
     return sorted(options, key=lambda o: (not o.selectable, not o.self_signup, o.label))
 
 
+ADMIN_HINT = (
+    "Nima qilish mumkin: (1) admin login va parolni tekshiring; (2) «Admin panel manzili» "
+    "maydoniga foydalanuvchilar ro'yxati manzilini yozing (masalan, /admin/users); (3) sayt "
+    "kirish uchun boshqa domenga o'tsa, «Kirish (SSO) domeni» maydonini to'ldiring; (4) bu "
+    "hisob foydalanuvchi yarata oladigan panelga kira olmasligi mumkin (masalan, faqat kirish "
+    "serverining profil sahifasi bor): shunda saytning haqiqiy admin panelini ko'rsating."
+)
+
+
+def check_error_message(exc: Exception) -> str:
+    """What the user reads under «Tekshirish»: the reason in words, not a class name."""
+    from playwright.async_api import TimeoutError as PlaywrightTimeout
+
+    from yoriqnoma_core.provision.base import ProvisionError
+
+    text = " ".join(str(exc).split())
+    if isinstance(exc, ProvisionError):
+        return f"{text}\n{ADMIN_HINT}"[:2000]
+    if isinstance(exc, PlaywrightTimeout):
+        return (
+            "Sayt belgilangan vaqtda javob bermadi. Manzil to'g'riligini va saytga shu "
+            "kompyuterdan kirish mumkinligini tekshiring. " + text.split("Call log")[0].strip()
+        )[:2000]
+    return f"{type(exc).__name__}: {text}"[:2000]
+
+
 def check_project(project: Project) -> BlueprintVersion | None:
     """«Tekshirish»: scan the code (modes 1, 2) and sign in to the admin (modes 2, 3).
 
@@ -221,7 +266,7 @@ def check_project(project: Project) -> BlueprintVersion | None:
                 )
     except Exception as exc:  # noqa: BLE001 - shown on the project page, never silent
         Project.objects.filter(pk=project.pk).update(
-            check_state="failed", check_error=f"{type(exc).__name__}: {exc}"[:2000]
+            check_state="failed", check_error=check_error_message(exc)
         )
         raise
     Project.objects.filter(pk=project.pk).update(check_state="done", check_error="")

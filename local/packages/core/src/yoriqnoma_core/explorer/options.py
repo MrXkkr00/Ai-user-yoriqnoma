@@ -43,6 +43,8 @@ class ExploreOptions(BaseModel):
     pseudonym_key: SecretBytes  # HMAC key for stable fakes; never written anywhere
     step_timeout_ms: int = 8000
     org_domains: list[str] = Field(default_factory=list)  # extra domains of the organization
+    # exact sign-in hosts of a single sign-on site, named by the user (safety/sso.py); local only
+    trusted_hosts: list[str] = Field(default_factory=list)
     ocr: bool = True
     state_graph: bool = True
     patching: bool = True

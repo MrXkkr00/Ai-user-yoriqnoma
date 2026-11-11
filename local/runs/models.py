@@ -58,6 +58,30 @@ class Run(models.Model):
     def finished(self) -> bool:
         return self.status in {"done", "failed", "cancelled"}
 
+    STAT_LABELS = {
+        "flows_verified": "Tasdiqlangan vazifalar",
+        "flows_total": "Jami vazifalar",
+        "states": "Olingan ekranlar",
+        "blocked_requests": "Bloklangan so'rovlar",
+        "coverage": "Qamrov",
+        "needs_review": "Qo'lda ko'rish kerak",
+        "flows": "Vazifalar",
+        "pages": "Sahifalar",
+    }
+
+    @property
+    def stats_display(self) -> list[tuple[str, str]]:
+        """Result numbers with Uzbek names (the cleanup report has its own block)."""
+        rows: list[tuple[str, str]] = []
+        for key, value in (self.stats or {}).items():
+            if key == "cleanup" or isinstance(value, (dict, list)):
+                continue
+            shown = f"{value:g}".replace(".", ",") if isinstance(value, float) else str(value)
+            if key == "coverage":
+                shown += "%"
+            rows.append((self.STAT_LABELS.get(key, key), shown))
+        return rows
+
     @property
     def percent(self) -> int:
         if not self.progress_total:

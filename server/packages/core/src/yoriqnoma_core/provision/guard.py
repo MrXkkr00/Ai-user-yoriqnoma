@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 
 from playwright.async_api import Request, Response, Route
 
+from yoriqnoma_core.safety.sso import trusted_decision
 from yoriqnoma_core.safety.url_guard import HostGuard, same_origin
 
 STATIC = {"stylesheet", "script", "font", "image", "media"}
@@ -82,6 +83,7 @@ class ProvisionGuard:
     log: list[str] = field(default_factory=list)
     created: list[tuple[str, str]] = field(default_factory=list)  # (model, id), in order
     on_block: Callable[[str], None] | None = None
+    trusted_hosts: tuple[str, ...] = ()  # named sign-in domains (SSO), see safety/sso.py
 
     def allow(self, model: str, object_id: str) -> None:
         self.allowed_objects.add((singular(model), str(object_id)))
@@ -92,6 +94,9 @@ class ProvisionGuard:
         if parts.scheme in {"data", "blob", "about"}:
             return True, "inline"
         if not same_origin(url, self.base_url):
+            sso = trusted_decision(method, url, resource_type, self.trusted_hosts)
+            if sso is not None:
+                return sso
             if method == "GET" and resource_type in STATIC:
                 return True, "boshqa domen: statik resurs"
             return False, "admin sessiyasi: boshqa domen"

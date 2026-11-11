@@ -112,7 +112,9 @@ class Runner:
             update={"target_role": opts.role, "environment": opts.environment}
         )
         self.policy = policy
-        self.engine = PolicyEngine(policy, opts.base_url, passive=opts.passive)
+        self.engine = PolicyEngine(
+            policy, opts.base_url, passive=opts.passive, trusted_hosts=tuple(opts.trusted_hosts)
+        )
         self.passive = opts.passive
         self.datagen = DataGen(
             opts.seed,

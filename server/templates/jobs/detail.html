@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Ish {{ job.pk }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'jobs:list' %}">← Ishlar</a></p>
+<a class="back" href="{% url 'jobs:list' %}">← Ishlar</a>
 <h1>Ish {{ job.pk }}: {{ job.get_mode_display }} — «{{ job.role_label|default:job.role }}»</h1>
 <p class="small muted">{{ job.url }} · {{ job.get_environment_display }}{% if job.passive %} · <span class="warn">passiv rejim (domen tasdiqlanmagan)</span>{% endif %}</p>
 {% include "jobs/_status.html" %}

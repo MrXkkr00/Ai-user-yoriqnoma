@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import secrets
 import shutil
 import time
@@ -42,6 +43,7 @@ from yoriqnoma_core.pipeline import (
     run_render,
     run_write,
 )
+from yoriqnoma_core.safety.sso import parse_hosts
 from yoriqnoma_core.writer.providers import OllamaProvider
 from yoriqnoma_core.writer.providers.base import ProviderError
 from yoriqnoma_local.keys import decrypt, encrypt, pseudonym_key
@@ -50,6 +52,48 @@ from yoriqnoma_schemas import Blueprint, CaptureRun, load_json, save_json
 T = TypeVar("T")
 FORMATS = ("html", "pdf", "docx", "tour", "gif")
 DEFAULT_FORMATS = ("html", "pdf", "docx")
+
+
+class DeleteBlocked(RuntimeError):
+    """Deleting is refused; the reason is shown to the user."""
+
+
+ACTIVE_STATUSES = {"queued", "running", "waiting_input"}
+
+
+def remove_run_folder(path: Path) -> None:
+    """Delete a folder of ``var/runs`` (never anything outside it, never the root itself)."""
+    root = Path(settings.MEDIA_ROOT).resolve()
+    target = path.resolve()
+    if target == root or root not in target.parents:
+        raise DeleteBlocked(f"Papka ish papkalari ichida emas, o'chirilmadi: {target}")
+    if target.exists():
+        shutil.rmtree(target)
+
+
+def block_reason(run: Run) -> str:
+    """Why this run must not be deleted now ('' when it may be)."""
+    if run.status in ACTIVE_STATUSES:
+        return "Ish hali ishlayapti: avval uni bekor qiling."
+    from yoriqnoma_core.provision.base import Ledger
+
+    ledger = Path(run.run_dir) / "provision.json"
+    if ledger.is_file() and Ledger(ledger).pending():
+        return (
+            "Saytda vosita yaratgan test foydalanuvchilar hali o'chirilmagan: avval "
+            "«Tozalashni qayta urinish» tugmasini bosing."
+        )
+    return ""
+
+
+def delete_run(run: Run) -> None:
+    """Remove the run, its folder (HTML, PDF, DOCX, capture) and its log."""
+    reason = block_reason(run)
+    if reason:
+        raise DeleteBlocked(reason)
+    folder = Path(run.run_dir)
+    run.delete()
+    remove_run_folder(folder)
 
 
 class RunError(ValueError):
@@ -74,6 +118,11 @@ def start_run(
     if version is None:
         raise RunError("Avval loyihani skanerlang yoki blueprint yuklang")
     bp, _ = effective_blueprint(version)
+    if output == "blueprint" and project.mode == "admin":
+        raise RunError(
+            "Kodsiz rejimda sahifa va vazifalar faqat ish davomida saytdan o'rganiladi. "
+            "«To'liq yo'riqnoma» yoki «Bundle» ni tanlang; blueprint.json ish natijalarida bo'ladi."
+        )
     if output != "blueprint":
         info = bp.role(role)
         if info is None or info.kind != "role":
@@ -112,7 +161,18 @@ def start_run(
 
 
 def log(run: Run, level: str, message: str, stage: str = "") -> None:
-    RunEvent.objects.create(run=run, level=level, stage=stage or run.stage, message=message[:2000])
+    text = message[:2000]
+    event = RunEvent.objects.create(run=run, level=level, stage=stage or run.stage, message=text)
+    # the same line goes to logs/run.jsonl in the run folder (NFR-6; no secrets are logged)
+    try:
+        path = Path(run.run_dir) / "logs" / "run.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = {"at": event.at.isoformat(timespec="seconds"), "level": level}
+        line.update({"stage": event.stage, "message": text})
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(line, ensure_ascii=False) + "\n")
+    except OSError:  # the DB copy is the source of truth; a full disk must not stop a run
+        pass
 
 
 def cancel_run(run: Run) -> None:
@@ -284,6 +344,7 @@ def explore_options(
         pseudonym_key=SecretBytes(pseudonym_key()),
         run_id=Path(run.run_dir).name,
         pseudonym_scope=previous_scope(run),
+        trusted_hosts=list(parse_hosts(project.sso_hosts)),
     )
 
 
@@ -388,6 +449,10 @@ def discover_blueprint(
         bp = asyncio.run(discover_site(kit, inp, human, progress, cancel))
     except DiscoveryFailed as exc:
         raise RunAborted(str(exc)) from exc
+    known = {r.id for r in bp.roles}
+    kept = [r for r in roles_bp.roles if r.id not in known]  # roles read from the admin panel
+    if kept:
+        bp = bp.model_copy(update={"roles": [*bp.roles, *kept]})
     version = _discovered_version(run, bp)
     Run.objects.filter(pk=run.pk).update(blueprint=version)
     return bp
@@ -494,6 +559,14 @@ def explore_with_test_users(
     )
     try:
         log(run, "info", "Admin orqali test foydalanuvchilar yaratilmoqda", "explore")
+        if run.project.environment == "production":
+            log(
+                run,
+                "warning",
+                "Ishchi (production) sayt: test foydalanuvchilar haqiqiy saytda yaratiladi va "
+                "ish oxirida o'chiriladi. Iloji bo'lsa staging nusxadan foydalaning.",
+                "explore",
+            )
         created = asyncio.run(session.create(needed_roles(run, bp)))
         if run.project.mode == "admin":
             bp = discover_blueprint(run, bp, created, human, progress, cancel)

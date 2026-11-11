@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
 from playwright.async_api import Error as PlaywrightError
@@ -85,6 +85,7 @@ class Provisioner:
             opts.base_url,
             HostGuard(allow_private=opts.allow_private),
             on_block=lambda entry: self.log("warning", f"admin sessiyasi bloklandi: {entry}"),
+            trusted_hosts=tuple(opts.trusted_hosts),
         )
         for user in self.ledger.pending():
             self.guard.allow(user.model, user.remote_id)
@@ -121,7 +122,17 @@ class Provisioner:
         candidates += [FormAdminAdapter(self.opts.base_url, p, self.guard) for p in paths]
         if self.agent is not None:
             candidates.append(
-                AgentAdminAdapter(self.opts.base_url, paths[0], self.guard, self.agent)
+                AgentAdminAdapter(
+                    self.opts.base_url,
+                    paths[0],
+                    self.guard,
+                    self.agent,
+                    start_url=(
+                        urljoin(self.opts.base_url, self.creds.admin_url.strip())
+                        if self.creds.admin_url.strip()
+                        else self.opts.base_url
+                    ),
+                )
             )
         reasons = []
         seen: set[tuple[str, str]] = set()
@@ -130,14 +141,19 @@ class Provisioner:
             if key in seen:
                 continue
             seen.add(key)
+            # Each way starts as "not signed in": a failed attempt must not leave the flag set,
+            # or the guard would block the next way's login request.
+            self.guard.signed_in = False
             try:
                 if not await adapter.detect(self.page):
                     continue
                 await adapter.login(self.page, self.creds)
             except ProvisionError as exc:
+                self.guard.signed_in = False
                 reasons.append(f"{adapter.name}: {exc}")
                 continue
             except PlaywrightError as exc:  # a timeout here: try the next way, say why at the end
+                self.guard.signed_in = False
                 first = str(exc).splitlines()[0][:160]
                 reasons.append(f"{adapter.name} ({getattr(adapter, 'admin_path', '')}): {first}")
                 continue
@@ -145,8 +161,9 @@ class Provisioner:
             self.adapter = adapter
             self.log("info", f"admin paneli: {adapter.name}")
             return
+        unique = list(dict.fromkeys(reasons))  # the same reason for several paths: say it once
         raise ProvisionError(
-            "Admin paneli bilan ishlab bo'lmadi: " + ("; ".join(reasons) or "panel topilmadi")
+            "Admin paneli bilan ishlab bo'lmadi: " + ("; ".join(unique) or "panel topilmadi")
         )
 
     async def close(self) -> None:

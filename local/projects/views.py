@@ -11,6 +11,7 @@ from projects.forms import AccountForm, ProjectForm, UploadBlueprintForm
 from projects.models import Project, ProjectAccount
 from projects.services import (
     BlueprintError,
+    delete_project,
     effective_blueprint,
     raw_blueprint,
     role_options,
@@ -191,3 +192,17 @@ def blueprint_override(request: HttpRequest, pk: int) -> HttpResponse:
         response["HX-Refresh"] = "true"
         return response
     return redirect(f"/projects/{pk}/blueprint/?tab={request.POST.get('tab', 'flows')}")
+
+
+@require_POST
+def project_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    from runs.services import DeleteBlocked
+
+    project = get_object_or_404(Project, pk=pk)
+    try:
+        delete_project(project)
+    except DeleteBlocked as exc:
+        messages.error(request, str(exc))
+        return redirect("project-detail", pk)
+    messages.success(request, f"«{project.name}» loyihasi va uning fayllari o'chirildi.")
+    return redirect("home")
