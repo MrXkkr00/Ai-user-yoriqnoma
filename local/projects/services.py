@@ -242,6 +242,30 @@ def check_error_message(exc: Exception) -> str:
     return f"{type(exc).__name__}: {text}"[:2000]
 
 
+def account_blueprint(project: Project) -> BlueprintVersion:
+    """Mode 4: the one role the owner gave an account for (pages come from the site later)."""
+    from projects.admin_access import roles_blueprint
+    from yoriqnoma_core.provision.base import classify_role
+
+    name = project.account_role.strip()
+    if not name:
+        raise BlueprintError("Rol nomi berilmagan: loyihani tahrirlab, rol nomini yozing")
+    candidate = classify_role(name, name, "loyiha formasi", "role")
+    if candidate.kind != "role":
+        raise BlueprintError("Adminga o'xshash rol uchun yo'riqnoma yozilmaydi")
+    bp = roles_blueprint(project, [candidate])
+    bp.generator = "yoriqnoma-local account"
+    for info in bp.roles:
+        if info.id == candidate.id:
+            info.reason = "loyiha formasida berilgan rol"
+            info.source = "form"
+            info.description = (
+                "Berilgan akkaunt bilan kiriladi; sahifa va vazifalar ish boshlanganda "
+                "saytning o'zidan o'rganiladi"
+            )
+    return _new_version(project, bp, "discovered", stats={"account_role": candidate.id})
+
+
 def check_project(project: Project) -> BlueprintVersion | None:
     """«Tekshirish»: scan the code (modes 1, 2) and sign in to the admin (modes 2, 3).
 
@@ -252,6 +276,10 @@ def check_project(project: Project) -> BlueprintVersion | None:
 
     Project.objects.filter(pk=project.pk).update(check_state="running", check_error="")
     try:
+        if project.mode == "account":
+            made = account_blueprint(project)
+            Project.objects.filter(pk=project.pk).update(check_state="done", check_error="")
+            return made
         version = scan_project(project) if project.has_code else None
         if project.uses_admin:
             roles = check_admin(project, project_dir(project))

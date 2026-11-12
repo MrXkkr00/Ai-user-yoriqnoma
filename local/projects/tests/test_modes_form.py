@@ -90,3 +90,56 @@ def test_mode_three_pages_and_no_blueprint_output(client: Any) -> None:
         assert client.get(url).status_code == 200, url
     with pytest.raises(RunError, match="Kodsiz rejimda"):
         start_run(project, "blueprint")
+
+
+def _account_form(**extra: str) -> dict[str, str]:
+    data = {
+        "name": "Menejer yo'riqnomasi",
+        "mode": "account",
+        "base_url": "https://shop.example.uz",
+        "environment": "staging",
+        "language": "uz",
+        "account_role": "Sotuv menejeri",
+        "account_login": "menejer@shop.example.uz",
+        "account_password": "Parol-12345",
+    }
+    data.update(extra)
+    return data
+
+
+def test_account_mode_saves_one_encrypted_account_and_one_role(client: Any) -> None:
+    from projects.models import Project
+    from projects.services import accounts_for, role_options
+    from runs.services import RunError, start_run
+
+    form = ProjectForm(_account_form())
+    assert form.is_valid(), form.errors
+    project = form.save()
+    assert project.admin_login == "" and project.account_role == "Sotuv menejeri"
+    given = accounts_for(project)
+    assert list(given) == ["sotuv_menejeri"] and given["sotuv_menejeri"]["A"][1] == "Parol-12345"
+
+    assert client.post(f"/projects/{project.pk}/scan/").status_code == 302
+    version = Project.objects.get(pk=project.pk).current_blueprint()
+    assert version is not None
+    from projects.services import effective_blueprint
+
+    bp, _ = effective_blueprint(version)
+    options = {o.id: o for o in role_options(project, bp)}
+    assert options["sotuv_menejeri"].selectable and options["sotuv_menejeri"].has_account
+    with pytest.raises(RunError, match="Kodsiz rejimda"):
+        start_run(project, "blueprint")
+
+    # editing with an empty password keeps the old one; another role replaces the account
+    again = ProjectForm(_account_form(account_password="", account_role="Kuryer"), instance=project)
+    assert again.is_valid(), again.errors
+    project = again.save()
+    assert accounts_for(project) == {"kuryer": {"A": ("menejer@shop.example.uz", "Parol-12345")}}
+
+
+def test_account_mode_rejects_admin_like_roles_and_missing_fields() -> None:
+    admin_like = ProjectForm(_account_form(account_role="Administrator"))
+    assert not admin_like.is_valid() and "account_role" in admin_like.errors
+    empty = ProjectForm(_account_form(account_login="", account_password=""))
+    assert not empty.is_valid()
+    assert {"account_login", "account_password"} <= set(empty.errors)

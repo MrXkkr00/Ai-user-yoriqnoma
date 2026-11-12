@@ -5,12 +5,12 @@
 <div class="page-head">
   <div>
     <h1>{{ project.name }}</h1>
-    <p class="muted">{{ project.get_mode_display }} · {{ project.base_url }} · {{ project.get_environment_display }}{% if project.has_code and project.source_dir %} · <code>{{ project.source_dir }}</code>{% endif %}{% if project.uses_admin %} · admin: {{ project.admin_login }}{% endif %}</p>
+    <p class="muted">{{ project.get_mode_display }} · {{ project.base_url }} · {{ project.get_environment_display }}{% if project.has_code and project.source_dir %} · <code>{{ project.source_dir }}</code>{% endif %}{% if project.uses_admin %} · admin: {{ project.admin_login }}{% endif %}{% if project.mode == "account" %} · rol: {{ project.account_role }}{% endif %}</p>
   </div>
   <div class="actions">
     <a class="button secondary" href="{% url 'project-edit' project.pk %}">Tahrirlash</a>
-    {% if project.has_code and project.source_dir or project.uses_admin %}
-    <form method="post" action="{% url 'project-scan' project.pk %}">{% csrf_token %}<button type="submit">{% if project.uses_admin %}Tekshirish{% else %}Skanerlash{% endif %}</button></form>
+    {% if project.has_code and project.source_dir or project.uses_admin or project.mode == "account" %}
+    <form method="post" action="{% url 'project-scan' project.pk %}">{% csrf_token %}<button type="submit">{% if project.uses_admin or project.mode == "account" %}Tekshirish{% else %}Skanerlash{% endif %}</button></form>
     {% endif %}
   </div>
 </div>
@@ -26,7 +26,7 @@
       <a class="button" href="{% url 'run-new' project.pk %}">Ishga tushirish</a>
     </div>
   {% else %}
-    <p class="muted">Hali blueprint yo'q. {% if project.uses_admin %}«Tekshirish» tugmasini bosing{% elif project.source_dir %}«Skanerlash» tugmasini bosing{% else %}blueprint.json yuklang{% endif %}.</p>
+    <p class="muted">Hali blueprint yo'q. {% if project.uses_admin or project.mode == "account" %}«Tekshirish» tugmasini bosing{% elif project.source_dir %}«Skanerlash» tugmasini bosing{% else %}blueprint.json yuklang{% endif %}.</p>
   {% endif %}
   <details class="small"><summary>Tayyor blueprint.json yuklash</summary>
     <form method="post" enctype="multipart/form-data" action="{% url 'blueprint-upload' project.pk %}">

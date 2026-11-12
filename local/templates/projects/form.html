@@ -16,7 +16,8 @@
         <span class="small muted">
           {% if choice.data.value == "code" %}Loyiha kodi kompyuteringizda. Xodim rollari (menejer, kuryer) uchun test akkauntlarni o'zingiz berasiz.
           {% elif choice.data.value == "code_admin" %}Kod + admin login: vosita admin panelida rol uchun test foydalanuvchilarni o'zi yaratadi va ish tugagach ularni va ular yaratgan narsalarni o'chiradi.
-          {% else %}Kod yo'q: rollar admin panelidan, sahifa va vazifalar saytning o'zidan o'rganiladi. Test foydalanuvchilar ish oxirida o'chiriladi.{% endif %}
+          {% elif choice.data.value == "admin" %}Kod yo'q: rollar admin panelidan o'qiladi; sahifa va vazifalar saytning o'zidan o'rganiladi: vosita saytga kirib, barcha havolalarni ko'rib chiqadi va yo'riqnoma uchun keraklilarini oladi. Test foydalanuvchilar ish oxirida o'chiriladi.
+          {% else %}Admin kerak emas: bitta rolning (masalan, menejerning) login va parolini berasiz. Vosita saytga shu odam sifatida kirib, unga ochiq havolalarning hammasini ko'rib chiqadi va shu rol uchun yo'riqnoma yozadi.{% endif %}
         </span></label>
       {% endfor %}
     </div>

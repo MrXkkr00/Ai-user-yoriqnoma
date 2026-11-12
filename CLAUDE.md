@@ -2,10 +2,11 @@
 
 Bu vosita sayt yoki tizimni o'rganadi va **administratordan boshqa har bir foydalanuvchi roli** (oddiy foydalanuvchi, menejer, sotuv menejeri va h.k.) uchun matn va rasmli to'liq yo'riqnoma yaratadi. Rol ish boshida tanlanadi: vosita saytdagi rollarni topib, variantlar ro'yxatini chiqaradi. Ikkita **alohida** Django dasturidan iborat, repo ham shunga ko'ra ikki papkaga bo'lingan:
 
-- **Lokal dastur** (`local/`). Foydalanuvchi kompyuterida ishlaydi va Ollama orqali yo'riqnoma yozadi. Bitta dastur, loyiha yaratishda foydalanuvchi o'zida nima borligini tanlaydi (3 rejim):
+- **Lokal dastur** (`local/`). Foydalanuvchi kompyuterida ishlaydi va Ollama orqali yo'riqnoma yozadi. Bitta dastur, loyiha yaratishda foydalanuvchi o'zida nima borligini tanlaydi (4 rejim):
   1. **Kod + sayt linki** — kod tahlil qilinadi; xodim rollari akkauntlarini sayt egasi beradi;
   2. **Kod + sayt linki + admin login** — test foydalanuvchilarni vosita admin panelida o'zi yaratadi va ish tugagach ularni va ular yaratgan narsalarni o'chiradi;
-  3. **Sayt linki + admin login (kodsiz)** — rollar admin panelidan, sahifa va vazifalar saytning o'zidan o'rganiladi; test foydalanuvchilar ham tozalanadi.
+  3. **Sayt linki + admin login (kodsiz)** — rollar admin panelidan, sahifa va vazifalar saytning o'zidan o'rganiladi; vosita saytga kirib barcha havolalarni ko'rib chiqadi va yo'riqnomaga keraklilarini oladi; test foydalanuvchilar ham tozalanadi.
+  4. **Sayt linki + bitta rolning login va paroli** — admin kerak emas: berilgan akkaunt bilan saytga kirilib, unga ochiq barcha havolalar ko'rib chiqiladi va shu rol uchun yo'riqnoma yoziladi; saytda hech narsa yaratilmaydi.
 
   Natija turi tanlanadi: to'liq yo'riqnoma yoki server uchun fayl (`blueprint.json` yoki `bundle.zip`).
 - **Server dastur** (`server/`). Onlayn serverda alohida ishlaydi va Claude API orqali yo'riqnoma yozadi. Rejimlari: A (blueprint), A' (bundle), B (faqat URL).

@@ -1,6 +1,6 @@
 # Texnik topshiriq: AI_user_yoriqnoma
 
-Versiya 1.2 · 2026-11-10 (ikki Django dasturi: Lokal va Server; lokal dasturda uch rejim, FR-L13)
+Versiya 1.2 · 2026-11-10 (ikki Django dasturi: Lokal va Server; lokal dasturda to'rt rejim, FR-L13)
 
 ## 1. Umumiy ma'lumot
 
@@ -299,6 +299,7 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   |---|---|---|---|
   | 1. Kod + sayt linki | kod papkasi yo'li, URL | koddan | o'zi ro'yxatdan o'tadi yoki sayt egasi beradi |
   | 2. Kod + sayt linki + admin login | kod papkasi yo'li, URL, admin login va paroli, admin panel manzili (ixtiyoriy) | koddan; admin panelidagi rol bilan moslanadi | admin panelida vosita yaratadi |
+  | 4. Sayt linki + bitta rolning login va paroli | URL, rol nomi, shu rol egasining logini va paroli (admin kerak emas) | formada berilgan bitta rol (adminga o'xshash bo'lsa rad etiladi) | egasi bergan akkaunt; saytda hech narsa yaratilmaydi, tozalash kerak emas |
   | 3. Sayt linki + admin login | URL, admin login va paroli, admin panel manzili (ixtiyoriy) | admin panelining «yangi foydalanuvchi» formasidan | admin panelida vosita yaratadi |
 
   - «Tekshirish» tugmasi: kod skanerlanadi (1, 2) va admin paneliga kirib rollar o'qiladi (2, 3). Keyin rol variantlardan tanlanadi (FR-RL3), so'ng ish boshlanadi.
@@ -517,6 +518,6 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
 | F5 | Server Django dasturi: A va A' rejimlari, Lokal → Server integratsiyasi |
 | F6 | Server: B rejimi |
 | F7 | Kengaytirish: boshqa steklar, CI, interaktiv tur |
-| F8 | Lokal dastur: uch rejim, admin orqali test foydalanuvchilar va tozalash |
+| F8 | Lokal dastur: to'rt rejim, admin orqali test foydalanuvchilar va tozalash |
 
 Batafsil vazifalar: `docs/TASKS.md`.

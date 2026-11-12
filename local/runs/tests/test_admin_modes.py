@@ -27,6 +27,7 @@ from yoriqnoma_local.keys import encrypt
 pytestmark = pytest.mark.slow
 DEMO_SHOP = Path(__file__).resolve().parents[2] / "fixtures" / "demo_shop"
 ADMIN = ("admin@demo.local", "Admin12345")
+MANAGER = ("manager@demo.local", "Manager12345")
 
 
 def site_users(url: str) -> list[dict[str, Any]]:
@@ -132,3 +133,40 @@ def _bp(project: Project) -> Any:
     version = project.current_blueprint()
     assert version is not None
     return raw_blueprint(version)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_account_mode_learns_site_as_the_given_role(
+    fresh_demo_shop: tuple[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mode 4: link + the manager's own login; no admin, nothing created on the site."""
+    from projects.forms import ProjectForm
+
+    url, _ = fresh_demo_shop
+    before = {(u["email"], u["role"]) for u in site_users(url)}
+    monkeypatch.setattr(services, "provider_for", lambda run: None)
+    form = ProjectForm(
+        {
+            "name": "Demo menejer",
+            "mode": "account",
+            "base_url": url.rstrip("/"),
+            "environment": "staging",
+            "language": "uz",
+            "account_role": "Manager",
+            "account_login": MANAGER[0],
+            "account_password": MANAGER[1],
+        }
+    )
+    assert form.is_valid(), form.errors
+    project = form.save()
+    check_project(project)
+
+    run = start_run(project, "bundle", "manager")
+    run.refresh_from_db()
+
+    assert run.status == "done", run.error
+    assert run.blueprint.source == "discovered"
+    pages = {p.path: p.roles for p in _bp(project).pages}
+    assert "manager" in pages.get("/staff/orders", [])
+    assert not any(p.startswith("/admin") for p in pages)
+    assert {(u["email"], u["role"]) for u in site_users(url)} == before

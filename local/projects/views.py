@@ -86,6 +86,18 @@ def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def project_scan(request: HttpRequest, pk: int) -> HttpResponse:
     project = get_object_or_404(Project, pk=pk)
+    if project.mode == "account":  # no browser needed: one role, named by the owner
+        from projects.services import account_blueprint
+
+        try:
+            account_blueprint(project)
+        except (BlueprintError, ValueError) as exc:
+            messages.error(request, f"Tekshirib bo'lmadi: {exc}")
+        else:
+            messages.success(
+                request, "Rol tayyor. «Ishga tushirish»da tanlang: sayt ish davomida o'rganiladi."
+            )
+        return redirect("project-detail", pk)
     if project.uses_admin:
         # the admin is checked in a browser: in the worker, the page polls the result
         from runs.tasks import check_project_task

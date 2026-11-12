@@ -11,6 +11,7 @@ class Project(models.Model):
         ("code", "Kod + sayt linki"),  # 1: accounts of staff roles come from the owner
         ("code_admin", "Kod + sayt linki + admin login"),  # 2: test users through the admin
         ("admin", "Sayt linki + admin login (kodsiz)"),  # 3: roles and pages from the site
+        ("account", "Sayt linki + bitta rolning login va paroli"),  # 4: one given account
     ]
     CHECK_STATES = [
         ("", "Tekshirilmagan"),
@@ -25,6 +26,7 @@ class Project(models.Model):
     admin_login = models.CharField(max_length=200, blank=True)
     admin_password_enc = models.BinaryField(null=True, blank=True)  # Fernet, var/secret.key
     admin_path = models.CharField(max_length=200, blank=True)  # "/admin/"; empty: guessed
+    account_role = models.CharField(max_length=60, blank=True)  # mode 4: name of the role
     # exact sign-in hosts of a single sign-on site ("auth.example.uz"); see core safety/sso.py
     sso_hosts = models.CharField(max_length=300, blank=True)
     check_state = models.CharField(max_length=10, choices=CHECK_STATES, blank=True)
@@ -46,6 +48,11 @@ class Project(models.Model):
     @property
     def uses_admin(self) -> bool:
         return self.mode in {"code_admin", "admin"}
+
+    @property
+    def discovers_site(self) -> bool:
+        """Modes 3 and 4 have no code: pages and tasks are learned from the site itself."""
+        return self.mode in {"admin", "account"}
 
     @property
     def has_code(self) -> bool:

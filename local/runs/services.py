@@ -52,6 +52,10 @@ from yoriqnoma_schemas import Blueprint, CaptureRun, load_json, save_json
 T = TypeVar("T")
 FORMATS = ("html", "pdf", "docx", "tour", "gif")
 DEFAULT_FORMATS = ("html", "pdf", "docx")
+# Sites without code (modes 3, 4): every link of the site is followed (two samples of each
+# page template), and the agent then picks the tasks worth a manual.
+DISCOVERY_MAX_PAGES = 150
+DISCOVERY_AGENT_STEPS = 30
 
 
 class DeleteBlocked(RuntimeError):
@@ -118,7 +122,7 @@ def start_run(
     if version is None:
         raise RunError("Avval loyihani skanerlang yoki blueprint yuklang")
     bp, _ = effective_blueprint(version)
-    if output == "blueprint" and project.mode == "admin":
+    if output == "blueprint" and project.discovers_site:
         raise RunError(
             "Kodsiz rejimda sahifa va vazifalar faqat ish davomida saytdan o'rganiladi. "
             "«To'liq yo'riqnoma» yoki «Bundle» ni tanlang; blueprint.json ish natijalarida bo'ladi."
@@ -430,18 +434,19 @@ def discover_blueprint(
     role = roles_bp.role(run.role)
     opts = explore_options(run, created=created)
     kit = ScoutKit.create(opts, Path(run.run_dir), Policy(target_role=run.role))
+    given = created.get(run.role) or opts.accounts.get(run.role, {})  # test users or the owner's
     inp = DiscoveryInput(
         base_url=run.project.base_url,
         role=run.role,
         role_label=role.label if role else run.role,
         project=run.project.name,
-        accounts=created.get(run.role, {}),
+        accounts=given,
         allow_signup=False,
         fetch_text=fetch_site_file,
         classify=provider_for(run),
         agent=provider_for(run),
-        max_pages=40,
-        agent_steps=20,
+        max_pages=DISCOVERY_MAX_PAGES,
+        agent_steps=DISCOVERY_AGENT_STEPS,
         generator="yoriqnoma-local discovery",
     )
     progress.stage("explore", 80)
@@ -546,6 +551,11 @@ def explore_with_test_users(
     cancel: DbCancelToken,
 ) -> CaptureRun:
     """Explore; in admin modes with test users made before and removed right after."""
+    if run.project.mode == "account":
+        # mode 4: the owner's account of one role; nothing is created, nothing to clean up
+        log(run, "info", "Berilgan akkaunt bilan sayt o'rganilmoqda", "explore")
+        bp = discover_blueprint(run, bp, {}, human, progress, cancel)
+        return asyncio.run(run_explore(bp, run_dir, explore_options(run), human, progress, cancel))
     if not run.project.uses_admin:
         return asyncio.run(run_explore(bp, run_dir, explore_options(run), human, progress, cancel))
     from projects.admin_access import ProvisionSession, report_dict

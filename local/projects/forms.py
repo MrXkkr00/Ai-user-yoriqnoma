@@ -7,6 +7,7 @@ from django import forms
 
 from projects.models import Project
 from yoriqnoma_core.safety.sso import invalid_entries, parse_hosts
+from yoriqnoma_local.keys import encrypt
 
 if TYPE_CHECKING:
     _ProjectFormBase = forms.ModelForm[Project]
@@ -74,6 +75,24 @@ class ProjectForm(_ProjectFormBase):
         "uning havolalaridan topadi.",
     )
 
+    account_role = forms.CharField(
+        label="Rol nomi",
+        required=False,
+        max_length=60,
+        help_text="Yo'riqnoma shu rol uchun yoziladi, masalan: Menejer, Sotuvchi, Mijoz.",
+    )
+    account_login = forms.CharField(
+        label="Shu rol egasining logini", required=False, max_length=200
+    )
+    account_password = forms.CharField(
+        label="Shu rol egasining paroli",
+        required=False,
+        max_length=200,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Shifrlanib saqlanadi. Tahrirlashda bo'sh qoldirsangiz, eskisi qoladi. "
+        "Vosita shu akkaunt bilan saytga kirib, unga ochiq havolalarning hammasini ko'radi.",
+    )
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["mode"].widget = forms.RadioSelect(choices=Project.MODES)
@@ -82,6 +101,10 @@ class ProjectForm(_ProjectFormBase):
         if self.instance.pk:
             self.fields["admin_login"].initial = self.instance.admin_login
             self.fields["admin_path"].initial = self.instance.admin_path
+            self.fields["account_role"].initial = self.instance.account_role
+            given = self.instance.accounts.filter(alias="A").first()
+            if given is not None:
+                self.fields["account_login"].initial = given.login
 
     def clean(self) -> dict[str, Any]:
         data = super().clean() or {}
@@ -96,7 +119,26 @@ class ProjectForm(_ProjectFormBase):
             has_old = bool(self.instance.pk and self.instance.admin_password_enc)
             if not data.get("admin_password") and not has_old:
                 self.add_error("admin_password", "Bu rejimda admin paroli kerak")
+        if mode == "account":
+            self._clean_account(data)
         return data
+
+    def _clean_account(self, data: dict[str, Any]) -> None:
+        from yoriqnoma_core.provision.base import classify_role
+
+        name = str(data.get("account_role") or "").strip()
+        if not name:
+            self.add_error("account_role", "Bu rejimda rol nomi kerak")
+        elif classify_role(name, name, "forma", "role").kind != "role":
+            self.add_error(
+                "account_role",
+                "Administrator va adminga o'xshash rollar uchun yo'riqnoma yozilmaydi",
+            )
+        if not data.get("account_login"):
+            self.add_error("account_login", "Bu rejimda rol egasining logini kerak")
+        has_old = bool(self.instance.pk and self.instance.accounts.filter(alias="A").exists())
+        if not data.get("account_password") and not has_old:
+            self.add_error("account_password", "Bu rejimda rol egasining paroli kerak")
 
     def save(self, commit: bool = True) -> Project:
         from yoriqnoma_local.keys import encrypt
@@ -107,11 +149,32 @@ class ProjectForm(_ProjectFormBase):
         password = str(self.cleaned_data.get("admin_password") or "")
         if password:
             project.admin_password_enc = encrypt(password)
-        if project.mode == "code":
+        if project.mode in {"code", "account"}:
             project.admin_login, project.admin_password_enc = "", None
+        project.account_role = (
+            str(self.cleaned_data.get("account_role") or "").strip()
+            if project.mode == "account"
+            else ""
+        )
         if commit:
             project.save()
+            if project.mode == "account":
+                self._save_account(project)
         return project
+
+    def _save_account(self, project: Project) -> None:
+        from projects.models import ProjectAccount
+        from yoriqnoma_core.provision.base import role_id
+
+        role = role_id(project.account_role)
+        old = project.accounts.filter(alias="A").first()  # any role: the password may stay
+        project.accounts.exclude(role=role, alias="A").delete()  # one role, one account
+        password = str(self.cleaned_data.get("account_password") or "")
+        login = str(self.cleaned_data.get("account_login") or "").strip()
+        enc = old.password_enc if (not password and old is not None) else encrypt(password)
+        ProjectAccount.objects.update_or_create(
+            project=project, role=role, alias="A", defaults={"login": login, "password_enc": enc}
+        )
 
     def clean_source_dir(self) -> str:
         value = str(self.cleaned_data.get("source_dir") or "").strip()
