@@ -302,7 +302,8 @@ Lokal dastur blueprint yoki bundle'ni **fayl sifatida** saqlaydi. Uni serverga *
   | 4. Sayt linki + bitta rolning login va paroli | URL, rol nomi, shu rol egasining logini va paroli (admin kerak emas) | formada berilgan bitta rol (adminga o'xshash bo'lsa rad etiladi) | egasi bergan akkaunt; saytda hech narsa yaratilmaydi, tozalash kerak emas |
   | 3. Sayt linki + admin login | URL, admin login va paroli, admin panel manzili (ixtiyoriy) | admin panelining «yangi foydalanuvchi» formasidan | admin panelida vosita yaratadi |
 
-  - «Tekshirish» tugmasi: kod skanerlanadi (1, 2) va admin paneliga kirib rollar o'qiladi (2, 3). Keyin rol variantlardan tanlanadi (FR-RL3), so'ng ish boshlanadi.
+  - Kodsiz rejimlarda (3, 4) asosiy havoladan tashqari shu saytning bir nechta kirish sahifasini vergul bilan yozish mumkin; vosita ulardan ham boshlab barcha havolalarni ko'rib chiqadi. Formada kodsiz rejimlar birinchi ko'rsatiladi.
+- «Tekshirish» tugmasi: kod skanerlanadi (1, 2) va admin paneliga kirib rollar o'qiladi (2, 3). Keyin rol variantlardan tanlanadi (FR-RL3), so'ng ish boshlanadi.
   - 3-rejimda sahifa, forma va vazifalar ish boshida saytning o'zidan o'rganiladi (serverning B rejimi bilan bir xil razvedka, LLM — Ollama).
   - Admin login faqat test foydalanuvchilarni yaratish va o'chirish uchun (SEC-18). Ish tugagach — muvaffaqiyatli, xato yoki bekor qilingan bo'lsa ham — vosita yaratgan foydalanuvchilar va ular yaratgan obyektlar o'chiriladi. O'chmagani ish sahifasida ko'rsatiladi, «Tozalashni qayta urinish» tugmasi va `manage.py cleanup --run <id>` bor.
   - Admin panel manzili ixtiyoriy: bo'sh qolsa, vosita odatiy manzillarni (`/admin/`, `/dashboard`, `/panel` ...) sinaydi, so'ng admin sifatida saytga kirib uning havolalaridan panelni topadi. Pochta (papka yoki Mailpit) ham ixtiyoriy: u faqat sayt ro'yxatdan o'tishda email tasdiqlashni so'rasa kerak.

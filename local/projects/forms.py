@@ -23,6 +23,7 @@ class ProjectForm(_ProjectFormBase):
             "mode",
             "source_dir",
             "base_url",
+            "extra_urls",
             "sso_hosts",
             "environment",
             "mailbox_kind",
@@ -34,6 +35,7 @@ class ProjectForm(_ProjectFormBase):
             "mode": "Sizda nima bor?",
             "source_dir": "Kod papkasi",
             "base_url": "Sayt manzili (base URL)",
+            "extra_urls": "Qo'shimcha sayt havolalari (ixtiyoriy)",
             "sso_hosts": "Kirish (SSO) domeni (ixtiyoriy)",
             "environment": "Muhit",
             "mailbox_kind": "Pochta (ixtiyoriy)",
@@ -44,6 +46,9 @@ class ProjectForm(_ProjectFormBase):
             "source_dir": "Loyiha kodi turgan papka, masalan: D:/loyihalar/mening-saytim. "
             "Vosita kodni faqat o'qiydi (maxfiy fayllarsiz): sahifalar, rollar va vazifalarni "
             "undan oladi.",
+            "extra_urls": "Kodsiz rejimlarda: saytning boshqa kirish sahifalari, vergul bilan. "
+            "Masalan: https://sayt.uz/catalog, https://sayt.uz/help. Vosita ulardan ham "
+            "boshlab havolalarni ko'rib chiqadi. Faqat shu sayt (xuddi shu domen) bo'lishi kerak.",
             "sso_hosts": "Sayt kirish uchun boshqa domenga o'tsa (masalan, auth.sayt.uz), "
             "o'sha domenni yozing; bir nechta bo'lsa, vergul bilan. Faqat shu domenlarga "
             "kirish so'rovlari ruxsat etiladi va parol faqat sayt hamda shu domenlarga yuboriladi.",
@@ -151,6 +156,8 @@ class ProjectForm(_ProjectFormBase):
             project.admin_password_enc = encrypt(password)
         if project.mode in {"code", "account"}:
             project.admin_login, project.admin_password_enc = "", None
+        if project.mode not in {"admin", "account"}:
+            project.extra_urls = ""
         project.account_role = (
             str(self.cleaned_data.get("account_role") or "").strip()
             if project.mode == "account"
@@ -181,6 +188,30 @@ class ProjectForm(_ProjectFormBase):
         if value and not Path(value).is_dir():
             raise forms.ValidationError("Bunday papka topilmadi")
         return value
+
+    def clean_extra_urls(self) -> str:
+        from urllib.parse import urlsplit
+
+        raw = str(self.cleaned_data.get("extra_urls") or "").replace("\n", ",")
+        base = str(self.data.get("base_url") or "").strip()
+        if base and "://" not in base:
+            base = "https://" + base
+        seen: list[str] = []
+        for item in (u.strip() for u in raw.split(",")):
+            if not item:
+                continue
+            if "://" not in item:
+                item = "https://" + item
+            parts = urlsplit(item)
+            if parts.scheme not in {"http", "https"} or not parts.netloc:
+                raise forms.ValidationError(f"Havola noto'g'ri: {item}")
+            if base and (parts.scheme, parts.netloc) != tuple(urlsplit(base)[:2]):
+                raise forms.ValidationError(
+                    f"{item}: boshqa sayt. Faqat «{urlsplit(base).netloc}» havolalari mumkin"
+                )
+            if item not in seen:
+                seen.append(item)
+        return ", ".join(seen)
 
     def clean_sso_hosts(self) -> str:
         value = str(self.cleaned_data.get("sso_hosts") or "").strip()

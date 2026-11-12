@@ -8,10 +8,11 @@ class Project(models.Model):
     MAILBOXES = [("dir", "Papka (.eml fayllar)"), ("mailpit", "Mailpit")]
     # What the user has (chosen when the project is made):
     MODES = [
-        ("code", "Kod + sayt linki"),  # 1: accounts of staff roles come from the owner
-        ("code_admin", "Kod + sayt linki + admin login"),  # 2: test users through the admin
-        ("admin", "Sayt linki + admin login (kodsiz)"),  # 3: roles and pages from the site
-        ("account", "Sayt linki + bitta rolning login va paroli"),  # 4: one given account
+        # shown in this order: the no-code modes first
+        ("admin", "Sayt linki + admin login (kodsiz)"),  # roles and pages from the site
+        ("account", "Sayt linki + bitta rolning login va paroli"),  # one given account
+        ("code", "Kod + sayt linki"),  # accounts of staff roles come from the owner
+        ("code_admin", "Kod + sayt linki + admin login"),  # test users through the admin
     ]
     CHECK_STATES = [
         ("", "Tekshirilmagan"),
@@ -26,6 +27,8 @@ class Project(models.Model):
     admin_login = models.CharField(max_length=200, blank=True)
     admin_password_enc = models.BinaryField(null=True, blank=True)  # Fernet, var/secret.key
     admin_path = models.CharField(max_length=200, blank=True)  # "/admin/"; empty: guessed
+    # modes without code: more entry pages of the same site, comma-separated
+    extra_urls = models.TextField(blank=True)
     account_role = models.CharField(max_length=60, blank=True)  # mode 4: name of the role
     # exact sign-in hosts of a single sign-on site ("auth.example.uz"); see core safety/sso.py
     sso_hosts = models.CharField(max_length=300, blank=True)
@@ -53,6 +56,10 @@ class Project(models.Model):
     def discovers_site(self) -> bool:
         """Modes 3 and 4 have no code: pages and tasks are learned from the site itself."""
         return self.mode in {"admin", "account"}
+
+    @property
+    def start_urls(self) -> list[str]:
+        return [u.strip() for u in self.extra_urls.replace("\n", ",").split(",") if u.strip()]
 
     @property
     def has_code(self) -> bool:

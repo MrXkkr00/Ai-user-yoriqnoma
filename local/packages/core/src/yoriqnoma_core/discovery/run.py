@@ -70,6 +70,7 @@ class DiscoveryInput:
     allow_signup: bool = True  # may the scout sign up itself when no account is given
     allowed: Callable[[str], bool] | None = None  # robots.txt
     sitemap_urls: list[str] = field(default_factory=list)
+    start_urls: list[str] = field(default_factory=list)  # more entry pages the owner named
     fetch_text: FetchText | None = None
     wait: Callable[[str], Awaitable[None]] | None = None
     classify: LLMProvider | None = None
@@ -198,7 +199,7 @@ async def discover_site(
             inp.base_url,
             kit.engine,
             inp.allowed,
-            start=inp.sitemap_urls,
+            start=[*inp.sitemap_urls, *inp.start_urls],
             max_pages=inp.max_pages,
             cancel=cancel,
             settle=kit.capturer.settle,
@@ -269,7 +270,7 @@ async def discover_site(
                     inp.base_url,
                     kit.engine,
                     inp.allowed,
-                    start=walled + concrete,
+                    start=[*walled, *concrete, *inp.start_urls],
                     max_pages=inp.max_pages,
                     cancel=cancel,
                     settle=kit.capturer.settle,

@@ -441,6 +441,7 @@ def discover_blueprint(
         role_label=role.label if role else run.role,
         project=run.project.name,
         accounts=given,
+        start_urls=run.project.start_urls,
         allow_signup=False,
         fetch_text=fetch_site_file,
         classify=provider_for(run),

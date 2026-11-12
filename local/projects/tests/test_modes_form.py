@@ -143,3 +143,29 @@ def test_account_mode_rejects_admin_like_roles_and_missing_fields() -> None:
     empty = ProjectForm(_account_form(account_login="", account_password=""))
     assert not empty.is_valid()
     assert {"account_login", "account_password"} <= set(empty.errors)
+
+
+def test_no_code_modes_take_several_links_of_the_same_site() -> None:
+    form = ProjectForm(
+        _account_form(
+            extra_urls="https://shop.example.uz/catalog,\nshop.example.uz/help, https://shop.example.uz/catalog"
+        )
+    )
+    assert form.is_valid(), form.errors
+    project = form.save()
+    assert project.start_urls == ["https://shop.example.uz/catalog", "https://shop.example.uz/help"]
+    other = ProjectForm(_account_form(extra_urls="https://boshqa.example.uz/x"))
+    assert not other.is_valid() and "extra_urls" in other.errors
+    code = ProjectForm(
+        {
+            "name": "k",
+            "mode": "code",
+            "source_dir": ".",
+            "base_url": "https://shop.example.uz",
+            "environment": "staging",
+            "language": "uz",
+            "extra_urls": "https://shop.example.uz/a",
+        }
+    )
+    assert code.is_valid(), code.errors
+    assert code.save(commit=False).extra_urls == ""  # only the no-code modes use it
